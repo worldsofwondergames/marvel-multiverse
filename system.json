@@ -97,15 +97,6 @@
             "type": "Item",
             "private": false,
             "flags": {}
-        },
-        {
-            "name": "powersets",
-            "label": "Power Sets",
-            "system": "marvel-multiverse",
-            "path": "packs/powersets",
-            "type": "Item",
-            "private": false,
-            "flags": {}
         }
     ],
     "packFolders": [
@@ -119,8 +110,7 @@
                 "origins",
                 "occupations",
                 "items",
-                "powers",
-                "powersets"
+                "powers"
             ]
         }
     ],

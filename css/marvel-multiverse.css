@@ -695,8 +695,14 @@
 .mm-styled-input .editor {
   background: #fff2ec;
   z-index: 2;
+  resize: vertical;
+  overflow: auto;
 }
 .mm-styled-input .editor > .editor-content {
+  padding: 4px 8px;
+  margin: 0 6px;
+}
+.mm-styled-input .editor .ProseMirror {
   padding: 4px 8px;
   margin: 0 6px;
 }
@@ -749,6 +755,16 @@
 }
 .mm-input .editor {
   background: #fff2ec;
+  resize: vertical;
+  overflow: auto;
+}
+.mm-input .editor > .editor-content {
+  padding: 4px 8px;
+  margin: 0 6px;
+}
+.mm-input .editor .ProseMirror {
+  padding: 4px 8px;
+  margin: 0 6px;
 }
 .mm-input .editor-menu {
   border-radius: 0;

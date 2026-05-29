@@ -3520,6 +3520,8 @@ Hooks.once("init", () => {
     power: MarvelMultiversePower,
     powerSet: MarvelMultiversePowerSet,
   };
+  CONFIG.Item.typeLabels = CONFIG.Item.typeLabels || {};
+  CONFIG.Item.typeLabels.powerSet = "Power Set";
 
   // Active Effects are never copied to the Actor,
   // but will still apply to the Actor from within the Item
@@ -3651,37 +3653,9 @@ function _configureFonts() {
 /*  Ready Hook                                  */
 /* -------------------------------------------- */
 
-Hooks.once("ready", async () => {
+Hooks.once("ready", () => {
   // Wait to register hotbar drop hook on ready so that modules could register earlier if they want to
   Hooks.on("hotbarDrop", (bar, data, slot) => createItemMacro(data, slot));
-
-  // Populate power set items in the Items compendium if they don't exist
-  const pack = game.packs.get("marvel-multiverse.items");
-  if (pack) {
-    const existingDocs = await pack.getDocuments();
-    const existingPowerSets = existingDocs.filter(d => d.type === "powerSet");
-    if (existingPowerSets.length === 0) {
-      const powerSetNames = [
-        "Basic", "Elemental Control", "Healing", "Illusion", "Luck", "Magic",
-        "Martial Arts", "Melee Weapons", "Narrative", "Omniversal Travel",
-        "Phasing", "Plasticity", "Power Control", "Ranged Weapons", "Resize",
-        "Shield Bearer", "Sixth Sense", "Spider-Powers", "Super-Speed",
-        "Super-Strength", "Tactics", "Telekinesis", "Telepathy",
-        "Teleportation", "Translation", "Weather Control"
-      ];
-      const itemData = powerSetNames.map(name => ({
-        name,
-        type: "powerSet",
-        img: "icons/svg/card-hand.svg",
-        system: { description: "" }
-      }));
-      const wasLocked = pack.locked;
-      await pack.configure({ locked: false });
-      await Item.createDocuments(itemData, { pack: "marvel-multiverse.items" });
-      if (wasLocked) await pack.configure({ locked: true });
-      console.log("MMRPG | Created " + powerSetNames.length + " power set items in Items compendium");
-    }
-  }
 });
 /* -------------------------------------------- */
 /*  Render Settings Hook                                  */

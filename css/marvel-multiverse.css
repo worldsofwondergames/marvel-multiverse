@@ -240,6 +240,10 @@
 .chat-message {
   background: #e5e5e6;
 }
+.mm-chat-description p:last-child,
+.mm-chat-effect p:first-child {
+  margin: 0;
+}
 
 #chat-form textarea {
   background: #fff2ec;
@@ -643,6 +647,9 @@
   padding: 2px;
   position: relative;
 }
+.mm-styled-input input::placeholder {
+  color: #c0b8b4;
+}
 .mm-styled-input.-no-bg::before {
   display: none;
 }
@@ -690,7 +697,8 @@
   z-index: 2;
 }
 .mm-styled-input .editor > .editor-content {
-  padding: 4px;
+  padding: 4px 8px;
+  margin: 0 6px;
 }
 .mm-styled-input .editor-menu {
   border-radius: 0;
@@ -1305,7 +1313,7 @@
   justify-content: end;
   line-height: 1.1;
   padding-block-start: 1px;
-  padding-inline-start: 4px;
+  padding-inline-start: 14px;
   text-align: left;
   width: 120%;
   z-index: 1;

@@ -3675,7 +3675,10 @@ Hooks.once("ready", async () => {
         img: "icons/svg/card-hand.svg",
         system: { description: "" }
       }));
+      const wasLocked = pack.locked;
+      await pack.configure({ locked: false });
       await Item.createDocuments(itemData, { pack: "marvel-multiverse.items" });
+      if (wasLocked) await pack.configure({ locked: true });
       console.log("MMRPG | Created " + powerSetNames.length + " power set items in Items compendium");
     }
   }

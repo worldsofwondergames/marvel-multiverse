@@ -7,7 +7,6 @@
   },
   "Item": {
     "types": [
-      "item",
       "weapon",
       "trait",
       "tag",

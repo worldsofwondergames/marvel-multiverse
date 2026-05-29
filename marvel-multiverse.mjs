@@ -401,7 +401,24 @@ class MarvelMultiverseActor extends Actor {
  * Extend the basic Item with some very simple modifications.
  * @extends {Item}
  */
+const ITEM_DEFAULT_ICONS = {
+  trait: "systems/marvel-multiverse/icons/trait.svg",
+  occupation: "systems/marvel-multiverse/icons/work.svg",
+  origin: "systems/marvel-multiverse/icons/origin.svg",
+  powerSet: "icons/svg/card-hand.svg",
+  power: "systems/marvel-multiverse/icons/super-powers.svg",
+  tag: "systems/marvel-multiverse/icons/tags.svg"
+};
+
 let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
+  async _preCreate(data, options, user) {
+    await super._preCreate(data, options, user);
+    const defaultIcon = ITEM_DEFAULT_ICONS[data.type];
+    if (defaultIcon && (!data.img || data.img === Item.DEFAULT_ICON)) {
+      this.updateSource({ img: defaultIcon });
+    }
+  }
+
   /**
    * Augment the basic Item data model with additional dynamic data.
    */
@@ -3520,8 +3537,6 @@ Hooks.once("init", () => {
     power: MarvelMultiversePower,
     powerSet: MarvelMultiversePowerSet,
   };
-  CONFIG.Item.typeLabels = CONFIG.Item.typeLabels || {};
-  CONFIG.Item.typeLabels.powerSet = "Power Set";
 
   // Active Effects are never copied to the Actor,
   // but will still apply to the Actor from within the Item
@@ -3570,6 +3585,29 @@ Hooks.once("init", () => {
 
 // If you need to add Handlebars helpers, here is a useful example:
 Handlebars.registerHelper("toLowerCase", (mle) => mle.toLowerCase());
+
+
+Hooks.on("renderDialogV2", (app, html) => {
+  const el = html instanceof HTMLElement ? html : html[0];
+  if (!el) return;
+  const select = el.querySelector("select[name='type']");
+  if (!select) return;
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.disabled = true;
+  placeholder.selected = true;
+  placeholder.textContent = "Select One";
+  select.prepend(placeholder);
+  select.value = "";
+  const submitBtn = el.querySelector("button[data-action='ok']") || el.querySelector("button[type='submit']");
+  if (submitBtn) submitBtn.disabled = true;
+  select.addEventListener("change", () => {
+    if (select.value) {
+      placeholder.remove();
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+});
 
 /* -------------------------------------------- */
 

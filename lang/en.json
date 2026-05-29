@@ -102,8 +102,13 @@
     },
     "Item": {
       "item": "Item",
+      "weapon": "Weapon",
       "trait": "Trait",
-      "power": "Power"
+      "tag": "Tag",
+      "origin": "Origin",
+      "occupation": "Occupation",
+      "power": "Power",
+      "powerSet": "Power Set"
     }
   }
 }

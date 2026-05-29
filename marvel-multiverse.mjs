@@ -1867,9 +1867,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     const weapons = [];
     const traits = [];
     const tags = [];
-    const powers = Object.fromEntries(
-      Object.keys(CONFIG.MARVEL_MULTIVERSE.reverseSetList).map((ps) => [ps, []])
-    );
+    const powers = {};
 
     // Iterate through items, allocating to containers
     for (const i of context.items) {
@@ -1891,8 +1889,11 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       } else if (i.type === "tag") {
         tags.push(i);
       } else if (i.type === "power") {
-        const powersets = i.system.powerSet.split(",");
-        powers[powersets[0].trim()].push(i);
+        const firstSet = i.system.powerSets?.length
+          ? i.system.powerSets[0].name
+          : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
+        if (!powers[firstSet]) powers[firstSet] = [];
+        powers[firstSet].push(i);
       }
 
       // Assign and return
@@ -1921,10 +1922,13 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     }
 
     for (const i of context.items.filter((item) => item.type === "power")) {
-      const mappedPowersets = i.system.powerSet
-        .split(",")
-        .map((ps) => CONFIG.MARVEL_MULTIVERSE.reverseSetList[ps.trim()]);
-      context.system.powers[mappedPowersets[0]].push(i);
+      const firstSet = i.system.powerSets?.length
+        ? i.system.powerSets[0].name
+        : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
+      const key = CONFIG.MARVEL_MULTIVERSE.reverseSetList[firstSet];
+      if (key && context.system.powers[key]) {
+        context.system.powers[key].push(i);
+      }
     }
 
     for (const i of context.items.filter((item) => item.type === "origin")) {
@@ -2073,7 +2077,8 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     if (!this.actor.items.map((item) => item.name).includes(itemData.name)) {
       if (
         itemData.type === "power" &&
-        itemData.system.powerSet === "Elemental Control"
+        (itemData.system.powerSets?.some(ps => ps.name === "Elemental Control") ||
+         itemData.system.powerSet === "Elemental Control")
       ) {
         if (!itemData.system.element) {
           itemData.system.element = this.actor.system.defaultElement;
@@ -2317,9 +2322,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     const occupations = [];
     const tags = [];
     const weapons = [];
-    const powers = Object.fromEntries(
-      Object.keys(CONFIG.MARVEL_MULTIVERSE.reverseSetList).map((ps) => [ps, []])
-    );
+    const powers = {};
 
     // Iterate through items, allocating to containers
     for (const i of context.items) {
@@ -2339,10 +2342,13 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       } else if (i.type === "tag") {
         tags.push(i);
       }
-      // Append to  power.
+      // Append to power.
       else if (i.type === "power") {
-        const powersets = i.system.powerSet.split(",");
-        powers[powersets[0].trim()].push(i);
+        const firstSet = i.system.powerSets?.length
+          ? i.system.powerSets[0].name
+          : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
+        if (!powers[firstSet]) powers[firstSet] = [];
+        powers[firstSet].push(i);
       } else if (i.type === "item") {
         gear.push(i);
       } else if (i.type === "weapon") {
@@ -2375,10 +2381,13 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     }
 
     for (const i of context.items.filter((item) => item.type === "power")) {
-      const mappedPowersets = i.system.powerSet
-        .split(",")
-        .map((ps) => CONFIG.MARVEL_MULTIVERSE.reverseSetList[ps.trim()]);
-      context.system.powers[mappedPowersets[0]].push(i);
+      const firstSet = i.system.powerSets?.length
+        ? i.system.powerSets[0].name
+        : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
+      const key = CONFIG.MARVEL_MULTIVERSE.reverseSetList[firstSet];
+      if (key && context.system.powers[key]) {
+        context.system.powers[key].push(i);
+      }
     }
 
     for (const i of context.items.filter((item) => item.type === "origin")) {
@@ -2527,7 +2536,8 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     if (!this.actor.items.map((item) => item.name).includes(itemData.name)) {
       if (
         itemData.type === "power" &&
-        itemData.system.powerSet === "Elemental Control"
+        (itemData.system.powerSets?.some(ps => ps.name === "Elemental Control") ||
+         itemData.system.powerSet === "Elemental Control")
       ) {
         if (!itemData.system.element) {
           itemData.system.element = this.actor.system.defaultElement;
@@ -2744,6 +2754,47 @@ class MarvelMultiverseItemSheet extends ItemSheet {
     html.on("click", ".effect-control", (ev) =>
       onManageActiveEffect(ev, this.item)
     );
+
+    // Power set tag removal
+    html.on("click", ".mm-powerset-remove", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const index = Number(ev.currentTarget.dataset.index);
+      const powerSets = [...this.item.system.powerSets];
+      powerSets.splice(index, 1);
+      const powerSet = powerSets.map(ps => ps.name).join(", ");
+      await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
+    });
+
+    // Power set drag-and-drop visual feedback
+    const dropZone = html.find(".mm-powerset-drop-zone");
+    dropZone.on("dragover", (ev) => {
+      ev.preventDefault();
+      ev.currentTarget.classList.add("drag-over");
+    });
+    dropZone.on("dragleave", (ev) => {
+      ev.currentTarget.classList.remove("drag-over");
+    });
+  }
+
+  async _onDrop(event) {
+    const data = TextEditor.getDragData(event);
+    if (data?.type !== "Item") return super._onDrop(event);
+
+    const droppedItem = await Item.implementation.fromDropData(data);
+    if (droppedItem.type !== "powerSet") return super._onDrop(event);
+    if (this.item.type !== "power") return;
+
+    const powerSets = [...this.item.system.powerSets];
+    if (powerSets.some(ps => ps.name === droppedItem.name)) return;
+
+    powerSets.push({
+      id: droppedItem.id,
+      name: droppedItem.name,
+      img: droppedItem.img
+    });
+    const powerSet = powerSets.map(ps => ps.name).join(", ");
+    await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
   }
 }
 
@@ -3243,6 +3294,14 @@ class MarvelMultiverseTrait extends MarvelMultiverseItemBase {
     }
 }
 
+class MarvelMultiversePowerSet extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = super.defineSchema();
+    return schema;
+  }
+}
+
 class MarvelMultiversePower extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
@@ -3254,6 +3313,7 @@ class MarvelMultiversePower extends MarvelMultiverseItemBase {
       required: true,
       initial: "Basic",
     });
+    schema.powerSets = new fields.ArrayField(new fields.ObjectField());
     schema.prerequisites = new fields.StringField({ blank: true });
     schema.action = new fields.StringField({ blank: true });
     schema.trigger = new fields.StringField({ blank: true });
@@ -3296,6 +3356,14 @@ class MarvelMultiversePower extends MarvelMultiverseItemBase {
       source.ability = source.attackAbility;
       source.attackAbility = undefined;
     }
+    // Migrate powerSet string to powerSets array if needed.
+    if (source.powerSet && (!source.powerSets || source.powerSets.length === 0)) {
+      source.powerSets = source.powerSet.split(",").map(ps => ({
+        name: ps.trim(),
+        id: null,
+        img: null
+      }));
+    }
     return super.migrateData(source);
   }
 }
@@ -3312,6 +3380,7 @@ var models = /*#__PURE__*/Object.freeze({
   MarvelMultiverseOccupation: MarvelMultiverseOccupation,
   MarvelMultiverseOrigin: MarvelMultiverseOrigin,
   MarvelMultiversePower: MarvelMultiversePower,
+  MarvelMultiversePowerSet: MarvelMultiversePowerSet,
   MarvelMultiverseTag: MarvelMultiverseTag,
   MarvelMultiverseTrait: MarvelMultiverseTrait,
   MarvelMultiverseWeapon: MarvelMultiverseWeapon
@@ -3449,6 +3518,7 @@ Hooks.once("init", () => {
     occupation: MarvelMultiverseOccupation,
     tag: MarvelMultiverseTag,
     power: MarvelMultiversePower,
+    powerSet: MarvelMultiversePowerSet,
   };
 
   // Active Effects are never copied to the Actor,

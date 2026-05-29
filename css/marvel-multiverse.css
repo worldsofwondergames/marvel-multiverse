@@ -867,6 +867,56 @@
   font-size: 10px;
 }
 
+.mm-powerset-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 24px;
+  padding: 4px;
+  position: relative;
+  z-index: 1;
+}
+.mm-powerset-tag {
+  align-items: center;
+  background: #e41d18;
+  border-radius: 3px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 600;
+  gap: 4px;
+  line-height: 1;
+  padding: 3px 6px;
+  text-transform: uppercase;
+}
+.mm-powerset-tag img {
+  border: none;
+  height: 14px;
+  width: 14px;
+}
+.mm-powerset-tag .mm-powerset-remove {
+  cursor: pointer;
+  display: none;
+  font-size: 8px;
+  margin-left: 2px;
+}
+.mm-powerset-tag:hover .mm-powerset-remove {
+  display: inline;
+}
+.mm-powerset-drop-zone {
+  border: 1px dashed rgba(139, 5, 2, 0.3);
+  border-radius: 3px;
+  color: #c0b8b4;
+  font-size: 10px;
+  min-height: 24px;
+  padding: 4px;
+  text-align: center;
+}
+.mm-powerset-drop-zone.drag-over {
+  background: rgba(228, 29, 24, 0.1);
+  border-color: #e41d18;
+}
+
 .mm-input-item {
   position: relative;
   z-index: 1;

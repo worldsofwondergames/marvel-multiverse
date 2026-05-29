@@ -1,141 +1,140 @@
 {
-  "id": "marvel-multiverse",
-  "title": "Marvel Multiverse",
-  "description": "The Marvel Multiverse system for FoundryVTT!",
-  "authors": [
-    {
-      "name": "mjording",
-      "discord": "mjording"
-    }
-  ],
-  "url": "https://github.com/mjording/marvel-multiverse/",
-  "license": "LICENSE.txt",
-  "readme": "README.md",
-  "bugs": "Replace this with a link to file issues or tickets",
-  "changelog": "CHANGELOG.md",
-  "media": [
-    {
-      "type": "cover",
-      "loop": false,
-      "flags": {}
+    "id": "marvel-multiverse",
+    "title": "Marvel Multiverse",
+    "description": "The Marvel Multiverse system for FoundryVTT!",
+    "authors": [
+        {
+            "name": "mjording",
+            "discord": "mjording"
+        }
+    ],
+    "url": "https://github.com/mjording/marvel-multiverse/",
+    "license": "LICENSE.txt",
+    "readme": "README.md",
+    "bugs": "Replace this with a link to file issues or tickets",
+    "changelog": "CHANGELOG.md",
+    "media": [
+        {
+            "type": "cover",
+            "loop": false,
+            "flags": {}
+        },
+        {
+            "type": "setup",
+            "url": "systems/marvel-multiverse/ui/official/mmrpg-setup.png",
+            "thumbnail": "systems/marvel-multiverse/ui/official/mmrpg-setup-thumbnail.png"
+        }
+    ],
+    "version": "2.2.0",
+    "compatibility": {
+        "minimum": 12,
+        "verified": "12.328"
     },
-    {
-      "type": "setup",
-      "url": "systems/marvel-multiverse/ui/official/mmrpg-setup.png",
-      "thumbnail": "systems/marvel-multiverse/ui/official/mmrpg-setup-thumbnail.png"
-    }
-  ],
-  "version": "2.2.0",
-  "compatibility": {
-    "minimum": 12,
-    "verified": "12.328"
-  },
-  "esmodules": [
-    "marvel-multiverse.mjs"
-  ],
-  "styles": [
-    "css/marvel-multiverse.css"
-  ],
-  "languages": [
-    {
-      "lang": "en",
-      "name": "English",
-      "path": "lang/en.json"
-    }
-  ],
-  "packs": [
-    {
-      "name": "tags",
-      "label": "Tags",
-      "system": "marvel-multiverse",
-      "path": "packs/tags",
-      "type": "Item",
-      "private": false,
-      "flags": {}
+    "esmodules": [
+        "marvel-multiverse.mjs"
+    ],
+    "styles": [
+        "css/marvel-multiverse.css"
+    ],
+    "languages": [
+        {
+            "lang": "en",
+            "name": "English",
+            "path": "lang/en.json"
+        }
+    ],
+    "packs": [
+        {
+            "name": "tags",
+            "label": "Tags",
+            "system": "marvel-multiverse",
+            "path": "packs/tags",
+            "type": "Item",
+            "private": false,
+            "flags": {}
+        },
+        {
+            "name": "traits",
+            "label": "Traits",
+            "system": "marvel-multiverse",
+            "path": "packs/traits",
+            "type": "Item",
+            "private": false,
+            "flags": {}
+        },
+        {
+            "name": "powers",
+            "label": "Powers",
+            "system": "marvel-multiverse",
+            "path": "packs/powers",
+            "type": "Item",
+            "private": false,
+            "flags": {}
+        },
+        {
+            "name": "origins",
+            "label": "Origins",
+            "system": "marvel-multiverse",
+            "path": "packs/origins",
+            "type": "Item",
+            "private": false,
+            "flags": {}
+        },
+        {
+            "name": "occupations",
+            "label": "Occupations",
+            "system": "marvel-multiverse",
+            "path": "packs/occupations",
+            "type": "Item",
+            "private": false,
+            "flags": {}
+        },
+        {
+            "name": "items",
+            "label": "Items",
+            "system": "marvel-multiverse",
+            "path": "packs/items",
+            "type": "Item",
+            "private": false,
+            "flags": {}
+        },
+        {
+            "name": "powersets",
+            "label": "Power Sets",
+            "system": "marvel-multiverse",
+            "path": "packs/powersets",
+            "type": "Item",
+            "private": false,
+            "flags": {}
+        }
+    ],
+    "packFolders": [
+        {
+            "name": "MMRPG Content",
+            "sorting": "m",
+            "color": "#cd2c1e",
+            "packs": [
+                "tags",
+                "traits",
+                "origins",
+                "occupations",
+                "items",
+                "powers",
+                "powersets"
+            ]
+        }
+    ],
+    "socket": true,
+    "manifest": "https://raw.githubusercontent.com/mjording/marvel-multiverse/main/system.json",
+    "download": "https://github.com/mjording/marvel-multiverse/releases/download/release-2.2.0/marvel-multiverse-release-2.2.0.zip",
+    "background": "systems/marvel-multiverse/ui/official/mmrpg-background.webp",
+    "grid": {
+        "distance": 5,
+        "units": "ft"
     },
-    {
-      "name": "traits",
-      "label": "Traits",
-      "system": "marvel-multiverse",
-      "path": "packs/traits",
-      "type": "Item",
-      "private": false,
-      "flags": {}
-    },
-    {
-      "name": "powers",
-      "label": "Powers",
-      "system": "marvel-multiverse",
-      "path": "packs/powers",
-      "type": "Item",
-      "private": false,
-      "flags": {}
-    },
-    {
-      "name": "origins",
-      "label": "Origins",
-      "system": "marvel-multiverse",
-      "path": "packs/origins",
-      "type": "Item",
-      "private": false,
-      "flags": {}
-    },
-    {
-      "name": "occupations",
-      "label": "Occupations",
-      "system": "marvel-multiverse",
-      "path": "packs/occupations",
-      "type": "Item",
-      "private": false,
-      "flags": {}
-    },
-    {
-      "name": "items",
-      "label": "Items",
-      "system": "marvel-multiverse",
-      "path": "packs/items",
-      "type": "Item",
-      "private": false,
-      "flags": {}
+    "primaryTokenAttribute": "health",
+    "secondaryTokenAttribute": "focus",
+    "flags": {
+        "hotReload": false
     }
-  ],
-  "packFolders": [
-    {
-      "name": "MMRPG Content",
-      "sorting": "m",
-      "color": "#cd2c1e",
-      "packs": [
-        "tags",
-        "traits",
-        "origins",
-        "occupations",
-        "items",
-        "powers"
-      ]
-    }
-  ],
-  "socket": true,
-  "manifest": "https://raw.githubusercontent.com/mjording/marvel-multiverse/main/system.json",
-  "download": "https://github.com/mjording/marvel-multiverse/releases/download/release-2.2.0/marvel-multiverse-release-2.2.0.zip",
-  "background": "systems/marvel-multiverse/ui/official/mmrpg-background.webp",
-  "grid": {
-    "distance": 5,
-    "units": "ft"
-  },
-  "primaryTokenAttribute": "health",
-  "secondaryTokenAttribute": "focus",
-  "flags": {
-    "hotReload": {
-      "extensions": [
-        "css",
-        "hbs",
-        "json"
-      ],
-      "paths": [
-        "css/marvel-multiverse.css",
-        "templates",
-        "lang"
-      ]
-    }
-  }
 }

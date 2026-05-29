@@ -43,9 +43,20 @@
         </div>
       </div>
       <div class="mm-styled-field -fill">
-        <label class="mm-styled-label -align-left"><span>Power Set</span></label>
+        <label class="mm-styled-label -align-left"><span>Power Sets</span></label>
         <div class="mm-styled-input">
-          <input type="text" name="system.powerSet" value="{{system.powerSet}}" data-dtype="String"/>
+          <div class="mm-powerset-tags mm-powerset-drop-zone" data-drop-type="powerSet">
+            {{#each system.powerSets as |ps idx|}}
+              <span class="mm-powerset-tag" data-index="{{idx}}">
+                {{#if ps.img}}<img src="{{ps.img}}" />{{/if}}
+                {{ps.name}}
+                <a class="mm-powerset-remove" data-index="{{idx}}"><i class="fas fa-times"></i></a>
+              </span>
+            {{/each}}
+            {{#unless system.powerSets.length}}
+              <span class="mm-powerset-placeholder">Drop power sets here</span>
+            {{/unless}}
+          </div>
         </div>
       </div>
       <div class="mm-styled-field -fill">

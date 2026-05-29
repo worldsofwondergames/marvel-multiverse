@@ -13,7 +13,8 @@
       "tag",
       "origin",
       "occupation",
-      "power"
+      "power",
+      "powerSet"
     ]
   }
 }

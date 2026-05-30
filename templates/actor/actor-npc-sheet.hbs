@@ -152,6 +152,26 @@
           <div class="mm-styled-container mm-powers-block">
             <h3>Powers</h3>
             <div class="mm-styled-container-body">
+              {{#if hasElementalPowers}}
+              <div class="mm-styled-field -sm">
+                <label class="mm-styled-label -align-left"><span>Default Element</span></label>
+                <div class="mm-styled-input">
+                  <select name="system.defaultElement">
+                    {{selectOptions elements selected=system.defaultElement labelAttr="label" blank=""}}
+                  </select>
+                </div>
+              </div>
+              {{/if}}
+              {{#if hasMeleeWeaponPowers}}
+              <div class="mm-styled-field -sm">
+                <label class="mm-styled-label -align-left"><span>Default Weapon Type</span></label>
+                <div class="mm-styled-input">
+                  <select name="system.defaultWeaponType">
+                    {{selectOptions weaponTypes selected=system.defaultWeaponType labelAttr="label" blank=""}}
+                  </select>
+                </div>
+              </div>
+              {{/if}}
               {{> "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs"}}
             </div>
           </div>

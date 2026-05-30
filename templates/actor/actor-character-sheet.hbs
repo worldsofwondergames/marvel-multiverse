@@ -231,6 +231,16 @@
               </div>
             </div>
             {{/if}}
+            {{#if hasMeleeWeaponPowers}}
+            <div class="mm-styled-field -sm">
+              <label class="mm-styled-label -align-left"><span>Default Weapon Type</span></label>
+              <div class="mm-styled-input">
+                <select name="system.defaultWeaponType">
+                  {{selectOptions weaponTypes selected=system.defaultWeaponType labelAttr="label" blank=""}}
+                </select>
+              </div>
+            </div>
+            {{/if}}
             {{> "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs"}}
           </div>
         </div>

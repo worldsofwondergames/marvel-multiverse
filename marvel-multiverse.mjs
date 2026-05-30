@@ -657,6 +657,11 @@ MARVEL_MULTIVERSE.sources = {
   homebrew: { label: "Homebrew" }
 };
 
+MARVEL_MULTIVERSE.weaponTypes = {
+  blunt: { label: "Blunt" },
+  sharp: { label: "Sharp" },
+};
+
 MARVEL_MULTIVERSE.reverseSetList = Object.fromEntries(
   Object.keys(MARVEL_MULTIVERSE.powersets).map((k) => [
     MARVEL_MULTIVERSE.powersets[k].label,
@@ -1850,6 +1855,13 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       ])
     );
 
+    context.weaponTypes = Object.fromEntries(
+      Object.keys(CONFIG.MARVEL_MULTIVERSE.weaponTypes).map((k) => [
+        k,
+        CONFIG.MARVEL_MULTIVERSE.weaponTypes[k].label,
+      ])
+    );
+
     // Prepare active effects
     context.effects = prepareActiveEffectCategories(
       // A generator that returns all effects stored on the actor
@@ -1913,6 +1925,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       context.tags = tags;
       context.powers = powers;
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
+      context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
     }
   }
 
@@ -2305,6 +2318,13 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       ])
     );
 
+    context.weaponTypes = Object.fromEntries(
+      Object.keys(CONFIG.MARVEL_MULTIVERSE.weaponTypes).map((k) => [
+        k,
+        CONFIG.MARVEL_MULTIVERSE.weaponTypes[k].label,
+      ])
+    );
+
     // Prepare active effects
     context.effects = prepareActiveEffectCategories(
       // A generator that returns all effects stored on the actor
@@ -2369,6 +2389,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       context.tags = tags;
       context.powers = powers;
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
+      context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
       context.origins = origins;
       context.occupations = occupations;
       context.weapons = weapons;
@@ -3017,6 +3038,10 @@ class MarvelMultiverseActorBase extends foundry.abstract
       min: 0,
     });
     schema.defaultElement = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+    schema.defaultWeaponType = new fields.StringField({
       required: true,
       blank: true,
     });

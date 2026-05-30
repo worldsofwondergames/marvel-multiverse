@@ -1921,9 +1921,11 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       context.origins = origins;
       context.occupations = occupations;
       context.weapons = weapons;
-      context.traits = traits;
-      context.tags = tags;
+      context.traits = traits.sort((a, b) => a.name.localeCompare(b.name));
+      context.tags = tags.sort((a, b) => a.name.localeCompare(b.name));
+      for (const set in powers) powers[set].sort((a, b) => a.name.localeCompare(b.name));
       context.powers = powers;
+      context.powerCount = Object.values(powers).reduce((sum, arr) => sum + arr.length, 0);
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
     }
@@ -2107,40 +2109,44 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       }
 
       if (itemData.type === "occupation") {
-        // biome-ignore lint/complexity/noForEach: <explanation>
-        itemData.system.tags.forEach(async (tag) => {
-          this._createTag(tag);
-        });
-        // biome-ignore lint/complexity/noForEach: <explanation>
-        itemData.system.traits.forEach(async (trait) => {
-          this._createTrait(trait);
-        });
+        if (game.settings.get("marvel-multiverse", "autoPopulateOrigin")) {
+          // biome-ignore lint/complexity/noForEach: <explanation>
+          itemData.system.tags.forEach(async (tag) => {
+            this._createTag(tag);
+          });
+          // biome-ignore lint/complexity/noForEach: <explanation>
+          itemData.system.traits.forEach(async (trait) => {
+            this._createTrait(trait);
+          });
+        }
         // create the occupation
         return super._onDropItemCreate(itemData);
         // biome-ignore lint/style/noUselessElse: <explanation>
       } else if (itemData.type === "origin") {
-        // biome-ignore lint/complexity/noForEach: <explanation>
-        itemData.system.tags.forEach(async (tag) => {
-          this._createTag(tag);
-        });
-        // biome-ignore lint/complexity/noForEach: <explanation>
-        itemData.system.traits.forEach(async (trait) => {
-          this._createTrait(trait);
-        });
-        // biome-ignore lint/complexity/noForEach: <explanation>
-        itemData.system.powers.forEach(async (power) => {
-          const newItemData = {
-            name: power.name,
-            type: "power",
-            data: power.system,
-          };
-          if (this.actor.system.defaultElement) {
-            Object.assign(newItemData, {
-              element: this.actor.system.defaultElement,
-            });
-          }
-          await Item.create(newItemData, { parent: this.actor });
-        });
+        if (game.settings.get("marvel-multiverse", "autoPopulateOrigin")) {
+          // biome-ignore lint/complexity/noForEach: <explanation>
+          itemData.system.tags.forEach(async (tag) => {
+            this._createTag(tag);
+          });
+          // biome-ignore lint/complexity/noForEach: <explanation>
+          itemData.system.traits.forEach(async (trait) => {
+            this._createTrait(trait);
+          });
+          // biome-ignore lint/complexity/noForEach: <explanation>
+          itemData.system.powers.forEach(async (power) => {
+            const newItemData = {
+              name: power.name,
+              type: "power",
+              data: power.system,
+            };
+            if (this.actor.system.defaultElement) {
+              Object.assign(newItemData, {
+                element: this.actor.system.defaultElement,
+              });
+            }
+            await Item.create(newItemData, { parent: this.actor });
+          });
+        }
         // create the origin
         return super._onDropItemCreate(itemData);
         // biome-ignore lint/style/noUselessElse: <explanation>
@@ -2385,8 +2391,9 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
 
       // Assign and return
       context.gear = gear;
-      context.traits = traits;
-      context.tags = tags;
+      context.traits = traits.sort((a, b) => a.name.localeCompare(b.name));
+      context.tags = tags.sort((a, b) => a.name.localeCompare(b.name));
+      for (const set in powers) powers[set].sort((a, b) => a.name.localeCompare(b.name));
       context.powers = powers;
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
@@ -2574,34 +2581,38 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       }
 
       if (itemData.type === "occupation") {
-        for (const tag of itemData.system.tags) {
-          this._createTag(tag);
-        }
-        for (const trait of itemData.system.traits) {
-          this._createTrait(trait);
+        if (game.settings.get("marvel-multiverse", "autoPopulateOrigin")) {
+          for (const tag of itemData.system.tags) {
+            this._createTag(tag);
+          }
+          for (const trait of itemData.system.traits) {
+            this._createTrait(trait);
+          }
         }
         // create the occupation
         return super._onDropItemCreate(itemData);
         // biome-ignore lint/style/noUselessElse: <explanation>
       } else if (itemData.type === "origin") {
-        for (const tag of itemData.system.tags) {
-          this._createTag(tag);
-        }
-        for (const trait of itemData.system.traits) {
-          this._createTrait(trait);
-        }
-        for (const power of itemData.system.powers) {
-          const newItemData = {
-            name: power.name,
-            type: "power",
-            data: power.system,
-          };
-          if (this.actor.system.defaultElement) {
-            Object.assign(newItemData, {
-              element: this.actor.system.defaultElement,
-            });
+        if (game.settings.get("marvel-multiverse", "autoPopulateOrigin")) {
+          for (const tag of itemData.system.tags) {
+            this._createTag(tag);
           }
-          await Item.create(newItemData, { parent: this.actor });
+          for (const trait of itemData.system.traits) {
+            this._createTrait(trait);
+          }
+          for (const power of itemData.system.powers) {
+            const newItemData = {
+              name: power.name,
+              type: "power",
+              data: power.system,
+            };
+            if (this.actor.system.defaultElement) {
+              Object.assign(newItemData, {
+                element: this.actor.system.defaultElement,
+              });
+            }
+            await Item.create(newItemData, { parent: this.actor });
+          }
         }
         // create the origin
         return super._onDropItemCreate(itemData);
@@ -3558,6 +3569,15 @@ Hooks.once("init", () => {
     power: MarvelMultiversePower,
     powerSet: MarvelMultiversePowerSet,
   };
+
+  game.settings.register("marvel-multiverse", "autoPopulateOrigin", {
+    name: "Auto-Populate Origin Items",
+    hint: "When adding an Origin or Occupation to a character, automatically create its associated powers, traits, and tags.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+  });
 
   // Active Effects are never copied to the Actor,
   // but will still apply to the Actor from within the Item

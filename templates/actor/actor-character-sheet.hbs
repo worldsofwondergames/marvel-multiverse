@@ -107,7 +107,7 @@
                 <div class="flexcol mm-input -static-children">
                   <input type="number" name="system.health.value" value="{{system.health.value}}" data-dtype="Number"/>
                   <hr />
-                  <input type="number" name="system.health.max" value="{{system.health.max}}" data-dtype="Number"/>
+                  <span class="mm-derived-value">{{system.health.max}}</span>
                 </div>
               </div>
               <div class="mm-stat-corner-block">
@@ -124,7 +124,7 @@
                 <div class="flexcol mm-input -static-children">
                   <input type="number" name="system.focus.value" value="{{system.focus.value}}" data-dtype="Number"/>
                   <hr />
-                  <input type="number" name="system.focus.max" value="{{system.focus.max}}" data-dtype="Number"/>
+                  <span class="mm-derived-value">{{system.focus.max}}</span>
                 </div>
               </div>
               <div class="mm-stat-corner-block">
@@ -168,7 +168,7 @@
               </li>
               {{#each system.abilities as |ability key|}}
                 <li>
-                  <div class="mm-ability-name rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}">
+                  <div class="mm-ability-name rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}" data-ability-key="{{key}}">
                     {{#if (eq key "mle")}}
                       Melee
                     {{else if (eq key "agl")}}
@@ -190,7 +190,7 @@
                     <div>{{ability.defense}}</div>
                   </div>
                   <div>
-                    <span class="rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.noncom" data-label="{{ability.label}}">{{numberFormat ability.noncom decimals=0 sign=true}}</span>
+                    <span class="rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.noncom" data-label="{{ability.label}}" data-ability-key="{{key}}">{{numberFormat ability.noncom decimals=0 sign=true}}</span>
                   </div>
                 </li>
               {{/each}}

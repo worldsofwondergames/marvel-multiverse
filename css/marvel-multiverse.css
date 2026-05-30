@@ -1339,6 +1339,12 @@
   max-width: 40px;
   width: auto;
 }
+.mm-derived-value {
+  font-size: inherit;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+}
 
 .marvel-multiverse.sheet.actor .mm-stat-corner-block {
   background: #8b0502;

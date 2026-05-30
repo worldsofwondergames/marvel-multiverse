@@ -30,7 +30,7 @@
                 <div class="mm-stat-block">
                   <label class="mm-label" for="system.health.value">Health</label>
                   <div class="mm-input">
-                    <input type="number" name="system.health.value" value="{{system.health.value}}" data-dtype="Number"/> | <input type="number" name="system.health.max" value="{{system.health.max}}" data-dtype="Number"/>
+                    <input type="number" name="system.health.value" value="{{system.health.value}}" data-dtype="Number"/> | <span class="mm-derived-value">{{system.health.max}}</span>
                     <span><label class="mm-label" for="system.health.damage-reduction">DR</label>
                     {{#if (gt system.healthDamageReduction 0)}}-{{/if}}
                     {{system.healthDamageReduction}}</span>
@@ -43,7 +43,7 @@
                   <div class="mm-stat-block">
                     <label class="mm-label" for="system.focus.value">Focus</label>
                     <div class="mm-input">
-                      <input type="number" name="system.focus.value" value="{{system.focus.value}}" data-dtype="Number"/> | <input type="number" name="system.focus.max" value="{{system.focus.max}}" data-dtype="Number"/>
+                      <input type="number" name="system.focus.value" value="{{system.focus.value}}" data-dtype="Number"/> | <span class="mm-derived-value">{{system.focus.max}}</span>
                       <span><label class="mm-label" for="system.health.damage-reduction">DR</label>
                       {{#if (gt system.focusDamageReduction 0)}}-{{/if}}
                       {{system.focusDamageReduction}}</span>
@@ -64,7 +64,7 @@
                   </li>
                   {{#each system.abilities as |ability key|}}
                     <li>
-                      <div class="mm-npc-ability-name rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}">
+                      <div class="mm-npc-ability-name rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}" data-ability-key="{{key}}">
                         {{#if (eq key "mle")}}
                           Melee
                         {{else if (eq key "agl")}}

@@ -2207,9 +2207,16 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         });
       }
 
+      const abilityKey = dataset.abilityKey;
+      const abilityData = abilityKey ? this.actor.system.abilities[abilityKey] : null;
+      let edgeMode = MarvelMultiverseRoll.EDGE_MODE.NORMAL;
+      if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
+      else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
+
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
         dataset.formula,
-        this.actor.getRollData()
+        this.actor.getRollData(),
+        { edgeMode }
       );
 
       roll.toMessage(
@@ -2659,9 +2666,16 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         ? `${label} [damageType] ${dataset.damageType}`
         : label;
 
+      const abilityKey = dataset.abilityKey;
+      const abilityData = abilityKey ? this.actor.system.abilities[abilityKey] : null;
+      let edgeMode = MarvelMultiverseRoll.EDGE_MODE.NORMAL;
+      if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
+      else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
+
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
         dataset.formula,
-        this.actor.getRollData()
+        this.actor.getRollData(),
+        { edgeMode }
       );
 
       roll.toMessage({
@@ -2932,6 +2946,12 @@ class MarvelMultiverseActorBase extends foundry.abstract
         nullable: false,
         initial: 0,
       }),
+      bonus: new fields.NumberField({
+        required: true,
+        nullable: false,
+        integer: true,
+        initial: 0,
+      }),
     });
 
     schema.healthDamageReduction = new fields.NumberField({
@@ -2948,6 +2968,12 @@ class MarvelMultiverseActorBase extends foundry.abstract
       max: new fields.NumberField({
         required: true,
         nullable: false,
+        initial: 0,
+      }),
+      bonus: new fields.NumberField({
+        required: true,
+        nullable: false,
+        integer: true,
         initial: 0,
       }),
     });
@@ -3074,6 +3100,9 @@ class MarvelMultiverseActorBase extends foundry.abstract
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[key]) ?? key;
     }
 
+    this.health.max = (this.abilities.res.value * 30) + this.health.bonus;
+    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
+
     this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
     this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
     this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
@@ -3141,6 +3170,9 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       this.abilities[key].label =
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[key]) ?? key;
     }
+
+    this.health.max = (this.abilities.res.value * 30) + this.health.bonus;
+    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
     this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
     this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);

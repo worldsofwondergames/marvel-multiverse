@@ -833,11 +833,12 @@
 }
 
 .mm-item {
-  align-items: center;
+  align-items: flex-start;
   background: #e41d18;
   clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0% 100%);
   color: #000101;
   display: flex;
+  flex-wrap: nowrap;
   font-size: 12px;
   gap: 8px;
   line-height: 1;
@@ -854,6 +855,9 @@
   position: absolute;
   right: 2px;
   top: 2px;
+}
+.mm-item .item-controls {
+  padding-top: 6px;
 }
 .mm-item .item-control {
   border-color: transparent;

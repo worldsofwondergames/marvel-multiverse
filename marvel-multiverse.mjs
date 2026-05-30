@@ -648,6 +648,15 @@ MARVEL_MULTIVERSE.powersets = {
   weatherControl: { label: "Weather Control" },
 };
 
+MARVEL_MULTIVERSE.sources = {
+  core: { label: "Core Rulebook" },
+  xmen: { label: "X-Men Expansion" },
+  spiderverse: { label: "Spider-Verse Expansion" },
+  avengers: { label: "Avengers Expansion" },
+  other: { label: "Other" },
+  homebrew: { label: "Homebrew" }
+};
+
 MARVEL_MULTIVERSE.reverseSetList = Object.fromEntries(
   Object.keys(MARVEL_MULTIVERSE.powersets).map((k) => [
     MARVEL_MULTIVERSE.powersets[k].label,
@@ -667,38 +676,20 @@ MARVEL_MULTIVERSE.movementTypes = {
 };
 
 MARVEL_MULTIVERSE.elements = {
-  air: {
-    label: "Air",
-    fantasticEffect: "Target is knocked prone for one round.",
-  },
-  earth: {
-    label: "Earth",
-    fantasticEffect: "Target moves at half speed for one round.",
-  },
-  electricity: {
-    label: "Electricity",
-    fantasticEffect: "Stuns target for one round.",
-  },
+  air: { label: "Air", fantasticEffect: "Target is knocked prone for one round." },
+  chemical: { label: "Chemical", fantasticEffect: "The target is corroding." },
+  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round." },
+  electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round." },
   energy: { label: "Energy", fantasticEffect: "Blinds target for one round." },
   fire: { label: "Fire", fantasticEffect: "Sets target ablaze." },
-  force: {
-    label: "Force",
-    fantasticEffect: "Target has trouble on all actions for one round.",
-  },
-  hellfire: {
-    label: "Hellfire",
-    fantasticEffect: "Splits damage equally between Health and Focus.",
-  },
+  force: { label: "Force", fantasticEffect: "Target has trouble on all actions for one round." },
+  hellfire: { label: "Hellfire", fantasticEffect: "Splits damage equally between Health and Focus." },
   ice: { label: "Ice", fantasticEffect: "Paralyzes target for one round." },
   iron: { label: "Iron", fantasticEffect: "Pins target for one round." },
   sound: { label: "Sound", fantasticEffect: "Deafens target for one round." },
-  water: {
-    label: "Water",
-    fantasticEffect: "Surprises target until the end of the next round.",
-  },
-  toxin: { label: "Toxin", fantasticEffect: "The target is poisoned." },
-  chemical: { label: "Chemical", fantasticEffect: "The target is corroding." },
   swarm: { label: "Swarm", fantasticEffect: "The target is frightened." },
+  toxin: { label: "Toxin", fantasticEffect: "The target is poisoned." },
+  water: { label: "Water", fantasticEffect: "Surprises target until the end of the next round." },
 };
 
 MARVEL_MULTIVERSE.teamManeuvers = [
@@ -2708,6 +2699,9 @@ class MarvelMultiverseItemSheet extends ItemSheet {
     // Prepare active effects for easier access
     context.effects = prepareActiveEffectCategories(this.item.effects);
 
+    // Source dropdown
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
+
     // Prepare data and items.
     if (itemData.type === "power" || itemData.type === "weapon") {
       context.elements = Object.fromEntries(
@@ -2835,6 +2829,7 @@ const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/actor/parts/actor-weapons.hbs",
     // Item partials
     "systems/marvel-multiverse/templates/item/parts/item-effects.hbs",
+    "systems/marvel-multiverse/templates/item/parts/item-source.hbs",
   ]);
 
 class MarvelMultiverseActorBase extends foundry.abstract
@@ -3158,8 +3153,9 @@ class MarvelMultiverseItemBase extends foundry.abstract.TypeDataModel {
     const schema = {};
 
     schema.description = new fields.StringField({ required: true, blank: true });
+    schema.source = new fields.StringField({ required: true, blank: true });
 
-    
+
     schema.size = new fields.StringField({ blank: true });
     schema.quantity = new fields.NumberField({ ...requiredInteger, initial: 1, min: 1 });
     

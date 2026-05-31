@@ -47,9 +47,8 @@ Use PowerShell (not Bash) for all node commands to avoid `!` key escaping issues
 
 ### Step 1: Find the actor
 
-Search all Marvel Multiverse world databases for the actor name:
+Search the world database for the actor name:
 - `C:\Users\jeff_\AppData\Local\FoundryVTT\Data\worlds\marvel-616\data\actors`
-- `C:\Users\jeff_\AppData\Local\FoundryVTT\Data\worlds\legacy-of-heroes-01-00-come-together\data\actors`
 
 Actor keys look like `!actors!<id>`. The actor document has an `items` array of string IDs.
 

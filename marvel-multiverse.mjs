@@ -3562,6 +3562,11 @@ globalThis.MarvelMultiverse = {
 /*  Init Hook                                   */
 /* -------------------------------------------- */
 
+Handlebars.registerHelper('numberSign', (value) => {
+  const n = Number(value);
+  return n >= 0 ? `+${n}` : `${n}`;
+});
+
 Hooks.once("init", () => {
   // Add utility classes to the global game object so that they're more easily
   // accessible in global contexts.

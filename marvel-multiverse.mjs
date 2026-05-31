@@ -1924,8 +1924,13 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       context.traits = traits.sort((a, b) => a.name.localeCompare(b.name));
       context.tags = tags.sort((a, b) => a.name.localeCompare(b.name));
       for (const set in powers) powers[set].sort((a, b) => a.name.localeCompare(b.name));
-      context.powers = powers;
-      context.powerCount = Object.values(powers).reduce((sum, arr) => sum + arr.length, 0);
+      const sortedPowers = {};
+      for (const key of Object.keys(powers).sort()) sortedPowers[key] = powers[key];
+      context.powers = sortedPowers;
+      context.powerCount = Object.values(sortedPowers).reduce((sum, arr) => sum + arr.reduce((s, p) => {
+        const match = p.name.match(/\s+(\d+)$/);
+        return s + (match ? parseInt(match[1]) : 1);
+      }, 0), 0);
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
     }
@@ -2401,7 +2406,9 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       context.traits = traits.sort((a, b) => a.name.localeCompare(b.name));
       context.tags = tags.sort((a, b) => a.name.localeCompare(b.name));
       for (const set in powers) powers[set].sort((a, b) => a.name.localeCompare(b.name));
-      context.powers = powers;
+      const sortedPowers = {};
+      for (const key of Object.keys(powers).sort()) sortedPowers[key] = powers[key];
+      context.powers = sortedPowers;
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
       context.origins = origins;
@@ -3100,7 +3107,7 @@ class MarvelMultiverseActorBase extends foundry.abstract
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[key]) ?? key;
     }
 
-    this.health.max = (this.abilities.res.value * 30) + this.health.bonus;
+    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
     this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
     this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
@@ -3171,7 +3178,7 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[key]) ?? key;
     }
 
-    this.health.max = (this.abilities.res.value * 30) + this.health.bonus;
+    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
     this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
     this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);

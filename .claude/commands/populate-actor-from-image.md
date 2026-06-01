@@ -53,7 +53,7 @@ Read the character sheet image and extract all fields:
 
 ### Powers (bottom)
 - Grouped by power set (Basic, Elemental Control, Illusion, etc.)
-- Numbered powers like "Discipline 3" are single compendium items
+- Numbered powers like "Discipline 3" are single compendium items. Some numbered powers may appear on the sheet without a level number (e.g., "Elemental Protection" instead of "Elemental Protection 1"). If the compendium has no unnumbered version and the script reports it as not found, ask the user what level it should be.
 - If a power has parenthetical text (e.g., "Animal Communication (Bugs)"), strip the parenthetical from the power name and store it as `detail` on the item
 - If Elemental Control powers are present, note the element (often in parentheses after the power set name) and set `defaultElement`
 
@@ -138,6 +138,20 @@ All actors get: Display Name = Hovered by Anyone, Link Actor Data = true, Lock R
 | `movement.swim.value` | `ceil(run × 0.5)` |
 | `movement.jump.value` | `ceil(run × 0.5)` |
 | `attributes.init.value` | `vig.value` |
+
+## Step 3.5: Check for Duplicate Actor with Different Source
+
+Before running the script, if the JSON `source` field differs from `"core"` (or if a same-named actor already exists with a different source), compare the extracted data against the existing actor in the world DB:
+
+1. Run a quick check script that opens the world DB, finds any actor with the same name (case-insensitive), and prints its abilities, rank, karma, health, focus, run, edges, items (name+type), and source.
+2. Compare every field from the screenshot against the existing actor's data:
+   - Abilities (all 6 values)
+   - Edges
+   - Rank, Karma, Health, Focus, Run
+   - Default element
+   - All items (traits, tags, powers, origin, occupation) — compare by name+type+detail
+3. If there are **no mechanical differences** (bio text differences like history/personality don't count — only stats, abilities, items, and edges matter), **do NOT create a new actor**. Instead, tell the user: the character from this source is identical to the existing one, so no new actor was added.
+4. If there **are** differences, list them for the user and proceed with creating the new actor with the different source.
 
 ## Step 4: Run and Verify
 

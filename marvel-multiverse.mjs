@@ -650,9 +650,15 @@ MARVEL_MULTIVERSE.powersets = {
 
 MARVEL_MULTIVERSE.sources = {
   core: { label: "Core Rulebook" },
+  coreModified: { label: "Core Rulebook (Modified)" },
   xmen: { label: "X-Men Expansion" },
+  xmenModified: { label: "X-Men Expansion (Modified)" },
   spiderverse: { label: "Spider-Verse Expansion" },
+  spiderverseModified: { label: "Spider-Verse Expansion (Modified)" },
   avengers: { label: "Avengers Expansion" },
+  avengersModified: { label: "Avengers Expansion (Modified)" },
+  enterHydra: { label: "Enter: Hydra" },
+  enterHydraModified: { label: "Enter: Hydra (Modified)" },
   other: { label: "Other" },
   homebrew: { label: "Homebrew" }
 };
@@ -1830,6 +1836,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     context.rollData = context.actor.getRollData();
 
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
 
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [
@@ -2311,6 +2318,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     context.rollData = context.actor.getRollData();
 
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
 
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [
@@ -3017,6 +3025,8 @@ class MarvelMultiverseActorBase extends foundry.abstract
       blank: true,
     }); // equivalent to passing ({initial: ""}) for StringFields
 
+    schema.source = new fields.StringField({ required: true, blank: true });
+
     schema.actorSizes = new fields.SchemaField(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).reduce((obj, size) => {
         obj[size] = new fields.SchemaField({
@@ -3397,6 +3407,7 @@ class MarvelMultiversePower extends MarvelMultiverseItemBase {
     const schema = super.defineSchema();
     const requiredInteger = { required: true, nullable: false, integer: true };
 
+    schema.detail = new fields.StringField({ required: true, blank: true });
     schema.powerSet = new fields.StringField({
       required: true,
       initial: "Basic",

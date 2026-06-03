@@ -659,6 +659,8 @@ MARVEL_MULTIVERSE.sources = {
   avengersModified: { label: "Avengers Expansion (Modified)" },
   enterHydra: { label: "Enter: Hydra" },
   enterHydraModified: { label: "Enter: Hydra (Modified)" },
+  cataclysmOfKang: { label: "Cataclysm of Kang" },
+  cataclysmOfKangModified: { label: "Cataclysm of Kang (Modified)" },
   other: { label: "Other" },
   homebrew: { label: "Homebrew" }
 };
@@ -2198,7 +2200,8 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     if (dataset.formula) {
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
-      let label = `ability: ${ability}<br/>${item?.type}: ${item?.name}`;
+      let label = `Ability: ${ability}`;
+      if (item) label += `<br/>${item.type}: ${item.name}`;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
 
       label = dataset.damagetype

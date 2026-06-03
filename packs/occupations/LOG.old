@@ -1,3 +1,7 @@
-2026/06/02-00:30:51.838 e384 Recovering log #185
-2026/06/02-00:30:51.844 e384 Delete type=0 #185
-2026/06/02-00:30:51.844 e384 Delete type=3 #184
+2026/06/02-21:39:00.206 10894 Log #189: 0 ops saved to Table #192 OK
+2026/06/02-21:39:00.206 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\occupations/000189.log: OK
+2026/06/02-21:39:00.207 10894 Log #191: 0 ops saved to Table #193 OK
+2026/06/02-21:39:00.207 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\occupations/000191.log: OK
+2026/06/02-21:39:00.208 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\occupations/MANIFEST-000188: OK
+2026/06/02-21:39:00.208 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\occupations/MANIFEST-000190: OK
+2026/06/02-21:39:00.210 10894 **** Repaired leveldb C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\occupations; recovered 0 files; 0 bytes. Some data may have been lost. ****

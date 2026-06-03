@@ -1,3 +1,7 @@
-2026/06/02-00:30:51.815 ed44 Recovering log #187
-2026/06/02-00:30:51.817 ed44 Delete type=0 #187
-2026/06/02-00:30:51.818 ed44 Delete type=3 #186
+2026/06/02-21:39:00.181 10894 Log #191: 0 ops saved to Table #194 OK
+2026/06/02-21:39:00.182 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\powers/000191.log: OK
+2026/06/02-21:39:00.182 10894 Log #193: 0 ops saved to Table #195 OK
+2026/06/02-21:39:00.182 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\powers/000193.log: OK
+2026/06/02-21:39:00.183 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\powers/MANIFEST-000190: OK
+2026/06/02-21:39:00.183 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\powers/MANIFEST-000192: OK
+2026/06/02-21:39:00.185 10894 **** Repaired leveldb C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\powers; recovered 0 files; 0 bytes. Some data may have been lost. ****

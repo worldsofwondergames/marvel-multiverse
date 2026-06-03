@@ -1,3 +1,18 @@
+function _getAttackTargets(attackTargetAbility) {
+  const targets = game.user.targets;
+  if (!targets?.size || !attackTargetAbility) return [];
+  return Array.from(targets).map(token => {
+    const actor = token.actor;
+    const ac = actor?.system?.abilities?.[attackTargetAbility]?.defense ?? null;
+    return {
+      name: token.name,
+      img: token.document?.texture?.src ?? actor?.img ?? "",
+      ac,
+      uuid: actor?.uuid ?? ""
+    };
+  }).filter(t => t.ac !== null);
+}
+
 /**
  * Extend the base Roll document by defining a pool for evaluating rolls with the Marvel DiceTerms.
  * @extends {Roll}
@@ -402,6 +417,8 @@ class MarvelMultiverseActor extends Actor {
  * @extends {Item}
  */
 const ITEM_DEFAULT_ICONS = {
+  item: "icons/svg/item-bag.svg",
+  weapon: "systems/marvel-multiverse/icons/weapons.svg",
   trait: "systems/marvel-multiverse/icons/trait.svg",
   occupation: "systems/marvel-multiverse/icons/work.svg",
   origin: "systems/marvel-multiverse/icons/origin.svg",
@@ -498,15 +515,17 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       // const result = await roll.evaluate();
       const modLabel = `${label}, [ability] ${this.system.ability}`;
 
-      roll.toMessage(
-        {
-          title: this.name,
-          speaker: speaker,
-          rollMode: rollMode,
-          flavor: modLabel,
-        },
-        { rollMode: rollMode, itemId: this._id }
-      );
+      const messageData = {
+        title: this.name,
+        speaker: speaker,
+        rollMode: rollMode,
+        flavor: modLabel,
+      };
+      const attackTargets = _getAttackTargets(this.system.attackTarget || this.system.ability);
+      if (attackTargets.length) {
+        messageData["flags.marvel-multiverse.targets"] = attackTargets;
+      }
+      roll.toMessage(messageData, { rollMode: rollMode, itemId: this._id });
 
       if (this.system.attack) {
         Hooks.callAll("marvel-multiverse.rollAttack", this, roll);
@@ -1359,9 +1378,16 @@ class ChatMessageMarvel extends ChatMessage {
         }
         el.addEventListener("click", this._onClickRetroButton.bind(this));
       }
-      html
-        .querySelector("button.damage")
-        ?.addEventListener("click", this._onClickDamageButton.bind(this));
+      const damageBtn = html.querySelector("button.damage");
+      const flavorContent = flavorText?.innerHTML ?? "";
+      const hasDamageAbility = /Melee|Agility|Ego|Logic/i.test(flavorContent);
+      if (isInitiative || !hasDamageAbility) {
+        damageBtn?.remove();
+      } else {
+        damageBtn?.addEventListener("click", this._onClickDamageButton.bind(this));
+      }
+
+      this._enrichAttackTargets(html);
     }
   }
 
@@ -1376,30 +1402,25 @@ class ChatMessageMarvel extends ChatMessage {
     const attackRoll = this.rolls[0];
     const targets = this.getFlag("marvel-multiverse", "targets");
     if (
-      !game.user.isGM ||
       !(attackRoll instanceof CONFIG.Dice.MarvelMultiverseRoll) ||
       !targets?.length
     )
       return;
     const evaluation = document.createElement("ul");
-    evaluation.classList.add("marvel-multiverse", "evaluation");
+    evaluation.style.cssText = "list-style:none;padding:4px 0;margin:4px 0 0;border-top:1px solid #ddd;";
     evaluation.innerHTML = targets
       .map(({ name, img, ac, uuid }) => {
         const isMiss = !attackRoll.isFantastic && attackRoll.total < ac;
+        const color = isMiss ? "#a00" : "#0a0";
+        const icon = isMiss ? "fa-times" : "fa-check";
+        const label = isMiss ? "Miss" : "Hit";
         return [
           `
-        <li data-uuid="${uuid}" class="target ${isMiss ? "miss" : "hit"}">
-          <img src="${img}" alt="${name}">
-          <div class="name-stacked">
-            <span class="title">
-              ${name}
-              <i class="fas ${isMiss ? "fa-times" : "fa-check"}"></i>
-            </span>
-          </div>
-          <div class="ac">
-            <i class="fas fa-shield-halved"></i>
-            <span>${ac}</span>
-          </div>
+        <li data-uuid="${uuid}" style="display:flex;align-items:center;gap:6px;padding:3px 6px;cursor:pointer;">
+          <img src="${img}" alt="${name}" style="width:24px;height:24px;border:none;border-radius:2px;">
+          <span style="flex:1;font-weight:600;">${name}</span>
+          <span style="font-size:11px;color:#555;"><i class="fas fa-shield-halved"></i> ${ac}</span>
+          <span style="font-weight:700;color:${color};font-size:12px;"><i class="fas ${icon}"></i> ${label}</span>
         </li>
       `,
           isMiss,
@@ -1407,7 +1428,7 @@ class ChatMessageMarvel extends ChatMessage {
       })
       .sort((a, b) => (a[1] === b[1] ? 0 : a[1] ? 1 : -1))
       .reduce((str, [li]) => str + li, "");
-    for (const target of evaluation.querySelectorAll("li.target")) {
+    for (const target of evaluation.querySelectorAll("li")) {
       target.addEventListener("click", this._onTargetMouseDown.bind(this));
       target.addEventListener("mouseover", this._onTargetHoverIn.bind(this));
       target.addEventListener("mouseout", this._onTargetHoverOut.bind(this));
@@ -1416,6 +1437,29 @@ class ChatMessageMarvel extends ChatMessage {
   }
 
   /* -------------------------------------------- */
+
+  _onTargetMouseDown(event) {
+    const uuid = event.currentTarget.dataset.uuid;
+    if (uuid) fromUuid(uuid).then(actor => {
+      if (actor?.sheet) actor.sheet.render(true);
+    });
+  }
+
+  _onTargetHoverIn(event) {
+    const uuid = event.currentTarget.dataset.uuid;
+    if (uuid) fromUuid(uuid).then(actor => {
+      const token = canvas.tokens?.placeables.find(t => t.actor?.uuid === uuid);
+      if (token?._onHoverIn) token._onHoverIn(event);
+    });
+  }
+
+  _onTargetHoverOut(event) {
+    const uuid = event.currentTarget.dataset.uuid;
+    if (uuid) fromUuid(uuid).then(actor => {
+      const token = canvas.tokens?.placeables.find(t => t.actor?.uuid === uuid);
+      if (token?._onHoverOut) token._onHoverOut(event);
+    });
+  }
 
   /**
    * Handle dice roll expansion.
@@ -1455,8 +1499,8 @@ class ChatMessageMarvel extends ChatMessage {
    * @param {string} fantastic
    */
   async _handleDamageChatButton(messageId, flavorText, fantastic) {
-    const re = /ability:\s(?<ability>\w*)/;
-    const dmgTypeRe = /damagetype:\s(?<damageType>\w*)/;
+    const re = /ability:\s(?<ability>\w*)/i;
+    const dmgTypeRe = /damagetype:\s(?<damageType>\w*)/i;
     const ability = re.exec(flavorText).groups.ability;
     const damageType = dmgTypeRe.exec(flavorText)?.groups?.damageType;
     const abilityAbr = MARVEL_MULTIVERSE.damageAbilityAbr[ability] ?? ability;
@@ -1484,21 +1528,22 @@ class ChatMessageMarvel extends ChatMessage {
         damageType && damageType === "focus"
           ? t.system.focusDamageReduction
           : t.system.healthDamageReduction;
-      const dmgMultiplier = damageMultiplier - damageReduction;
-      let dmg =
-        dmgMultiplier === 0
-          ? 0
-          : marvelDie.total * dmgMultiplier + abilityValue;
+      const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
+      let dmg = marvelDie.total * effectiveMultiplier + abilityValue;
       if (fantastic) {
         dmg = dmg * 2;
       }
-      return `<p><b>${t.name}</b> takes <b>${dmg} ${
-        fantastic ? "Fantastic" : ""
-      } </b> ${damageType} damage.<br/> re: MarvelDie: ${
-        marvelDie.total
-      } &#42; damage multiplier: &#40; ${
-        actor.system.abilities[abilityAbr].damageMultiplier
-      } - damageReduction: ${damageReduction} &#61; ${dmgMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
+      const dmgTypeLabel = damageType ? ` ${damageType}` : "";
+      const fantasticLabel = fantastic ? " Fantastic" : "";
+      const drLine = damageReduction > 0
+        ? `<br/><span style="font-size:11px;color:#555;">Multiplier ${damageMultiplier} − DR ${damageReduction} = ${effectiveMultiplier}</span>`
+        : "";
+      const multiplierText = damageReduction > 0
+        ? `(Multiplier - DR) ${effectiveMultiplier}`
+        : `Multiplier ${damageMultiplier}`;
+      const fantasticMult = fantastic ? " × 2" : "";
+      return `<p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${fantasticMult}${drLine}</p>`;
     });
 
     if (damageContent.length === 0) {
@@ -1506,12 +1551,12 @@ class ChatMessageMarvel extends ChatMessage {
       if (fantastic) {
         dmg = dmg * 2;
       }
+      const dmgTypeLabel = damageType ? ` ${damageType}` : "";
+      const fantasticLabel = fantastic ? " Fantastic" : "";
+      const fantasticMult = fantastic ? " × 2" : "";
       damageContent.push(
-        `<p>target(s) take <b>${dmg} ${
-          fantastic ? "Fantastic" : ""
-        } </b> ${damageType} damage.<br/> re: MarvelDie: ${
-          marvelDie.total
-        } &#42; damage multiplier: ${damageMultiplier} + ${ability} score ${abilityValue} of damage.</p>`
+        `<p style="margin:4px 0;">Deals <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${fantasticMult}</p>`
       );
     }
     // const content = `<p>Delivers <b>${dmg}</b> points re: MarvelDie: ${marvelDie.total} &#42; damage multiplier: &#40; ${actor.system.abilities[abilityAbr].damageMultiplier} - damageReduction: ${damageReduction} &#61; ${damageMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
@@ -2234,15 +2279,18 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         { edgeMode }
       );
 
-      roll.toMessage(
-        {
-          speaker: speaker,
-          flavor: label,
-          rollMode: rollMode,
-          title: title,
-        },
-        { rollMode: rollMode, itemId: itemId }
-      );
+      const messageData = {
+        speaker: speaker,
+        flavor: label,
+        rollMode: rollMode,
+        title: title,
+      };
+      const attackAbility = item?.system?.attackTarget || dataset.abilityKey;
+      const attackTargets = _getAttackTargets(attackAbility);
+      if (attackTargets.length) {
+        messageData["flags.marvel-multiverse.targets"] = attackTargets;
+      }
+      roll.toMessage(messageData, { rollMode: rollMode, itemId: itemId });
       return roll;
     }
   }
@@ -2696,12 +2744,20 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         { edgeMode }
       );
 
-      roll.toMessage({
+      const messageData = {
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
         flavor: label,
         rollMode: game.settings.get("core", "rollMode"),
         title: title,
-      });
+      };
+      const npcItemId = element.closest(".item")?.dataset?.itemId;
+      const npcItem = npcItemId ? this.actor.items.get(npcItemId) : null;
+      const npcAttackAbility = npcItem?.system?.attackTarget || dataset.abilityKey;
+      const npcTargets = _getAttackTargets(npcAttackAbility);
+      if (npcTargets.length) {
+        messageData["flags.marvel-multiverse.targets"] = npcTargets;
+      }
+      roll.toMessage(messageData);
       return roll;
     }
   }
@@ -3120,6 +3176,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[key]) ?? key;
     }
 
+    const hasBrawling = this.parent?.items?.some(i => i.type === "power" && i.name === "Brawling");
+    if (hasBrawling && this.abilities.mle.defense > this.abilities.agl.defense) {
+      this.abilities.agl.defense = this.abilities.mle.defense;
+    }
+
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
     this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
@@ -3189,6 +3250,11 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       // Handle ability label localization.
       this.abilities[key].label =
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[key]) ?? key;
+    }
+
+    const hasBrawling = this.parent?.items?.some(i => i.type === "power" && i.name === "Brawling");
+    if (hasBrawling && this.abilities.mle.defense > this.abilities.agl.defense) {
+      this.abilities.agl.defense = this.abilities.mle.defense;
     }
 
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);

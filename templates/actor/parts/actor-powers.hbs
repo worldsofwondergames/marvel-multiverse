@@ -24,7 +24,7 @@
               {{else}}
                 data-roll-type="item" data-item-id="{{item._id}}"
               {{/if}}
-              <span>{{item.name}}</span>
+              <span>{{item.name}}{{#if item.system.detail}}: <span style="text-transform:none;">{{item.system.detail}}</span>{{/if}}</span>
             </a>
           </div>
           <div class="item-controls">

@@ -650,9 +650,17 @@ MARVEL_MULTIVERSE.powersets = {
 
 MARVEL_MULTIVERSE.sources = {
   core: { label: "Core Rulebook" },
+  coreModified: { label: "Core Rulebook (Modified)" },
   xmen: { label: "X-Men Expansion" },
+  xmenModified: { label: "X-Men Expansion (Modified)" },
   spiderverse: { label: "Spider-Verse Expansion" },
+  spiderverseModified: { label: "Spider-Verse Expansion (Modified)" },
   avengers: { label: "Avengers Expansion" },
+  avengersModified: { label: "Avengers Expansion (Modified)" },
+  enterHydra: { label: "Enter: Hydra" },
+  enterHydraModified: { label: "Enter: Hydra (Modified)" },
+  cataclysmOfKang: { label: "Cataclysm of Kang" },
+  cataclysmOfKangModified: { label: "Cataclysm of Kang (Modified)" },
   other: { label: "Other" },
   homebrew: { label: "Homebrew" }
 };
@@ -1830,6 +1838,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     context.rollData = context.actor.getRollData();
 
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
 
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [
@@ -2191,7 +2200,8 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     if (dataset.formula) {
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
-      let label = `ability: ${ability}<br/>${item?.type}: ${item?.name}`;
+      let label = `Ability: ${ability}`;
+      if (item) label += `<br/>${item.type}: ${item.name}`;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
 
       label = dataset.damagetype
@@ -2311,6 +2321,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     context.rollData = context.actor.getRollData();
 
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
 
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [
@@ -3017,6 +3028,8 @@ class MarvelMultiverseActorBase extends foundry.abstract
       blank: true,
     }); // equivalent to passing ({initial: ""}) for StringFields
 
+    schema.source = new fields.StringField({ required: true, blank: true });
+
     schema.actorSizes = new fields.SchemaField(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).reduce((obj, size) => {
         obj[size] = new fields.SchemaField({
@@ -3397,6 +3410,7 @@ class MarvelMultiversePower extends MarvelMultiverseItemBase {
     const schema = super.defineSchema();
     const requiredInteger = { required: true, nullable: false, integer: true };
 
+    schema.detail = new fields.StringField({ required: true, blank: true });
     schema.powerSet = new fields.StringField({
       required: true,
       initial: "Basic",

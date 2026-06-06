@@ -1,8 +1,7 @@
-2026/06/02-21:39:00.220 10894 Log #137: 0 ops saved to Table #140 OK
-2026/06/02-21:39:00.220 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\items/000137.log: OK
-2026/06/02-21:39:00.220 10894 Log #139: 0 ops saved to Table #141 OK
-2026/06/02-21:39:00.221 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\items/000139.log: OK
-2026/06/02-21:39:00.221 10894 Table #35: 26 entries OK
-2026/06/02-21:39:00.222 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\items/MANIFEST-000136: OK
-2026/06/02-21:39:00.223 10894 Archiving C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\items/MANIFEST-000138: OK
-2026/06/02-21:39:00.224 10894 **** Repaired leveldb C:\Users\jeff_\AppData\Local\FoundryVTT\Data\systems\marvel-multiverse\packs\items; recovered 1 files; 3611 bytes. Some data may have been lost. ****
+2026/06/06-12:47:00.698 1798 Recovering log #147
+2026/06/06-12:47:00.700 1798 Delete type=0 #147
+2026/06/06-12:47:00.700 1798 Delete type=3 #145
+2026/06/06-14:18:33.563 348 Level-0 table #153: started
+2026/06/06-14:18:33.564 348 Level-0 table #153: 0 bytes OK
+2026/06/06-14:18:33.565 348 Delete type=0 #151
+2026/06/06-14:18:33.568 348 Manual compaction at level-0 from '!items!2NgedpdKSdustSpF' @ 72057594037927935 : 1 .. '!items!wsD5B3wnz0vOK3Uw' @ 0 : 0; will stop at (end)

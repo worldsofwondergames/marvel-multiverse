@@ -18,4 +18,6 @@ export const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/actor/parts/actor-weapons.hbs",
     // Item partials
     "systems/marvel-multiverse/templates/item/parts/item-effects.hbs",
+    // Sidebar partials
+    "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
   ]);

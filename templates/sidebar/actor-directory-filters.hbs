@@ -1,0 +1,266 @@
+<div class="mm-sidebar-filters {{#if filterState.panelOpen}}open{{/if}}">
+  <button type="button" class="mm-filter-toggle">
+    <i class="fas fa-filter"></i>
+    Filters
+    <span class="mm-filter-count {{#unless activeFilterCount}}hidden{{/unless}}">{{activeFilterCount}}</span>
+    <i class="fas fa-chevron-{{#if filterState.panelOpen}}up{{else}}down{{/if}} mm-filter-chevron"></i>
+  </button>
+
+  <div class="mm-filter-panel">
+    {{!-- Logic + Clear row --}}
+    <div class="mm-filter-logic-row">
+      <label>Match:</label>
+      <select class="mm-filter-logic">
+        <option value="and" {{#if (eq filterState.logic "and")}}selected{{/if}}>ALL (AND)</option>
+        <option value="or" {{#if (eq filterState.logic "or")}}selected{{/if}}>ANY (OR)</option>
+      </select>
+      <button type="button" class="mm-filter-clear">
+        <i class="fas fa-times"></i> Clear
+      </button>
+    </div>
+
+    {{!-- RANK --}}
+    <div class="mm-filter-group" data-group="rank">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Rank</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-numeric-row">
+          <select class="mm-filter-op" data-filter="rank" data-field="op">
+            <option value=">=" {{#if (eq filterState.rank.op ">=")}}selected{{/if}}>>=</option>
+            <option value="<=" {{#if (eq filterState.rank.op "<=")}}selected{{/if}}><=</option>
+            <option value="=" {{#if (eq filterState.rank.op "=")}}selected{{/if}}>=</option>
+          </select>
+          <input type="number" class="mm-filter-input" data-filter="rank" data-field="value"
+                 min="1" placeholder="--" value="{{filterState.rank.value}}">
+        </div>
+      </div>
+    </div>
+
+    {{!-- SIZE --}}
+    <div class="mm-filter-group" data-group="size">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Size</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.sizes}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="size" value="{{@key}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.label}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- ORIGINS --}}
+    {{#if filterOptions.origins.length}}
+    <div class="mm-filter-group" data-group="origins">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Origin</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.origins}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="origins" value="{{this.name}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.name}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+    {{/if}}
+
+    {{!-- OCCUPATIONS --}}
+    {{#if filterOptions.occupations.length}}
+    <div class="mm-filter-group" data-group="occupations">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Occupation</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.occupations}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="occupations" value="{{this.name}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.name}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+    {{/if}}
+
+    {{!-- POWER SETS --}}
+    <div class="mm-filter-group" data-group="powerSets">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Power Sets</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.powerSets}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="powerSets" value="{{this.name}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.name}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- TAGS --}}
+    {{#if filterOptions.tags.length}}
+    <div class="mm-filter-group" data-group="tags">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Tags</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.tags}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="tags" value="{{this.name}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.name}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+    {{/if}}
+
+    {{!-- TRAITS --}}
+    {{#if filterOptions.traits.length}}
+    <div class="mm-filter-group" data-group="traits">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Traits</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.traits}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="traits" value="{{this.name}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.name}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+    {{/if}}
+
+    {{!-- ABILITIES --}}
+    <div class="mm-filter-group" data-group="abilities">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Abilities</h4>
+      <div class="mm-filter-group-body collapsed" style="flex-direction: column;">
+        {{#each filterOptions.abilities}}
+        <div class="mm-filter-numeric-row">
+          <label>{{this.label}}</label>
+          <select class="mm-filter-op" data-filter="abilities" data-ability="{{@key}}" data-field="op">
+            <option value=">=" {{#if (eq this.op ">=")}}selected{{/if}}>>=</option>
+            <option value="<=" {{#if (eq this.op "<=")}}selected{{/if}}><=</option>
+            <option value="=" {{#if (eq this.op "=")}}selected{{/if}}>=</option>
+          </select>
+          <input type="number" class="mm-filter-input" data-filter="abilities" data-ability="{{@key}}" data-field="value"
+                 min="-3" placeholder="--" value="{{this.value}}">
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    {{!-- TEAMS --}}
+    <div class="mm-filter-group" data-group="teams">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Teams</h4>
+      <div class="mm-filter-group-body collapsed">
+        <input type="text" class="mm-filter-text" data-filter="teams"
+               placeholder="Search teams..." value="{{filterState.teams}}">
+      </div>
+    </div>
+
+    {{!-- MOVEMENT --}}
+    <div class="mm-filter-group" data-group="movementTypes">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Movement</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.movementTypes}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="movementTypes" value="{{@key}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.label}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- ELEMENTS --}}
+    <div class="mm-filter-group" data-group="elements">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Elements</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.elements}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="elements" value="{{@key}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.label}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- DAMAGE REDUCTION --}}
+    <div class="mm-filter-group" data-group="damageReduction">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Damage Reduction</h4>
+      <div class="mm-filter-group-body collapsed" style="flex-direction: column;">
+        <div class="mm-filter-numeric-row">
+          <label>Health</label>
+          <select class="mm-filter-op" data-filter="healthDR" data-field="op">
+            <option value=">=" {{#if (eq filterState.healthDR.op ">=")}}selected{{/if}}>>=</option>
+            <option value="<=" {{#if (eq filterState.healthDR.op "<=")}}selected{{/if}}><=</option>
+            <option value="=" {{#if (eq filterState.healthDR.op "=")}}selected{{/if}}>=</option>
+          </select>
+          <input type="number" class="mm-filter-input" data-filter="healthDR" data-field="value"
+                 min="0" placeholder="--" value="{{filterState.healthDR.value}}">
+        </div>
+        <div class="mm-filter-numeric-row">
+          <label>Focus</label>
+          <select class="mm-filter-op" data-filter="focusDR" data-field="op">
+            <option value=">=" {{#if (eq filterState.focusDR.op ">=")}}selected{{/if}}>>=</option>
+            <option value="<=" {{#if (eq filterState.focusDR.op "<=")}}selected{{/if}}><=</option>
+            <option value="=" {{#if (eq filterState.focusDR.op "=")}}selected{{/if}}>=</option>
+          </select>
+          <input type="number" class="mm-filter-input" data-filter="focusDR" data-field="value"
+                 min="0" placeholder="--" value="{{filterState.focusDR.value}}">
+        </div>
+      </div>
+    </div>
+
+    {{!-- HEALTH / FOCUS / KARMA MAX --}}
+    <div class="mm-filter-group" data-group="stats">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Health / Focus / Karma</h4>
+      <div class="mm-filter-group-body collapsed" style="flex-direction: column;">
+        <div class="mm-filter-numeric-row">
+          <label>HP Max</label>
+          <select class="mm-filter-op" data-filter="healthMax" data-field="op">
+            <option value=">=" {{#if (eq filterState.healthMax.op ">=")}}selected{{/if}}>>=</option>
+            <option value="<=" {{#if (eq filterState.healthMax.op "<=")}}selected{{/if}}><=</option>
+            <option value="=" {{#if (eq filterState.healthMax.op "=")}}selected{{/if}}>=</option>
+          </select>
+          <input type="number" class="mm-filter-input" data-filter="healthMax" data-field="value"
+                 min="0" placeholder="--" value="{{filterState.healthMax.value}}">
+        </div>
+        <div class="mm-filter-numeric-row">
+          <label>FP Max</label>
+          <select class="mm-filter-op" data-filter="focusMax" data-field="op">
+            <option value=">=" {{#if (eq filterState.focusMax.op ">=")}}selected{{/if}}>>=</option>
+            <option value="<=" {{#if (eq filterState.focusMax.op "<=")}}selected{{/if}}><=</option>
+            <option value="=" {{#if (eq filterState.focusMax.op "=")}}selected{{/if}}>=</option>
+          </select>
+          <input type="number" class="mm-filter-input" data-filter="focusMax" data-field="value"
+                 min="0" placeholder="--" value="{{filterState.focusMax.value}}">
+        </div>
+        <div class="mm-filter-numeric-row">
+          <label>Karma</label>
+          <select class="mm-filter-op" data-filter="karmaMax" data-field="op">
+            <option value=">=" {{#if (eq filterState.karmaMax.op ">=")}}selected{{/if}}>>=</option>
+            <option value="<=" {{#if (eq filterState.karmaMax.op "<=")}}selected{{/if}}><=</option>
+            <option value="=" {{#if (eq filterState.karmaMax.op "=")}}selected{{/if}}>=</option>
+          </select>
+          <input type="number" class="mm-filter-input" data-filter="karmaMax" data-field="value"
+                 min="0" placeholder="--" value="{{filterState.karmaMax.value}}">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

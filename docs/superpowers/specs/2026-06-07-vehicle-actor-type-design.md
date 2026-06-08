@@ -27,7 +27,7 @@ A new `vehicleWeapon` item type supports vehicle-mounted weapons with their own 
 | `health.max` | Number | 0 | Maximum health (direct entry, not derived) |
 | `damageReduction` | Number | 0 | Health damage reduction |
 | `size` | String | "big" | One of: average, big, huge, gigantic, gargantuan |
-| `passengers` | String | "" | Passenger capacity as text ("1", "2-4", "1,800+") |
+| `passengers` | Number | 1 | Max passenger capacity (including operator) |
 | `crew` | Number | 0 | Crew required (0 = hidden on sheet) |
 | `safetyHarness` | Boolean | false | Halves crash damage multiplier |
 | `speed.run` | SchemaField | {value: 0, active: false} | Ground Speed |
@@ -91,12 +91,14 @@ Characters are added to a vehicle by drag/drop from the sidebar or scene. Each o
 
 ### Rules
 
+- Occupants are added by **drag/drop of actor documents** from the sidebar or scene.
 - Role is a dropdown, defaulting to **passenger** on drop.
 - Only **one pilot** allowed. Assigning a second pilot demotes the first to passenger.
+- The **`passengers` field** sets the maximum number of occupants. Dropping an actor when the vehicle is full is rejected with a UI warning.
 - The pilot's Melee and Agility defense scores are pulled live from the referenced actor and displayed as the vehicle's defense: "Vehicle Defense — Melee: X / Agility: Y".
 - If no pilot is assigned, vehicle defense displays "10 (unpiloted)".
 - Delete button to remove an occupant.
-- Occupant count shown in tab label: "Occupants (N)".
+- Occupant count shown in tab label: "Occupants (N / max)".
 
 ---
 
@@ -136,13 +138,14 @@ Tabbed layout (extends `ActorSheet`).
 
 - **Speed fields:** Value input + active toggle for each speed type (run, flight, climb, swim). Displayed with vehicle labels (Ground, Flight, Climb, Nautical).
 - **Size dropdown** (vehicleSizes config)
-- **Passengers** (text input) and **Crew** (number input, hidden when 0)
+- **Passengers** (number input — max capacity) and **Crew** (number input, hidden when 0)
 - **Crash Calculator:** Displays calculated crash damage multiplier based on highest active speed. Safety harness checkbox toggles halving.
 
 ### Tab 2: Occupants
 
 - List of occupant entries showing: actor image, actor name, role dropdown (passenger/gunner/pilot)
-- Drop zone for dragging actor documents
+- Drag/drop actors from sidebar or scene to add as occupants
+- Enforces max capacity from `passengers` field — rejects drops when full
 - Delete button per occupant
 - When a pilot is assigned, display their Melee and Agility defense scores inline
 - Tab label shows count: "Occupants (3)"

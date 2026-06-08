@@ -731,6 +731,27 @@ MARVEL_MULTIVERSE.movementTypes = {
   levitation: { label: "MARVEL_MULTIVERSE.Movement.Levitation", active: false },
 };
 
+MARVEL_MULTIVERSE.vehicleSizes = {
+  average: { label: "Average" },
+  big: { label: "Big" },
+  huge: { label: "Huge" },
+  gigantic: { label: "Gigantic" },
+  gargantuan: { label: "Gargantuan" },
+};
+
+MARVEL_MULTIVERSE.vehicleOccupantRoles = {
+  passenger: { label: "Passenger" },
+  gunner: { label: "Gunner" },
+  pilot: { label: "Pilot" },
+};
+
+MARVEL_MULTIVERSE.vehicleSpeedLabels = {
+  run: { label: "MARVEL_MULTIVERSE.Vehicle.GroundSpeed" },
+  flight: { label: "MARVEL_MULTIVERSE.Vehicle.FlightSpeed" },
+  climb: { label: "MARVEL_MULTIVERSE.Vehicle.ClimbSpeed" },
+  swim: { label: "MARVEL_MULTIVERSE.Vehicle.NauticalSpeed" },
+};
+
 MARVEL_MULTIVERSE.elements = {
   air: { label: "Air", fantasticEffect: "Target is knocked prone for one round.", statusId: "prone" },
   chemical: { label: "Chemical", fantasticEffect: "The target is corroding.", statusId: "bleeding" },
@@ -3522,6 +3543,22 @@ class MarvelMultiversePowerSet extends MarvelMultiverseItemBase {
   }
 }
 
+class MarvelMultiverseVehicleWeapon extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const requiredInteger = { required: true, nullable: false, integer: true };
+    const schema = super.defineSchema();
+
+    schema.agility = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
+    schema.range = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
+    schema.damageMultiplier = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
+    schema.automated = new fields.BooleanField({ required: true, initial: false });
+    schema.notes = new fields.StringField({ required: true, blank: true });
+
+    return schema;
+  }
+}
+
 class MarvelMultiversePower extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
@@ -4156,6 +4193,7 @@ Hooks.once("init", () => {
     tag: MarvelMultiverseTag,
     power: MarvelMultiversePower,
     powerSet: MarvelMultiversePowerSet,
+    vehicleWeapon: MarvelMultiverseVehicleWeapon,
   };
 
   game.settings.register("marvel-multiverse", "autoPopulateOrigin", {

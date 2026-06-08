@@ -1,0 +1,238 @@
+@use "../utils/variables" as *;
+@use "../utils/colors" as *;
+
+.mm-sidebar-filters {
+  margin: 0;
+  padding: 0;
+  color: $mm-text-color;
+  font-family: "Roboto", sans-serif;
+
+  .mm-filter-toggle {
+    width: 100%;
+    background: $mm-secondary-red;
+    color: #fff;
+    border: none;
+    padding: $mm-spacing-sm $mm-spacing-md;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: $mm-spacing-sm;
+    font-family: "Roboto", sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    transition: background $mm-transition-time-fast ease;
+
+    &:hover {
+      background: $mm-primary-red;
+    }
+
+    .mm-filter-count {
+      background: $mm-primary-red;
+      border-radius: 50%;
+      min-width: 18px;
+      height: 18px;
+      font-size: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+
+      &.hidden {
+        display: none;
+      }
+    }
+
+    .mm-filter-chevron {
+      margin-left: auto;
+    }
+  }
+
+  .mm-filter-panel {
+    display: none;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: $mm-input-bg;
+    border: 2px solid $mm-primary-red;
+    border-top: none;
+    padding: $mm-spacing-md;
+    color: $mm-text-color;
+  }
+
+  &.open .mm-filter-panel {
+    display: block;
+  }
+
+  .mm-filter-logic-row {
+    display: flex;
+    align-items: center;
+    gap: $mm-spacing-sm;
+    margin-bottom: $mm-spacing-md;
+    padding-bottom: $mm-spacing-sm;
+    border-bottom: 1px solid rgba($mm-primary-red, 0.3);
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      color: $mm-text-color;
+    }
+
+    select {
+      flex: 1;
+      font-size: 12px;
+      font-family: "Roboto", sans-serif;
+      padding: 2px $mm-spacing-xs;
+      color: $mm-text-color;
+      background: #fff;
+      border: 1px solid #999;
+    }
+
+    .mm-filter-clear {
+      font-size: 12px;
+      font-family: "Roboto", sans-serif;
+      padding: 2px $mm-spacing-md;
+      background: $mm-secondary-red;
+      color: #fff;
+      border: none;
+      border-radius: $mm-border-radius-sm;
+      cursor: pointer;
+      white-space: nowrap;
+
+      &:hover {
+        background: $mm-primary-red;
+      }
+    }
+  }
+
+  .mm-filter-group {
+    margin-bottom: $mm-spacing-sm;
+    padding-bottom: $mm-spacing-sm;
+    border-bottom: 1px solid rgba($mm-primary-red, 0.15);
+
+    &:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+  }
+
+  .mm-filter-group-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: $mm-secondary-red;
+    margin: 0 0 $mm-spacing-xs;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: $mm-spacing-xs;
+
+    i {
+      font-size: 9px;
+      transition: transform $mm-transition-time-fast ease;
+    }
+
+    &.collapsed i {
+      transform: rotate(-90deg);
+    }
+  }
+
+  .mm-filter-group-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $mm-spacing-xs;
+    align-items: center;
+
+    &.collapsed {
+      display: none;
+    }
+  }
+
+  .mm-filter-numeric-row {
+    display: flex;
+    gap: $mm-spacing-xs;
+    align-items: center;
+    width: 100%;
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 40px;
+      color: $mm-text-color;
+    }
+  }
+
+  .mm-filter-op {
+    width: 50px;
+    font-size: 12px;
+    font-family: "Roboto", sans-serif;
+    padding: 2px;
+    color: $mm-text-color;
+    background: #fff;
+    border: 1px solid #999;
+  }
+
+  .mm-filter-input {
+    width: 55px;
+    font-size: 12px;
+    font-family: "Roboto", sans-serif;
+    padding: 2px $mm-spacing-xs;
+    color: $mm-text-color;
+    background: #fff;
+    border: 1px solid #999;
+
+    &::placeholder {
+      color: #999;
+    }
+  }
+
+  .mm-filter-text {
+    width: 100%;
+    font-size: 12px;
+    font-family: "Roboto", sans-serif;
+    padding: 2px $mm-spacing-xs;
+    color: $mm-text-color;
+    background: #fff;
+    border: 1px solid #999;
+  }
+
+  .mm-filter-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $mm-spacing-sm $mm-spacing-md;
+  }
+
+  .mm-filter-checkbox-label {
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: $mm-spacing-md;
+    padding: 2px $mm-spacing-xs;
+    border-radius: $mm-border-radius-sm;
+    cursor: pointer;
+    white-space: nowrap;
+    color: $mm-text-color;
+    line-height: 20px;
+
+    &:hover {
+      background: rgba($mm-primary-red, 0.1);
+    }
+
+    input[type="checkbox"] {
+      appearance: auto;
+      -webkit-appearance: checkbox;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 14px !important;
+      height: 14px !important;
+      min-width: 14px;
+      min-height: 14px;
+      max-width: 14px;
+      max-height: 14px;
+      accent-color: $mm-secondary-red;
+      flex-shrink: 0;
+      position: relative;
+      top: -2px;
+    }
+  }
+}

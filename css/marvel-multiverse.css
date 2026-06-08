@@ -1730,3 +1730,215 @@
 .mm-custom-header .chat-control {
   display: none !important;
 }
+
+/* ====================== */
+/* Vehicle Sheet Styles   */
+/* ====================== */
+
+.mm-vehicle-portrait-block {
+  flex: 0 0 150px;
+  margin-right: 8px;
+}
+
+.mm-vehicle-portrait-block .mm-hero-portrait img {
+  border: 2px solid #4b4a44;
+  border-radius: 4px;
+  height: 150px;
+  object-fit: cover;
+  width: 150px;
+}
+
+.mm-vehicle-health {
+  position: relative;
+}
+
+.mm-vehicle-health-halfSpeed {
+  border-color: #c89e18;
+}
+
+.mm-vehicle-health-disabled {
+  border-color: #c05a2e;
+}
+
+.mm-vehicle-health-destroyed {
+  border-color: #8b0502;
+}
+
+.mm-vehicle-status-badge {
+  border-radius: 3px;
+  color: #fff;
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  margin-top: 2px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.mm-vehicle-status-badge.-warning {
+  background: #c89e18;
+}
+
+.mm-vehicle-status-badge.-danger {
+  background: #c05a2e;
+}
+
+.mm-vehicle-status-badge.-destroyed {
+  background: #8b0502;
+}
+
+.mm-vehicle-speeds {
+  flex-wrap: wrap;
+}
+
+.mm-vehicle-defense {
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.mm-vehicle-defense em {
+  color: #7a7971;
+}
+
+/* Vehicle Speed Toggle */
+.mm-vehicle-speed-active {
+  align-items: center;
+  display: flex;
+  font-size: 11px;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.mm-styled-input.-narrow {
+  max-width: 60px;
+}
+
+/* Vehicle Occupants */
+.mm-vehicle-occupants-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mm-vehicle-occupant {
+  align-items: center;
+  border-bottom: 1px solid #c9c7b8;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.mm-vehicle-occupant-img img {
+  border: 1px solid #4b4a44;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.mm-vehicle-occupant-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.mm-vehicle-occupant-role select {
+  font-size: 11px;
+  width: auto;
+}
+
+.mm-vehicle-occupant-defense {
+  color: #7a7971;
+  font-size: 11px;
+}
+
+.mm-vehicle-occupant-controls a {
+  color: #7a7971;
+  cursor: pointer;
+}
+
+.mm-vehicle-occupant-controls a:hover {
+  color: #8b0502;
+}
+
+.mm-vehicle-occupant-empty {
+  color: #c0b8b4;
+  font-style: italic;
+  padding: 12px;
+  text-align: center;
+}
+
+.mm-vehicle-occupants-drop-zone {
+  min-height: 60px;
+}
+
+/* Vehicle Weapons */
+.mm-vehicle-weapons-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mm-vehicle-weapon-header {
+  border-bottom: 2px solid #4b4a44;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.mm-vehicle-weapon {
+  align-items: center;
+  border-bottom: 1px solid #c9c7b8;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.mm-vehicle-weapon-name {
+  align-items: center;
+  display: flex;
+  flex: 2;
+  gap: 4px;
+}
+
+.mm-vehicle-weapon-name .item-edit {
+  cursor: pointer;
+}
+
+.mm-vehicle-weapon-name .item-edit:hover {
+  text-decoration: underline;
+}
+
+.mm-vehicle-weapon-stat {
+  flex: 0 0 40px;
+  text-align: center;
+}
+
+.mm-vehicle-weapon-controls {
+  flex: 0 0 24px;
+  text-align: center;
+}
+
+.mm-vehicle-weapon-controls a {
+  color: #7a7971;
+  cursor: pointer;
+}
+
+.mm-vehicle-weapon-controls a:hover {
+  color: #8b0502;
+}
+
+.mm-vehicle-weapon-notes {
+  color: #7a7971;
+  font-size: 11px;
+  padding: 0 0 4px 28px;
+}
+
+.mm-vehicle-add-weapon {
+  padding: 4px 0;
+}
+
+.mm-vehicle-add-weapon a {
+  color: #7a7971;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mm-vehicle-add-weapon a:hover {
+  color: #4b4a44;
+}

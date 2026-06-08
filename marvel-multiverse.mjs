@@ -1487,7 +1487,7 @@ class ChatMessageMarvel extends ChatMessage {
 
     const messageHeader = eventTarget.closest("li.chat-message");
     const flavorText =
-      messageHeader.querySelector("span.flavor-text").innerHTML;
+      messageHeader.querySelector("span.flavor-text")?.innerHTML ?? "";
 
     this._handleDamageChatButton(messageId, flavorText, fantastic);
   }
@@ -1499,8 +1499,8 @@ class ChatMessageMarvel extends ChatMessage {
    * @param {string} fantastic
    */
   async _handleDamageChatButton(messageId, flavorText, fantastic) {
-    const re = /\[ability\]\s(?<ability>\w*)/i;
-    const dmgTypeRe = /\[damageType\]\s(?<damageType>\w*)/i;
+    const re = /(?:\[ability\]|ability:)\s*(?<ability>\w+)/i;
+    const dmgTypeRe = /(?:\[damageType\]|damage\s*type:)\s*(?<damageType>\w+)/i;
     const ability = re.exec(flavorText)?.groups?.ability;
     if (!ability) return;
     const damageType = dmgTypeRe.exec(flavorText)?.groups?.damageType;

@@ -48,7 +48,8 @@
     "SheetLabels": {
       "Actor": "MarvelMultiverse Actor Sheet",
       "Item": "MarvelMultiverse Item Sheet",
-      "NPC": "MarvelMultiverse NPC Sheet"
+      "NPC": "MarvelMultiverse NPC Sheet",
+      "Vehicle": "MarvelMultiverse Vehicle Sheet"
     },
     "Item": {
       "Power": {
@@ -92,13 +93,38 @@
     "Formula": "Formula",
     "AbilityModifier": "Ability Modifier",
     "RollSituationalBonus": "Situational Bonus?",
-    "RollMode": "Roll Mode"
+    "RollMode": "Roll Mode",
+    "Vehicle": {
+      "GroundSpeed": "Ground Speed",
+      "FlightSpeed": "Flight Speed",
+      "ClimbSpeed": "Climb Speed",
+      "NauticalSpeed": "Nautical Speed",
+      "DamageReduction": "Damage Reduction",
+      "Passengers": "Passengers",
+      "Crew": "Crew",
+      "SafetyHarness": "Safety Harness",
+      "CrashDamage": "Crash Damage Multiplier",
+      "Occupants": "Occupants",
+      "Pilot": "Pilot",
+      "Gunner": "Gunner",
+      "Passenger": "Passenger",
+      "Unpiloted": "Unpiloted",
+      "VehicleDefense": "Vehicle Defense",
+      "Profile": "Profile",
+      "Notes": "Notes",
+      "Automated": "Automated",
+      "HalfSpeed": "Half Speed",
+      "Disabled": "Disabled",
+      "Destroyed": "Destroyed",
+      "VehicleFull": "Vehicle is at passenger capacity"
+    }
   },
   "InitiativeRoll": "Initiative Roll",
   "TYPES": {
     "Actor": {
       "character": "Character",
-      "npc": "NPC"
+      "npc": "NPC",
+      "vehicle": "Vehicle"
     },
     "Item": {
       "item": "Item",
@@ -108,7 +134,8 @@
       "origin": "Origin",
       "occupation": "Occupation",
       "power": "Power",
-      "powerSet": "Power Set"
+      "powerSet": "Power Set",
+      "vehicleWeapon": "Vehicle Weapon"
     }
   }
 }

@@ -1,4 +1,6 @@
 .claude/
+node_modules/
+marvel-multiverse-compiled.mjs
 packs/*/LOCK
 
 # Node

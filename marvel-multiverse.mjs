@@ -2362,6 +2362,205 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
   }
 }
 
+class MarvelMultiverseVehicleSheet extends ActorSheet {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      classes: ["marvel-multiverse", "sheet", "actor"],
+      width: 690,
+      height: 700,
+      tabs: [
+        {
+          navSelector: ".sheet-tabs",
+          contentSelector: ".sheet-body",
+          initial: "stats",
+        },
+      ],
+    });
+  }
+
+  get template() {
+    return "systems/marvel-multiverse/templates/actor/actor-vehicle-sheet.hbs";
+  }
+
+  async _render(...args) {
+    const scrollables = this.element.find(".mm-styled-container-body");
+    const scrollPositions = [];
+    scrollables.each(function() {
+      scrollPositions.push(this.scrollTop);
+    });
+    await super._render(...args);
+    const newScrollables = this.element.find(".mm-styled-container-body");
+    newScrollables.each(function(i) {
+      if (scrollPositions[i] !== undefined) this.scrollTop = scrollPositions[i];
+    });
+  }
+
+  getData() {
+    const context = super.getData();
+    const actorData = context.data;
+
+    context.system = actorData.system;
+    context.flags = actorData.flags;
+
+    this._prepareItems(context);
+
+    context.rollData = context.actor.getRollData();
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
+
+    context.vehicleSizeSelection = Object.fromEntries(
+      Object.keys(CONFIG.MARVEL_MULTIVERSE.vehicleSizes).map((key) => [
+        key,
+        CONFIG.MARVEL_MULTIVERSE.vehicleSizes[key].label,
+      ])
+    );
+
+    context.occupantRoles = Object.fromEntries(
+      Object.keys(CONFIG.MARVEL_MULTIVERSE.vehicleOccupantRoles).map((key) => [
+        key,
+        CONFIG.MARVEL_MULTIVERSE.vehicleOccupantRoles[key].label,
+      ])
+    );
+
+    context.occupants = context.system.occupants;
+    context.defense = context.system.defense;
+
+    context.effects = prepareActiveEffectCategories(
+      this.actor.allApplicableEffects()
+    );
+
+    return context;
+  }
+
+  _prepareItems(context) {
+    const powers = {};
+    const vehicleWeapons = [];
+
+    for (const i of context.items) {
+      i.img = i.img || Item.DEFAULT_ICON;
+
+      if (i.type === "power") {
+        const firstSet = i.system.powerSets?.length
+          ? i.system.powerSets[0].name
+          : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
+        if (!powers[firstSet]) powers[firstSet] = [];
+        powers[firstSet].push(i);
+      } else if (i.type === "vehicleWeapon") {
+        vehicleWeapons.push(i);
+      }
+    }
+
+    for (const set in powers) powers[set].sort((a, b) => a.name.localeCompare(b.name));
+    const sortedPowers = {};
+    for (const key of Object.keys(powers).sort()) sortedPowers[key] = powers[key];
+    context.powers = sortedPowers;
+    context.vehicleWeapons = vehicleWeapons;
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+
+    html.on("click", ".item-edit", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      const item = this.actor.items.get(li.data("itemId"));
+      item.sheet.render(true);
+    });
+
+    if (!this.isEditable) return;
+
+    html.on("click", ".item-create", this._onItemCreate.bind(this));
+
+    html.on("click", ".item-delete", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      this.actor.deleteEmbeddedDocuments("Item", [li.data("itemId")]);
+      li.slideUp(200, () => this.render(false));
+    });
+
+    html.on("click", ".effect-control", (ev) => {
+      const row = ev.currentTarget.closest("li");
+      const document =
+        row.dataset.parentId === this.actor.id
+          ? this.actor
+          : this.actor.items.get(row.dataset.parentId);
+      onManageActiveEffect(ev, document);
+    });
+
+    html.on("change", ".occupant-role-select", this._onOccupantRoleChange.bind(this));
+    html.on("click", ".occupant-delete", this._onOccupantDelete.bind(this));
+  }
+
+  async _onItemCreate(event) {
+    event.preventDefault();
+    const header = event.currentTarget;
+    const type = header.dataset.type;
+    const data = foundry.utils.duplicate(header.dataset);
+    const name = `New ${type.capitalize()}`;
+    const itemData = { name, type, system: data };
+    itemData.system.type = undefined;
+    return await Item.create(itemData, { parent: this.actor });
+  }
+
+  async _onOccupantRoleChange(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.dataset.index);
+    const newRole = event.currentTarget.value;
+    const occupants = foundry.utils.deepClone(this.actor.system.occupants);
+
+    if (newRole === "pilot") {
+      for (const occ of occupants) {
+        if (occ.role === "pilot") occ.role = "passenger";
+      }
+    }
+
+    occupants[index].role = newRole;
+    await this.actor.update({ "system.occupants": occupants });
+  }
+
+  async _onOccupantDelete(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.dataset.index);
+    const occupants = foundry.utils.deepClone(this.actor.system.occupants);
+    occupants.splice(index, 1);
+    await this.actor.update({ "system.occupants": occupants });
+  }
+
+  async _onDropActor(event, data) {
+    if (!this.isEditable) return;
+
+    const actor = await Actor.implementation.fromDropData(data);
+    if (!actor) return;
+
+    const occupants = foundry.utils.deepClone(this.actor.system.occupants);
+
+    if (occupants.length >= this.actor.system.passengers) {
+      ui.notifications.warn(game.i18n.localize("MARVEL_MULTIVERSE.Vehicle.VehicleFull"));
+      return;
+    }
+
+    if (occupants.some(o => o.actorId === actor.id)) {
+      ui.notifications.warn(`${actor.name} is already in this vehicle.`);
+      return;
+    }
+
+    occupants.push({
+      actorId: actor.id,
+      name: actor.name,
+      img: actor.img,
+      role: "passenger",
+    });
+
+    await this.actor.update({ "system.occupants": occupants });
+  }
+
+  async _onDropItemCreate(itemData) {
+    const allowedTypes = ["power", "vehicleWeapon"];
+    if (!allowedTypes.includes(itemData.type)) {
+      ui.notifications.warn(`Vehicles cannot hold ${itemData.type} items.`);
+      return;
+    }
+    return super._onDropItemCreate(itemData);
+  }
+}
+
 /**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
@@ -3024,6 +3223,9 @@ const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/item/parts/item-source.hbs",
     // Sidebar partials
     "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
+    // Vehicle partials
+    "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-occupants.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-weapons.hbs",
   ]);
 
 class MarvelMultiverseActorBase extends foundry.abstract
@@ -4344,6 +4546,11 @@ Hooks.once("init", () => {
     types: ["npc"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.NPC",
+  });
+  Actors.registerSheet("marvel-multiverse", MarvelMultiverseVehicleSheet, {
+    types: ["vehicle"],
+    makeDefault: true,
+    label: "MARVEL_MULTIVERSE.SheetLabels.Vehicle",
   });
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("marvel-multiverse", MarvelMultiverseItemSheet, {

@@ -13,7 +13,8 @@
   "jest": {
     "setupFiles": [
       "<rootDir>/module/__mocks__/setup.mjs",
-      "<rootDir>/module/__mocks__/foundry.mjs"
+      "<rootDir>/module/__mocks__/foundry.mjs",
+      "<rootDir>/module/__mocks__/marvel-multiverse.mjs"
     ],
     "transform": {},
     "verbose": false,

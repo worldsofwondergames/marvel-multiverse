@@ -1,6 +1,5 @@
 /* global jest */
 /* eslint-env jest */
-import { MARVEL_MULTIVERSE } from '../config.mjs';
 import { jest } from '@jest/globals';
 
 // Make jest work
@@ -16,7 +15,6 @@ class Item {
     constructor(data, context) {
         if (data) {
             Object.assign(this, data);
-            // Ensure system property is set
             if (data.system) {
                 this.system = data.system;
             }
@@ -28,7 +26,6 @@ class Item {
         this.parent = null;
     }
 
-    // Foundry uses 'id' as a getter for '_id'
     get id() {
         return this._id;
     }
@@ -37,9 +34,7 @@ class Item {
         this.prepareDerivedData();
     }
 
-    prepareDerivedData() {
-        // Override in subclass
-    }
+    prepareDerivedData() {}
 
     getRollData() {
         return { ...this.system };
@@ -69,15 +64,12 @@ global.actorUpdateMock = jest.fn((data) => {}).mockName('Actor.update');
 
 class Actor {
     constructor(data, options) {
-        // If test-specific data is passed in use it, otherwise use default data
         if (data) {
             Object.assign(this, data);
         } else {
             this._id = 1;
-            this.name = 'Anonymous Hero';
-            Object.assign(this, {
-                system: {},
-            });
+            this.name = 'Anonymous';
+            Object.assign(this, { system: {} });
         }
         this.items = [];
         this.prepareData();
@@ -91,13 +83,9 @@ class Actor {
         this.prepareDerivedData();
     }
 
-    prepareBaseData() {
-        // Override in subclass
-    }
+    prepareBaseData() {}
 
-    prepareDerivedData() {
-        // Override in subclass
-    }
+    prepareDerivedData() {}
 
     getRollData() {
         return this.system;
@@ -117,13 +105,10 @@ class ActorSheet {
             Object.assign(this, data);
         } else {
             this._id = 1;
-            this.name = 'Anonymous Hero';
-            Object.assign(this, {
-                system: {},
-            });
+            this.name = 'Anonymous';
+            Object.assign(this, { system: {} });
             this.getData = function () {
-                const response = {};
-                return response;
+                return {};
             };
             this._renderTemplate = async function (template, data) {};
         }
@@ -149,7 +134,6 @@ global.ItemSheet = ItemSheet;
  */
 class ChatMessage {
     constructor(data, options) {
-        // If test-specific data is passed in use it, otherwise use default data
         if (data) {
             this.data = data;
         }
@@ -170,7 +154,7 @@ global.ChatMessage = ChatMessage;
 /**
  * CONFIG
  */
-global.CONFIG = { MARVEL_MULTIVERSE };
+global.CONFIG = {};
 
 export class YesDialog {
     static confirm() {
@@ -185,16 +169,15 @@ export class NoDialog {
 }
 
 /**
- * Localization
+ * Localization — strips any system namespace prefix (e.g. "SYSTEM.Key" → "Key")
  */
 class Localization {
     localize(stringId) {
-        // Just strip the namespace off the string ID to simulate the lookup
-        return stringId.replace('MARVEL_MULTIVERSE.', '');
+        return stringId.replace(/^[^.]+\./, '');
     }
 
     format(stringId, data = {}) {
-        let returnString = stringId.replace('MARVEL_MULTIVERSE.', '');
+        let returnString = stringId.replace(/^[^.]+\./, '');
         for (const datum in data) {
             returnString += `,${datum}:${data[datum]}`;
         }
@@ -232,7 +215,7 @@ class ClientSettings {
 global.game.settings = new ClientSettings();
 
 /**
- * ChatMessage
+ * ChatMessage on CONFIG
  */
 global.CONFIG.ChatMessage = {
     documentClass: {
@@ -266,7 +249,6 @@ global.ui = {
  * Global helper functions
  */
 
-// Foundry's implementation of getType
 global.getType = function (token) {
     const tof = typeof token;
     if (tof === 'object') {
@@ -279,12 +261,10 @@ global.getType = function (token) {
     return tof;
 };
 
-// Foundry's implementation of setProperty
 global.setProperty = function (object, key, value) {
     let target = object;
     let changed = false;
 
-    // Convert the key to an object reference if it contains dot notation
     if (key.indexOf('.') !== -1) {
         const parts = key.split('.');
         key = parts.pop();
@@ -294,17 +274,14 @@ global.setProperty = function (object, key, value) {
         }, object);
     }
 
-    // Update the target
     if (target[key] !== value) {
         changed = true;
         target[key] = value;
     }
 
-    // Return changed status
     return changed;
 };
 
-// Foundry's implementation of expandObject
 global.expandObject = function (obj, _d = 0) {
     const expanded = {};
     if (_d > 10) throw new Error('Maximum depth exceeded');
@@ -315,12 +292,10 @@ global.expandObject = function (obj, _d = 0) {
     return expanded;
 };
 
-// Foundry's implementation of duplicate
 global.duplicate = function (original) {
     return JSON.parse(JSON.stringify(original));
 };
 
-// Foundry's implementation of mergeObject
 global.mergeObject = function (
     original,
     other = {},
@@ -340,79 +315,56 @@ global.mergeObject = function (
     }
     const depth = _d + 1;
 
-    // Maybe copy the original data at depth 0
     if (!inplace && _d === 0) original = global.duplicate(original);
 
-    // Enforce object expansion at depth 0
     if (_d === 0 && Object.keys(original).some((k) => /\./.test(k)))
         original = global.expandObject(original);
     if (_d === 0 && Object.keys(other).some((k) => /\./.test(k)))
         other = global.expandObject(other);
 
-    // Iterate over the other object
     for (let [k, v] of Object.entries(other)) {
         const tv = global.getType(v);
 
-        // Prepare to delete
         let toDelete = false;
         if (k.startsWith('-=')) {
             k = k.slice(2);
             toDelete = v === null;
         }
 
-        // Get the existing object
         let x = original[k];
         let has = Object.prototype.hasOwnProperty.call(original, k);
         let tx = global.getType(x);
 
-        // Ensure that inner objects exist
         if (!has && tv === 'Object') {
             x = original[k] = {};
             has = true;
             tx = 'Object';
         }
 
-        // Case 1 - Key exists
         if (has) {
-            // 1.1 - Recursively merge an inner object
             if (tv === 'Object' && tx === 'Object' && recursive) {
                 global.mergeObject(
                     x,
                     v,
-                    {
-                        insertKeys,
-                        insertValues,
-                        overwrite,
-                        inplace: true,
-                        enforceTypes,
-                    },
+                    { insertKeys, insertValues, overwrite, inplace: true, enforceTypes },
                     depth
                 );
-
-                // 1.2 - Remove an existing key
             } else if (toDelete) {
                 delete original[k];
-
-                // 1.3 - Overwrite existing value
             } else if (overwrite) {
                 if (tx && tv !== tx && enforceTypes) {
                     throw new Error('Mismatched data types encountered during object merge.');
                 }
                 original[k] = v;
-
-                // 1.4 - Insert new value
             } else if (x === undefined && insertValues) {
                 original[k] = v;
             }
-
-            // Case 2 - Key does not exist
         } else if (!toDelete) {
             const canInsert = (depth === 1 && insertKeys) || (depth > 1 && insertValues);
             if (canInsert) original[k] = v;
         }
     }
 
-    // Return the object for use
     return original;
 };
 

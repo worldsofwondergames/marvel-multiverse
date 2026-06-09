@@ -16,6 +16,10 @@
       "<rootDir>/module/__mocks__/foundry.mjs",
       "<rootDir>/module/__mocks__/marvel-multiverse.mjs"
     ],
+    "testMatch": [
+      "**/__tests__/**/*.test.mjs",
+      "**/__tests__/**/*.test.js"
+    ],
     "transform": {},
     "verbose": false,
     "testPathIgnorePatterns": [

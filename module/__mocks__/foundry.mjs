@@ -64,6 +64,7 @@ global.actorUpdateMock = jest.fn((data) => {}).mockName('Actor.update');
 
 class Actor {
     constructor(data, options) {
+        this.flags = {};
         if (data) {
             Object.assign(this, data);
         } else {
@@ -128,6 +129,36 @@ class ItemSheet {
 }
 global.itemSheet = new ItemSheet();
 global.ItemSheet = ItemSheet;
+
+/**
+ * Roll
+ */
+class Roll {
+    constructor(formula, data, options = {}) {
+        this.formula = formula;
+        this.data = data;
+        this.options = options;
+        this.terms = [];
+        this.dice = [];
+        this._evaluated = false;
+    }
+
+    static fromTerms(terms) {
+        const roll = new this('', {}, {});
+        roll.terms = terms;
+        return roll;
+    }
+
+    async evaluate() {
+        this._evaluated = true;
+        return this;
+    }
+
+    async toMessage(messageData = {}, options = {}) {
+        return messageData;
+    }
+}
+global.Roll = Roll;
 
 /**
  * ChatMessage
@@ -373,7 +404,35 @@ global.renderTemplate = async function (template, data) {};
 /**
  * Foundry namespaced APIs (V13+)
  */
+
+class Die {
+    constructor(termData) {
+        this.faces = termData?.faces || 6;
+        this.number = termData?.number || 1;
+        this.results = [];
+    }
+
+    roll({ minimize = false, maximize = false } = {}) {
+        const result = maximize ? this.faces : minimize ? 1 : Math.ceil(Math.random() * this.faces);
+        const entry = { result, active: true };
+        this.results.push(entry);
+        return entry;
+    }
+
+    get total() {
+        return this.results
+            .filter((r) => !r.discarded)
+            .reduce((sum, r) => sum + (r.count !== undefined ? r.count : r.result), 0);
+    }
+}
+
 global.foundry = {
+    utils: {
+        deepClone: (obj) => JSON.parse(JSON.stringify(obj)),
+    },
+    dice: {
+        terms: { Die },
+    },
     applications: {
         handlebars: {
             renderTemplate: async function (template, data) {},

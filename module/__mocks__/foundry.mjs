@@ -157,6 +157,14 @@ class Roll {
     async toMessage(messageData = {}, options = {}) {
         return messageData;
     }
+
+    clone() {
+        const roll = new this.constructor(this.formula, this.data, { ...this.options });
+        roll.terms = [...this.terms];
+        roll.dice = [...this.dice];
+        roll._evaluated = this._evaluated;
+        return roll;
+    }
 }
 global.Roll = Roll;
 
@@ -495,3 +503,14 @@ global.foundry = {
  * Handlebars
  */
 global.loadTemplates = jest.fn((templateList) => {}).mockName('loadTemplates');
+
+/**
+ * Hooks
+ */
+global.hooksCallAllMock = jest.fn().mockName('Hooks.callAll');
+global.Hooks = {
+    callAll: global.hooksCallAllMock,
+    on: jest.fn(),
+    once: jest.fn(),
+    off: jest.fn(),
+};

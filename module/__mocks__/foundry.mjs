@@ -405,6 +405,43 @@ global.renderTemplate = async function (template, data) {};
  * Foundry namespaced APIs (V13+)
  */
 
+class TypeDataModel {
+    constructor(data = {}, options = {}) {
+        Object.assign(this, data);
+    }
+}
+
+class SchemaField {
+    constructor(fields, options = {}) {}
+}
+class NumberField {
+    constructor(options = {}) {}
+}
+class BooleanField {
+    constructor(options = {}) {}
+}
+class StringField {
+    constructor(options = {}) {}
+}
+class ArrayField {
+    constructor(field, options = {}) {}
+}
+class ObjectField {
+    constructor(options = {}) {}
+}
+
+class PoolTerm {
+    constructor(termData = {}) {}
+}
+class OperatorTerm {
+    constructor(termData = {}) {}
+}
+class NumericTerm {
+    constructor(termData = {}) {
+        this.number = termData.number ?? 0;
+    }
+}
+
 class Die {
     constructor(termData) {
         this.faces = termData?.faces || 6;
@@ -427,11 +464,25 @@ class Die {
 }
 
 global.foundry = {
+    abstract: {
+        TypeDataModel,
+    },
     utils: {
         deepClone: (obj) => JSON.parse(JSON.stringify(obj)),
+        setProperty: global.setProperty,
+    },
+    data: {
+        fields: {
+            SchemaField,
+            NumberField,
+            BooleanField,
+            StringField,
+            ArrayField,
+            ObjectField,
+        },
     },
     dice: {
-        terms: { Die },
+        terms: { Die, PoolTerm, OperatorTerm, NumericTerm },
     },
     applications: {
         handlebars: {

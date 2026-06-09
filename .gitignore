@@ -7,3 +7,5 @@ npm-debug.log
 
 # Stryker mutation testing reports
 reports/
+
+docs/superpowers

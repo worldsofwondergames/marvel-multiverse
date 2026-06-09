@@ -60,6 +60,13 @@ describe('MarvelMultiverseActor — getRollData', () => {
         expect(() => actor.getRollData()).not.toThrow();
         expect(actor.getRollData().rank).toBe(1);
     });
+
+    test('does not throw when abilities is null', () => {
+        const actor = makeActor({
+            system: { abilities: null, attributes: { rank: { value: 1 }, init: { value: 0 } } },
+        });
+        expect(() => actor.getRollData()).not.toThrow();
+    });
 });
 
 describe('MarvelMultiverseActor — prepareDerivedData', () => {
@@ -121,5 +128,12 @@ describe('MarvelMultiverseActor — getInitiativeRoll', () => {
         const clone = actor.getInitiativeRoll();
         clone.formula = 'mutated';
         expect(cached.formula).toBe('{1d6,1dm,1d6}');
+    });
+
+    test('returns cached formula when _cachedInitiativeRoll has a unique formula', () => {
+        const actor = makeActor();
+        const cached = new MarvelMultiverseRoll('unique-cached-formula', {}, { configured: true });
+        actor._cachedInitiativeRoll = cached;
+        expect(actor.getInitiativeRoll().formula).toBe('unique-cached-formula');
     });
 });

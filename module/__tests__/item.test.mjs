@@ -90,14 +90,14 @@ describe('MarvelMultiverseItem — getRollData', () => {
 });
 
 describe('MarvelMultiverseItem — roll', () => {
-    let createSpy;
+    let createSpy, toMessageSpy;
 
     beforeEach(() => {
         jest.clearAllMocks();
         createSpy = jest.spyOn(ChatMessage, 'create').mockImplementation(() => {});
         // item.roll() calls roll.toMessage() without await; mock it to prevent
         // the unhandled rejection from isFantastic on a roll with empty dice.
-        jest.spyOn(MarvelMultiverseRoll.prototype, 'toMessage').mockResolvedValue({});
+        toMessageSpy = jest.spyOn(MarvelMultiverseRoll.prototype, 'toMessage').mockResolvedValue({});
     });
 
     afterEach(() => jest.restoreAllMocks());
@@ -178,5 +178,20 @@ describe('MarvelMultiverseItem — roll', () => {
         await item.roll();
         const [args] = createSpy.mock.calls[0];
         expect(args.content).toContain('<div></div>');
+    });
+
+    test('toMessage receives modLabel containing [ability] and the ability key', async () => {
+        const item = makeItem();
+        await item.roll();
+        const [messageData] = toMessageSpy.mock.calls[0];
+        expect(messageData.flavor).toContain('[ability]');
+        expect(messageData.flavor).toContain('mle');
+    });
+
+    test('toMessage second argument contains itemId equal to item._id', async () => {
+        const item = makeItem({ _id: 'item-test-xyz' });
+        await item.roll();
+        const [, options] = toMessageSpy.mock.calls[0];
+        expect(options.itemId).toBe('item-test-xyz');
     });
 });

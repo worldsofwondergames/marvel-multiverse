@@ -1,4 +1,5 @@
 /* eslint-env jest */
+import { jest } from '@jest/globals';
 import MarvelMultiverseActorBase from '../data/actor-base.mjs';
 
 function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {} } = {}) {
@@ -238,6 +239,24 @@ describe('Rulebook: Knockback', () => {
 
     test('Knockback: DM 1 → 5 spaces', () => {
         expect(1 * 5).toBe(5);
+    });
+});
+
+describe('Rules: Label Localization Fallback', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    test('ability label falls back to key when localize returns null', () => {
+        jest.spyOn(game.i18n, 'localize').mockImplementation(() => null);
+        const actor = makeActor({ abilities: { mle: 3 } });
+        expect(actor.abilities.mle.label).toBe('mle');
+        expect(actor.abilities.agl.label).toBe('agl');
+    });
+
+    test('movement label falls back to key when localize returns null', () => {
+        jest.spyOn(game.i18n, 'localize').mockImplementation(() => null);
+        const actor = makeActor({ run: 5 });
+        expect(actor.movement.run.label).toBe('run');
+        expect(actor.movement.flight.label).toBe('flight');
     });
 });
 

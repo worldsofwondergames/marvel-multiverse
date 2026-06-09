@@ -21,6 +21,42 @@ function makeFormHtml({ bonus = '', ability = null } = {}) {
     return [{ querySelector: () => ({ bonus: { value: bonus }, ability: ability ? { value: ability } : undefined }) }];
 }
 
+describe('MarvelMultiverseRoll — constructor', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    test('calls configureModifiers when options.configured is not set', () => {
+        const spy = jest.spyOn(MarvelMultiverseRoll.prototype, 'configureModifiers');
+        new MarvelMultiverseRoll('', {}, {});
+        expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    test('skips configureModifiers when options.configured is true', () => {
+        const spy = jest.spyOn(MarvelMultiverseRoll.prototype, 'configureModifiers');
+        new MarvelMultiverseRoll('', {}, { configured: true });
+        expect(spy).not.toHaveBeenCalled();
+    });
+
+    test('skips configureModifiers when options.configured is a truthy value', () => {
+        const spy = jest.spyOn(MarvelMultiverseRoll.prototype, 'configureModifiers');
+        new MarvelMultiverseRoll('', {}, { configured: 1 });
+        expect(spy).not.toHaveBeenCalled();
+    });
+});
+
+describe('MarvelMultiverseRoll — static template constants', () => {
+    test('EVALUATION_TEMPLATE contains roll-dialog.hbs', () => {
+        expect(MarvelMultiverseRoll.EVALUATION_TEMPLATE).toContain('roll-dialog.hbs');
+    });
+
+    test('DAMAGE_EVALUATION_TEMPLATE contains damage-roll-dialog.hbs', () => {
+        expect(MarvelMultiverseRoll.DAMAGE_EVALUATION_TEMPLATE).toContain('damage-roll-dialog.hbs');
+    });
+
+    test('CHAT_TEMPLATE contains roll.hbs', () => {
+        expect(MarvelMultiverseRoll.CHAT_TEMPLATE).toContain('roll.hbs');
+    });
+});
+
 describe('MarvelMultiverseRoll — EDGE_MODE constants', () => {
     test('NORMAL is 0', () => expect(MarvelMultiverseRoll.EDGE_MODE.NORMAL).toBe(0));
     test('EDGE is 1',   () => expect(MarvelMultiverseRoll.EDGE_MODE.EDGE).toBe(1));
@@ -308,6 +344,22 @@ describe('MarvelMultiverseRoll — toMessage', () => {
         // This mainly confirms no throw when rollMode is set.
         expect(result).toBeDefined();
     });
+
+    test('rollMode falls back to this.options.rollMode when absent from call options', async () => {
+        const roll = makeRoll();
+        roll.options.rollMode = 'blindroll';
+        const superSpy = jest.spyOn(Roll.prototype, 'toMessage');
+        await roll.toMessage({ flavor: '' }); // no rollMode in call options
+        const [, callOptions] = superSpy.mock.calls[0];
+        expect(callOptions.rollMode).toBe('blindroll');
+        jest.restoreAllMocks();
+    });
+
+    test('flags object is not created when itemId is absent', async () => {
+        const roll = makeRoll();
+        const result = await roll.toMessage({ flavor: '' });
+        expect(result.flags).toBeUndefined();
+    });
 });
 
 describe('MarvelMultiverseRoll — fromRoll', () => {
@@ -404,5 +456,25 @@ describe('MarvelMultiverseRoll — _onDialogSubmit', () => {
         roll._onDialogSubmit(makeFormHtml({ ability: 'mle' }));
         expect(roll.options.flavor).toContain('Punch');
         expect(roll.options.flavor).toContain('(');
+    });
+
+    test('flavor label uses empty string when ability has no .label property', () => {
+        // CONFIG.MARVEL_MULTIVERSE.abilities.mle is a plain string, so .label is undefined
+        // undefined ?? "" = "" (not "undefined")
+        const roll = new MarvelMultiverseRoll('', { abilities: { mle: { value: 5 } } }, { configured: true, flavor: 'Punch' });
+        roll.terms = [];
+        roll.dice = makeRoll().dice;
+        roll._onDialogSubmit(makeFormHtml({ ability: 'mle' }));
+        expect(roll.options.flavor).toMatch(/\(\)$/);
+    });
+
+    test('@abilityCheckBonus with bonus returns Roll.terms, not NumericTerm fallback', () => {
+        const roll = new MarvelMultiverseRoll('', { abilities: { ego: { value: 3, bonuses: { check: '2' } } } }, { configured: true, flavor: '' });
+        roll.terms = [{ term: '@abilityCheckBonus' }];
+        roll.dice = makeRoll().dice;
+        roll._onDialogSubmit(makeFormHtml({ ability: 'ego' }));
+        // Mock Roll('2', {}).terms = [], so @abilityCheckBonus term is replaced with [] (nothing)
+        // If mutation if(false): returns NumericTerm, so terms.length would be 1
+        expect(roll.terms).toHaveLength(0);
     });
 });

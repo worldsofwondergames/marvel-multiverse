@@ -1,4 +1,5 @@
 /* eslint-env jest */
+import { jest } from '@jest/globals';
 import MarvelMultiverseNPC from '../data/npc.mjs';
 
 function makeNPC({ rank = 1, abilities = {}, run = 5, movementOverrides = {} } = {}) {
@@ -138,5 +139,23 @@ describe('MarvelMultiverseNPC — Movement Calc Modes', () => {
     test('"rank" uses 1 when value is 0', () => {
         const npc = makeNPC({ rank: 4, movementOverrides: { flight: { value: 0, noncom: 0, active: true, calc: 'rank', label: '' } } });
         expect(npc.movement.flight.value).toBe(4);
+    });
+});
+
+describe('MarvelMultiverseNPC — Label Localization Fallback', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    test('ability label falls back to key when localize returns null', () => {
+        jest.spyOn(game.i18n, 'localize').mockImplementation(() => null);
+        const npc = makeNPC({ abilities: { mle: 3 } });
+        expect(npc.abilities.mle.label).toBe('mle');
+        expect(npc.abilities.log.label).toBe('log');
+    });
+
+    test('movement label falls back to key when localize returns null', () => {
+        jest.spyOn(game.i18n, 'localize').mockImplementation(() => null);
+        const npc = makeNPC({ run: 5 });
+        expect(npc.movement.run.label).toBe('run');
+        expect(npc.movement.swim.label).toBe('swim');
     });
 });

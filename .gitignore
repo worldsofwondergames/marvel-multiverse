@@ -1,2 +1,6 @@
 .claude/
 packs/*/LOCK
+
+# Node
+node_modules/
+npm-debug.log

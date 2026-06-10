@@ -1,2 +1,11 @@
 .claude/
 packs/*/LOCK
+
+# Node
+node_modules/
+npm-debug.log
+
+# Stryker mutation testing reports
+reports/
+
+docs/superpowers

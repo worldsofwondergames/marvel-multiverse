@@ -53,6 +53,10 @@ export class MarvelMultiverseItem extends Item {
     label = this.system.damageType
       ? `${label}<br/>damagetype: ${this.system.damageType}`
       : label;
+    label =
+      this.system.isElemental && this.system.element
+        ? `${label}<br/>element: ${this.system.element}`
+        : label;
 
     console.log(
       `damageType: ${this.system.damageType} item.roll() : label: ${label}`

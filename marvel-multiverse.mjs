@@ -4133,6 +4133,20 @@ Hooks.once("init", () => {
   CONFIG.Dice.rolls.push(MarvelMultiverseRoll);
   CONFIG.Dice.terms.m = MarvelDie;
 
+  // Register elemental status effects so toggleStatusEffect() resolves them
+  CONFIG.statusEffects = CONFIG.statusEffects.concat(
+    Object.entries(MARVEL_MULTIVERSE.elements)
+      .filter(([, el]) => el.statusId)
+      .map(([, el]) => ({
+        id: el.statusId,
+        name: el.statusId.charAt(0).toUpperCase() + el.statusId.slice(1),
+        img: `systems/marvel-multiverse/icons/statuses/${el.statusId}.svg`,
+      }))
+      .filter(
+        (entry, idx, arr) => arr.findIndex((e) => e.id === entry.id) === idx
+      )
+  );
+
   // Add fonts
   _configureFonts();
 

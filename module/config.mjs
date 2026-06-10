@@ -151,35 +151,72 @@ MARVEL_MULTIVERSE.elements = {
   air: {
     label: "Air",
     fantasticEffect: "Target is knocked prone for one round.",
+    statusId: "prone",
   },
   earth: {
     label: "Earth",
     fantasticEffect: "Target moves at half speed for one round.",
+    statusId: "exhaustion",
   },
   electricity: {
     label: "Electricity",
     fantasticEffect: "Stuns target for one round.",
+    statusId: "stunned",
   },
-  energy: { label: "Energy", fantasticEffect: "Blinds target for one round." },
-  fire: { label: "Fire", fantasticEffect: "Sets target ablaze." },
+  energy: {
+    label: "Energy",
+    fantasticEffect: "Blinds target for one round.",
+    statusId: "blinded",
+  },
+  fire: {
+    label: "Fire",
+    fantasticEffect: "Sets target ablaze.",
+    statusId: "bleeding",
+  },
   force: {
     label: "Force",
     fantasticEffect: "Target has trouble on all actions for one round.",
+    statusId: "encumbered",
   },
   hellfire: {
     label: "Hellfire",
     fantasticEffect: "Splits damage equally between Health and Focus.",
   },
-  ice: { label: "Ice", fantasticEffect: "Paralyzes target for one round." },
-  iron: { label: "Iron", fantasticEffect: "Pins target for one round." },
-  sound: { label: "Sound", fantasticEffect: "Deafens target for one round." },
+  ice: {
+    label: "Ice",
+    fantasticEffect: "Paralyzes target for one round.",
+    statusId: "paralyzed",
+  },
+  iron: {
+    label: "Iron",
+    fantasticEffect: "Pins target for one round.",
+    statusId: "restrained",
+  },
+  sound: {
+    label: "Sound",
+    fantasticEffect: "Deafens target for one round.",
+    statusId: "deafened",
+  },
   water: {
     label: "Water",
     fantasticEffect: "Surprises target until the end of the next round.",
+    statusId: "surprised",
   },
-  toxin: { label: "Toxin", fantasticEffect: "The target is poisoned." },
-  chemical: { label: "Chemical", fantasticEffect: "The target is corroding." },
-  swarm: { label: "Swarm", fantasticEffect: "The target is frightened." },
+  toxin: {
+    label: "Toxin",
+    fantasticEffect: "The target is poisoned.",
+    statusId: "poisoned",
+  },
+  chemical: {
+    label: "Chemical",
+    fantasticEffect: "The target is corroding.",
+    statusId: "bleeding",
+  },
+  swarm: {
+    label: "Swarm",
+    fantasticEffect: "The target is frightened.",
+    statusId: "frightened",
+  },
 };
 
 MARVEL_MULTIVERSE.teamManeuvers = [

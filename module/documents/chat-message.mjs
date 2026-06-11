@@ -322,7 +322,21 @@ export class ChatMessageMarvel extends ChatMessage {
         } &#42; damage multiplier: ${damageMultiplier} + ${ability} score ${abilityValue} of damage.</p>`
       );
     }
-    // const content = `<p>Delivers <b>${dmg}</b> points re: MarvelDie: ${marvelDie.total} &#42; damage multiplier: &#40; ${actor.system.abilities[abilityAbr].damageMultiplier} - damageReduction: ${damageReduction} &#61; ${damageMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
+    if (fantastic && elementMatch) {
+      const elementConfig = CONFIG.MARVEL_MULTIVERSE.elements[elementMatch];
+      if (elementConfig) {
+        damageContent.push(
+          `<p><b>Fantastic Elemental Effect (${elementConfig.label}):</b> ${elementConfig.fantasticEffect}</p>`
+        );
+        if (elementConfig.statusId) {
+          for (const target of targets) {
+            await target.toggleStatusEffect(elementConfig.statusId, {
+              active: true,
+            });
+          }
+        }
+      }
+    }
 
     if (fantastic && elementMatch) {
       const elementConfig = MARVEL_MULTIVERSE.elements[elementMatch];

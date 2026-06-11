@@ -2,6 +2,7 @@ import {
   onManageActiveEffect,
   prepareActiveEffectCategories,
 } from "../helpers/effects.mjs";
+import { buildRollFlavor } from "../helpers/roll-flavor.mjs";
 
 /**
  * Extend the basic ActorSheet with some very simple modifications
@@ -391,12 +392,17 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
     if (dataset.formula) {
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
-      let label = `ability: ${ability}<br/>${item?.type}: ${item?.name}`;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
-
-      label = dataset.damagetype
-        ? `${label}<br/>damagetype: ${dataset.damagetype}`
-        : label;
+      const tokenImg = this.actor.prototypeToken?.texture?.src || this.actor.img;
+      const elementKey = item?.system?.isElemental ? item?.system?.element : null;
+      const label = buildRollFlavor({
+        tokenImg,
+        actorName: this.actor.name,
+        powerName: item?.name,
+        ability: ability,
+        damageType: dataset.damagetype,
+        element: elementKey,
+      });
 
       const speaker = ChatMessage.getSpeaker({ actor: this.actor });
       const rollMode = game.settings.get("core", "rollMode");

@@ -1,3 +1,5 @@
+import { buildRollFlavor } from "../helpers/roll-flavor.mjs";
+
 /**
  * Extend the basic Item with some very simple modifications.
  * @extends {Item}
@@ -47,28 +49,25 @@ export class MarvelMultiverseItem extends Item {
     // Initialize chat data.
     const speaker = ChatMessage.getSpeaker({ actor: this.actor });
     const rollMode = game.settings.get("core", "rollMode");
-    let label = `ability: ${
-      CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability]
-    }<br/>${this.type}: ${this.name}`;
-    label = this.system.damageType
-      ? `${label}<br/>damagetype: ${this.system.damageType}`
-      : label;
-    label =
-      this.system.isElemental && this.system.element
-        ? `${label}<br/>element: ${this.system.element}`
-        : label;
-
-    console.log(
-      `damageType: ${this.system.damageType} item.roll() : label: ${label}`
-    );
+    const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
+    const tokenImg = this.actor?.prototypeToken?.texture?.src || this.actor?.img;
+    const elementKey = this.system.isElemental ? this.system.element : null;
+    const label = buildRollFlavor({
+      tokenImg,
+      actorName: this.actor?.name,
+      powerName: this.name,
+      ability: abilityName ?? this.system.ability,
+      damageType: this.system.damageType,
+      element: elementKey,
+    });
 
     ChatMessage.create({
       speaker: speaker,
       rollMode: rollMode,
       flavor: label,
-      content: `<div>${this.system.description}</div><div>${
-        this.system.effect ? this.system.effect : ""
-      }</div>`,
+      content: `<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>${
+        this.system.effect ? `<div style="padding:0 8px;" class="mm-chat-effect">${this.system.effect}</div>` : ""
+      }`,
     });
 
     if (this.system.formula && this.system.ability) {
@@ -79,16 +78,12 @@ export class MarvelMultiverseItem extends Item {
         rollData.formula,
         rollData.actor
       );
-      // If you need to store the value first, uncomment the next line.
-      // const result = await roll.evaluate();
-      const modLabel = `${label}, [ability] ${this.system.ability}`;
-
       roll.toMessage(
         {
           title: this.name,
           speaker: speaker,
           rollMode: rollMode,
-          flavor: modLabel,
+          flavor: label,
         },
         { rollMode: rollMode, itemId: this._id }
       );

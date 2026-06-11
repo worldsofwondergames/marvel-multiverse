@@ -260,12 +260,13 @@ export class ChatMessageMarvel extends ChatMessage {
    * @param {string} fantastic
    */
   async _handleDamageChatButton(messageId, flavorText, fantastic) {
-    const re = /ability:\s(?<ability>\w*)/;
-    const dmgTypeRe = /damagetype:\s(?<damageType>\w*)/;
-    const elementRe = /element:\s(?<element>\w*)/;
-    const ability = re.exec(flavorText).groups.ability;
+    const re = /(?:\[ability\]|ability:)\s*(?<ability>\w+)/i;
+    const dmgTypeRe = /(?:\[damageType\]|damage\s*type:)\s*(?<damageType>\w+)/i;
+    const elementRe = /(?:\[element\]|element:)\s*(?<element>\w+)/i;
+    const ability = re.exec(flavorText)?.groups?.ability;
+    if (!ability) return;
     const damageType = dmgTypeRe.exec(flavorText)?.groups?.damageType;
-    const element = elementRe.exec(flavorText)?.groups?.element;
+    const elementMatch = elementRe.exec(flavorText)?.groups?.element;
     const abilityAbr = MARVEL_MULTIVERSE.damageAbilityAbr[ability] ?? ability;
     const chatMessage = game.messages.get(messageId);
     const sixOneSixPool = chatMessage.rolls[0].terms[0];
@@ -321,8 +322,8 @@ export class ChatMessageMarvel extends ChatMessage {
         } &#42; damage multiplier: ${damageMultiplier} + ${ability} score ${abilityValue} of damage.</p>`
       );
     }
-    if (fantastic && element) {
-      const elementConfig = CONFIG.MARVEL_MULTIVERSE.elements[element];
+    if (fantastic && elementMatch) {
+      const elementConfig = CONFIG.MARVEL_MULTIVERSE.elements[elementMatch];
       if (elementConfig) {
         damageContent.push(
           `<p><b>Fantastic Elemental Effect (${elementConfig.label}):</b> ${elementConfig.fantasticEffect}</p>`

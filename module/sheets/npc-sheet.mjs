@@ -2,6 +2,7 @@ import {
   onManageActiveEffect,
   prepareActiveEffectCategories,
 } from "../helpers/effects.mjs";
+import { buildRollFlavor } from "../helpers/roll-flavor.mjs";
 
 /**
  * Extend the basic ActorSheet with some very simple modifications
@@ -395,13 +396,21 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
 
     // Handle rolls that supply the formula directly.
     if (dataset.formula) {
+      const npcItemId = element.closest(".item")?.dataset?.itemId;
+      const npcItem = npcItemId ? this.actor.items.get(npcItemId) : null;
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
-      let label = `[ability] ${ability}`;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
-      label = dataset.damageType
-        ? `${label} [damageType] ${dataset.damageType}`
-        : label;
+      const tokenImg = this.actor.prototypeToken?.texture?.src || this.actor.img;
+      const npcElementKey = npcItem?.system?.isElemental ? npcItem?.system?.element : null;
+      const label = buildRollFlavor({
+        tokenImg,
+        actorName: this.actor.name,
+        powerName: npcItem?.name,
+        ability: ability,
+        damageType: dataset.damageType,
+        element: npcElementKey,
+      });
 
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
         dataset.formula,

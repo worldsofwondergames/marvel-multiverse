@@ -254,6 +254,58 @@ export class ChatMessageMarvel extends ChatMessage {
   }
 
   /**
+   * Calculate the damage an attack deals, following the core rulebook's
+   * stacking rules (see mm-rpg-combat.md).
+   *
+   * - Damage multiplier bonuses do not stack; the largest one applies
+   *   ("Stacking Damage Multipliers").
+   * - Damage reduction does not stack; the largest one applies
+   *   ("Damage Reduction").
+   * - Damage reduction lowers the damage multiplier. If the multiplier is
+   *   reduced to less than 1, the attack does no damage at all — not even the
+   *   attacker's ability score bonus.
+   * - A Fantastic success doubles the total damage ("Fantastic Damage").
+   *
+   * @param {object} opts
+   * @param {number} opts.marvelDieTotal           Marvel die total (an M counts as 6).
+   * @param {number} opts.baseMultiplier           The ability's damage multiplier.
+   * @param {number[]} [opts.multiplierBonuses=[]] Multiplier bonuses (do not stack).
+   * @param {number[]} [opts.damageReductions=[]]  Damage reduction sources (do not stack).
+   * @param {number} opts.abilityValue             The attacker's ability score bonus.
+   * @param {boolean} [opts.fantastic=false]       Whether the attack is a Fantastic success.
+   * @returns {number}                             The damage dealt.
+   */
+  static calculateDamage({
+    marvelDieTotal,
+    baseMultiplier,
+    multiplierBonuses = [],
+    damageReductions = [],
+    abilityValue,
+    fantastic = false,
+  }) {
+    // Bonuses to the damage multiplier do not stack: use the largest.
+    const multiplierBonus = multiplierBonuses.length
+      ? Math.max(...multiplierBonuses)
+      : 0;
+    // Damage reduction does not stack: use the largest.
+    const damageReduction = damageReductions.length
+      ? Math.max(...damageReductions)
+      : 0;
+
+    const effectiveMultiplier =
+      baseMultiplier + multiplierBonus - damageReduction;
+
+    // If the multiplier is reduced to less than 1, no damage gets through —
+    // not even the ability score bonus.
+    let dmg =
+      effectiveMultiplier < 1
+        ? 0
+        : marvelDieTotal * effectiveMultiplier + abilityValue;
+    if (fantastic) dmg = dmg * 2;
+    return dmg;
+  }
+
+  /**
    * Handles the damage from the chat log
    * @param {string} messageId
    * @param {string} ability
@@ -293,13 +345,13 @@ export class ChatMessageMarvel extends ChatMessage {
           ? t.system.focusDamageReduction
           : t.system.healthDamageReduction;
       const dmgMultiplier = damageMultiplier - damageReduction;
-      let dmg =
-        dmgMultiplier === 0
-          ? 0
-          : marvelDie.total * dmgMultiplier + abilityValue;
-      if (fantastic) {
-        dmg = dmg * 2;
-      }
+      const dmg = ChatMessageMarvel.calculateDamage({
+        marvelDieTotal: marvelDie.total,
+        baseMultiplier: damageMultiplier,
+        damageReductions: [damageReduction],
+        abilityValue,
+        fantastic,
+      });
       return `<p><b>${t.name}</b> takes <b>${dmg} ${
         fantastic ? "Fantastic" : ""
       } </b> ${damageType} damage.<br/> re: MarvelDie: ${
@@ -310,10 +362,12 @@ export class ChatMessageMarvel extends ChatMessage {
     });
 
     if (damageContent.length === 0) {
-      let dmg = marvelDie.total * damageMultiplier + abilityValue;
-      if (fantastic) {
-        dmg = dmg * 2;
-      }
+      const dmg = ChatMessageMarvel.calculateDamage({
+        marvelDieTotal: marvelDie.total,
+        baseMultiplier: damageMultiplier,
+        abilityValue,
+        fantastic,
+      });
       damageContent.push(
         `<p>target(s) take <b>${dmg} ${
           fantastic ? "Fantastic" : ""

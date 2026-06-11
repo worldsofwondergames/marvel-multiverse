@@ -18,6 +18,12 @@ function _toTitleCase(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+function _getTokenImg(actor) {
+  const activeToken = actor?.getActiveTokens?.()?.[0];
+  if (activeToken?.document?.texture?.src) return activeToken.document.texture.src;
+  return actor?.prototypeToken?.texture?.src || actor?.img || "";
+}
+
 function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element }) {
   let detailHtml = "";
   if (powerName) detailHtml += `<div><b>Power:</b> ${powerName}</div>`;
@@ -504,7 +510,7 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
     const speaker = ChatMessage.getSpeaker({ actor: this.actor });
     const rollMode = game.settings.get("core", "rollMode");
     const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
-    const tokenImg = this.actor?.prototypeToken?.texture?.src || this.actor?.img;
+    const tokenImg = _getTokenImg(this.actor);
     const elementKey = this.system.isElemental ? this.system.element : null;
     const label = _buildRollFlavor({
       tokenImg,
@@ -2281,7 +2287,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
-      const tokenImg = this.actor.prototypeToken?.texture?.src || this.actor.img;
+      const tokenImg = _getTokenImg(this.actor);
       const elementKey = item?.system?.isElemental ? item?.system?.element : null;
       const label = _buildRollFlavor({
         tokenImg,
@@ -2768,7 +2774,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
-      const tokenImg = this.actor.prototypeToken?.texture?.src || this.actor.img;
+      const tokenImg = _getTokenImg(this.actor);
       const npcElementKey = npcItem?.system?.isElemental ? npcItem?.system?.element : null;
       const label = _buildRollFlavor({
         tokenImg,

@@ -398,6 +398,10 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
         ? `${label}<br/>damagetype: ${dataset.damagetype}`
         : label;
 
+      if (item?.system?.isElemental && item?.system?.element) {
+        label += `<br/>element: ${item.system.element}`;
+      }
+
       const speaker = ChatMessage.getSpeaker({ actor: this.actor });
       const rollMode = game.settings.get("core", "rollMode");
 

@@ -395,6 +395,8 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
 
     // Handle rolls that supply the formula directly.
     if (dataset.formula) {
+      const npcItemId = element.closest(".item")?.dataset?.itemId;
+      const npcItem = npcItemId ? this.actor.items.get(npcItemId) : null;
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
       let label = `[ability] ${ability}`;
@@ -402,6 +404,10 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
       label = dataset.damageType
         ? `${label} [damageType] ${dataset.damageType}`
         : label;
+
+      if (npcItem?.system?.isElemental && npcItem?.system?.element) {
+        label += ` [element] ${npcItem.system.element}`;
+      }
 
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
         dataset.formula,

@@ -491,6 +491,10 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
     if (this.system.damageType) {
       details += `<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#8b0502;padding:0 8px;">Damage Type: ${this.system.damageType}</div>`;
     }
+    if (this.system.isElemental && this.system.element) {
+      const elementConfig = CONFIG.MARVEL_MULTIVERSE.elements[this.system.element];
+      details += `<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#8b0502;padding:0 8px;">Element: ${elementConfig?.label ?? this.system.element}</div>`;
+    }
     if (this.system.cost) {
       details += `<div style="font-size:12px;padding:2px 8px;"><b>Cost:</b> ${this.system.cost}</div>`;
     }
@@ -513,7 +517,13 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       );
       // If you need to store the value first, uncomment the next line.
       // const result = await roll.evaluate();
-      const modLabel = `${label}, [ability] ${this.system.ability}`;
+      let modLabel = `ability: ${abilityName ?? this.system.ability}, [ability] ${this.system.ability}`;
+      if (this.system.damageType) {
+        modLabel += ` damagetype: ${this.system.damageType}`;
+      }
+      if (this.system.isElemental && this.system.element) {
+        modLabel += ` element: ${this.system.element}`;
+      }
 
       const messageData = {
         title: this.name,
@@ -708,20 +718,20 @@ MARVEL_MULTIVERSE.movementTypes = {
 };
 
 MARVEL_MULTIVERSE.elements = {
-  air: { label: "Air", fantasticEffect: "Target is knocked prone for one round." },
-  chemical: { label: "Chemical", fantasticEffect: "The target is corroding." },
-  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round." },
-  electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round." },
-  energy: { label: "Energy", fantasticEffect: "Blinds target for one round." },
-  fire: { label: "Fire", fantasticEffect: "Sets target ablaze." },
-  force: { label: "Force", fantasticEffect: "Target has trouble on all actions for one round." },
+  air: { label: "Air", fantasticEffect: "Target is knocked prone for one round.", statusId: "prone" },
+  chemical: { label: "Chemical", fantasticEffect: "The target is corroding.", statusId: "bleeding" },
+  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round.", statusId: "exhaustion" },
+  electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round.", statusId: "stunned" },
+  energy: { label: "Energy", fantasticEffect: "Blinds target for one round.", statusId: "blinded" },
+  fire: { label: "Fire", fantasticEffect: "Sets target ablaze.", statusId: "bleeding" },
+  force: { label: "Force", fantasticEffect: "Target has trouble on all actions for one round.", statusId: "encumbered" },
   hellfire: { label: "Hellfire", fantasticEffect: "Splits damage equally between Health and Focus." },
-  ice: { label: "Ice", fantasticEffect: "Paralyzes target for one round." },
-  iron: { label: "Iron", fantasticEffect: "Pins target for one round." },
-  sound: { label: "Sound", fantasticEffect: "Deafens target for one round." },
-  swarm: { label: "Swarm", fantasticEffect: "The target is frightened." },
-  toxin: { label: "Toxin", fantasticEffect: "The target is poisoned." },
-  water: { label: "Water", fantasticEffect: "Surprises target until the end of the next round." },
+  ice: { label: "Ice", fantasticEffect: "Paralyzes target for one round.", statusId: "paralyzed" },
+  iron: { label: "Iron", fantasticEffect: "Pins target for one round.", statusId: "restrained" },
+  sound: { label: "Sound", fantasticEffect: "Deafens target for one round.", statusId: "deafened" },
+  swarm: { label: "Swarm", fantasticEffect: "The target is frightened.", statusId: "frightened" },
+  toxin: { label: "Toxin", fantasticEffect: "The target is poisoned.", statusId: "poisoned" },
+  water: { label: "Water", fantasticEffect: "Surprises target until the end of the next round.", statusId: "surprised" },
 };
 
 MARVEL_MULTIVERSE.teamManeuvers = [
@@ -1501,9 +1511,11 @@ class ChatMessageMarvel extends ChatMessage {
   async _handleDamageChatButton(messageId, flavorText, fantastic) {
     const re = /(?:\[ability\]|ability:)\s*(?<ability>\w+)/i;
     const dmgTypeRe = /(?:\[damageType\]|damage\s*type:)\s*(?<damageType>\w+)/i;
+    const elementRe = /(?:\[element\]|element:)\s*(?<element>\w+)/i;
     const ability = re.exec(flavorText)?.groups?.ability;
     if (!ability) return;
     const damageType = dmgTypeRe.exec(flavorText)?.groups?.damageType;
+    const elementMatch = elementRe.exec(flavorText)?.groups?.element;
     const abilityAbr = MARVEL_MULTIVERSE.damageAbilityAbr[ability] ?? ability;
     const chatMessage = game.messages.get(messageId);
     const sixOneSixPool = chatMessage.rolls[0].terms[0];
@@ -1561,6 +1573,20 @@ class ChatMessageMarvel extends ChatMessage {
       );
     }
     // const content = `<p>Delivers <b>${dmg}</b> points re: MarvelDie: ${marvelDie.total} &#42; damage multiplier: &#40; ${actor.system.abilities[abilityAbr].damageMultiplier} - damageReduction: ${damageReduction} &#61; ${damageMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
+
+    if (fantastic && elementMatch) {
+      const elementConfig = MARVEL_MULTIVERSE.elements[elementMatch];
+      if (elementConfig) {
+        damageContent.push(
+          `<p><b>Fantastic Elemental Effect (${elementConfig.label}):</b> ${elementConfig.fantasticEffect}</p>`
+        );
+        if (elementConfig.statusId) {
+          for (const target of targets) {
+            await target.toggleStatusEffect(elementConfig.statusId, { active: true });
+          }
+        }
+      }
+    }
 
     const msgData = {
       speaker: ChatMessageMarvel.getSpeaker({ actor: actor }),
@@ -2254,6 +2280,10 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         ? `${label}<br/>damagetype: ${dataset.damagetype}`
         : label;
 
+      if (item?.system?.isElemental && item?.system?.element) {
+        label += `<br/>element: ${item.system.element}`;
+      }
+
       const speaker = ChatMessage.getSpeaker({ actor: this.actor });
       const rollMode = game.settings.get("core", "rollMode");
 
@@ -2725,6 +2755,8 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
 
     // Handle rolls that supply the formula directly.
     if (dataset.formula) {
+      const npcItemId = element.closest(".item")?.dataset?.itemId;
+      const npcItem = npcItemId ? this.actor.items.get(npcItemId) : null;
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
       let label = `[ability] ${ability}`;
@@ -2732,6 +2764,10 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       label = dataset.damageType
         ? `${label} [damageType] ${dataset.damageType}`
         : label;
+
+      if (npcItem?.system?.isElemental && npcItem?.system?.element) {
+        label += ` [element] ${npcItem.system.element}`;
+      }
 
       const abilityKey = dataset.abilityKey;
       const abilityData = abilityKey ? this.actor.system.abilities[abilityKey] : null;
@@ -2751,8 +2787,6 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         rollMode: game.settings.get("core", "rollMode"),
         title: title,
       };
-      const npcItemId = element.closest(".item")?.dataset?.itemId;
-      const npcItem = npcItemId ? this.actor.items.get(npcItemId) : null;
       const npcAttackAbility = npcItem?.system?.attackTarget || dataset.abilityKey;
       const npcTargets = _getAttackTargets(npcAttackAbility);
       if (npcTargets.length) {

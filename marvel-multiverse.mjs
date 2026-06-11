@@ -13,6 +13,29 @@ function _getAttackTargets(attackTargetAbility) {
   }).filter(t => t.ac !== null);
 }
 
+function _toTitleCase(str) {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element }) {
+  let detailHtml = "";
+  if (powerName) detailHtml += `<div><b>Power:</b> ${powerName}</div>`;
+  const cols = [];
+  if (ability) cols.push(`<b>Ability:</b> ${_toTitleCase(ability)}`);
+  if (damageType) cols.push(`<b>Type:</b> ${_toTitleCase(damageType)}`);
+  if (element) cols.push(`<b>Element:</b> ${_toTitleCase(element)}`);
+  if (cols.length >= 3) {
+    detailHtml += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">${cols.map(c => `<span>${c}</span>`).join("")}</div>`;
+  } else {
+    detailHtml += cols.map(c => `<div>${c}</div>`).join("");
+  }
+  const tags = `<span style="display:none;">ability: ${ability || ""}${damageType ? " damagetype: " + damageType : ""}${element ? " element: " + element : ""}</span>`;
+  const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
+  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;">${detailHtml}</div>${tags}</div>`;
+}
+
+
 /**
  * Extend the base Roll document by defining a pool for evaluating rolls with the Marvel DiceTerms.
  * @extends {Roll}
@@ -481,24 +504,22 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
     const speaker = ChatMessage.getSpeaker({ actor: this.actor });
     const rollMode = game.settings.get("core", "rollMode");
     const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
-    const typeName = this.type.charAt(0).toUpperCase() + this.type.slice(1);
-    const detailText = this.system.detail ? `: ${this.system.detail}` : '';
-    const header = `<div class="mm-chat-item-header" style="background:#8b0502;clip-path:polygon(0 0,calc(100% - 20px) 0,100% 100%,0 100%);padding:6px 8px;"><span style="color:#fff;font-family:Roboto,serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${this.name}</span>${detailText ? `<span style="color:#fff;font-family:Roboto,serif;font-size:14px;font-weight:400;letter-spacing:1px;">${detailText}</span>` : ''} <span style="color:#fff2ec;font-family:Roboto,serif;font-size:11px;font-weight:400;text-transform:capitalize;">(${typeName})</span></div>`;
-    let details = '';
-    if (abilityName) {
-      details += `<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#8b0502;padding:0 8px;">Ability: ${abilityName}</div>`;
-    }
-    if (this.system.damageType) {
-      details += `<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#8b0502;padding:0 8px;">Damage Type: ${this.system.damageType}</div>`;
-    }
-    if (this.system.cost) {
-      details += `<div style="font-size:12px;padding:2px 8px;"><b>Cost:</b> ${this.system.cost}</div>`;
-    }
+    const tokenImg = this.actor?.prototypeToken?.texture?.src || this.actor?.img;
+    const elementKey = this.system.isElemental ? this.system.element : null;
+    const label = _buildRollFlavor({
+      tokenImg,
+      actorName: this.actor?.name,
+      powerName: this.name,
+      ability: abilityName ?? this.system.ability,
+      damageType: this.system.damageType,
+      element: elementKey,
+    });
 
     ChatMessage.create({
       speaker: speaker,
       rollMode: rollMode,
-      content: `${header}${details}<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>${
+      flavor: label,
+      content: `<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>${
         this.system.effect ? `<div style="padding:0 8px;" class="mm-chat-effect">${this.system.effect}</div>` : ""
       }`,
     });
@@ -511,15 +532,12 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
         rollData.formula,
         rollData.actor
       );
-      // If you need to store the value first, uncomment the next line.
-      // const result = await roll.evaluate();
-      const modLabel = `${label}, [ability] ${this.system.ability}`;
 
       const messageData = {
         title: this.name,
         speaker: speaker,
         rollMode: rollMode,
-        flavor: modLabel,
+        flavor: label,
       };
       const attackTargets = _getAttackTargets(this.system.attackTarget || this.system.ability);
       if (attackTargets.length) {
@@ -708,20 +726,20 @@ MARVEL_MULTIVERSE.movementTypes = {
 };
 
 MARVEL_MULTIVERSE.elements = {
-  air: { label: "Air", fantasticEffect: "Target is knocked prone for one round." },
-  chemical: { label: "Chemical", fantasticEffect: "The target is corroding." },
-  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round." },
-  electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round." },
-  energy: { label: "Energy", fantasticEffect: "Blinds target for one round." },
-  fire: { label: "Fire", fantasticEffect: "Sets target ablaze." },
-  force: { label: "Force", fantasticEffect: "Target has trouble on all actions for one round." },
+  air: { label: "Air", fantasticEffect: "Target is knocked prone for one round.", statusId: "prone" },
+  chemical: { label: "Chemical", fantasticEffect: "The target is corroding.", statusId: "bleeding" },
+  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round.", statusId: "exhaustion" },
+  electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round.", statusId: "stunned" },
+  energy: { label: "Energy", fantasticEffect: "Blinds target for one round.", statusId: "blinded" },
+  fire: { label: "Fire", fantasticEffect: "Sets target ablaze.", statusId: "bleeding" },
+  force: { label: "Force", fantasticEffect: "Target has trouble on all actions for one round.", statusId: "encumbered" },
   hellfire: { label: "Hellfire", fantasticEffect: "Splits damage equally between Health and Focus." },
-  ice: { label: "Ice", fantasticEffect: "Paralyzes target for one round." },
-  iron: { label: "Iron", fantasticEffect: "Pins target for one round." },
-  sound: { label: "Sound", fantasticEffect: "Deafens target for one round." },
-  swarm: { label: "Swarm", fantasticEffect: "The target is frightened." },
-  toxin: { label: "Toxin", fantasticEffect: "The target is poisoned." },
-  water: { label: "Water", fantasticEffect: "Surprises target until the end of the next round." },
+  ice: { label: "Ice", fantasticEffect: "Paralyzes target for one round.", statusId: "paralyzed" },
+  iron: { label: "Iron", fantasticEffect: "Pins target for one round.", statusId: "restrained" },
+  sound: { label: "Sound", fantasticEffect: "Deafens target for one round.", statusId: "deafened" },
+  swarm: { label: "Swarm", fantasticEffect: "The target is frightened.", statusId: "frightened" },
+  toxin: { label: "Toxin", fantasticEffect: "The target is poisoned.", statusId: "poisoned" },
+  water: { label: "Water", fantasticEffect: "Surprises target until the end of the next round.", statusId: "surprised" },
 };
 
 MARVEL_MULTIVERSE.teamManeuvers = [
@@ -1501,9 +1519,11 @@ class ChatMessageMarvel extends ChatMessage {
   async _handleDamageChatButton(messageId, flavorText, fantastic) {
     const re = /(?:\[ability\]|ability:)\s*(?<ability>\w+)/i;
     const dmgTypeRe = /(?:\[damageType\]|damage\s*type:)\s*(?<damageType>\w+)/i;
+    const elementRe = /(?:\[element\]|element:)\s*(?<element>\w+)/i;
     const ability = re.exec(flavorText)?.groups?.ability;
     if (!ability) return;
     const damageType = dmgTypeRe.exec(flavorText)?.groups?.damageType;
+    const elementMatch = elementRe.exec(flavorText)?.groups?.element;
     const abilityAbr = MARVEL_MULTIVERSE.damageAbilityAbr[ability] ?? ability;
     const chatMessage = game.messages.get(messageId);
     const sixOneSixPool = chatMessage.rolls[0].terms[0];
@@ -1561,6 +1581,20 @@ class ChatMessageMarvel extends ChatMessage {
       );
     }
     // const content = `<p>Delivers <b>${dmg}</b> points re: MarvelDie: ${marvelDie.total} &#42; damage multiplier: &#40; ${actor.system.abilities[abilityAbr].damageMultiplier} - damageReduction: ${damageReduction} &#61; ${damageMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
+
+    if (fantastic && elementMatch) {
+      const elementConfig = MARVEL_MULTIVERSE.elements[elementMatch];
+      if (elementConfig) {
+        damageContent.push(
+          `<p><b>Fantastic Elemental Effect (${elementConfig.label}):</b> ${elementConfig.fantasticEffect}</p>`
+        );
+        if (elementConfig.statusId) {
+          for (const target of targets) {
+            await target.toggleStatusEffect(elementConfig.statusId, { active: true });
+          }
+        }
+      }
+    }
 
     const msgData = {
       speaker: ChatMessageMarvel.getSpeaker({ actor: actor }),
@@ -2246,13 +2280,17 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     if (dataset.formula) {
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
-      let label = `Ability: ${ability}`;
-      if (item) label += `<br/>${item.type}: ${item.name}`;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
-
-      label = dataset.damagetype
-        ? `${label}<br/>damagetype: ${dataset.damagetype}`
-        : label;
+      const tokenImg = this.actor.prototypeToken?.texture?.src || this.actor.img;
+      const elementKey = item?.system?.isElemental ? item?.system?.element : null;
+      const label = _buildRollFlavor({
+        tokenImg,
+        actorName: this.actor.name,
+        powerName: item?.name,
+        ability: ability,
+        damageType: dataset.damagetype,
+        element: elementKey,
+      });
 
       const speaker = ChatMessage.getSpeaker({ actor: this.actor });
       const rollMode = game.settings.get("core", "rollMode");
@@ -2725,13 +2763,21 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
 
     // Handle rolls that supply the formula directly.
     if (dataset.formula) {
+      const npcItemId = element.closest(".item")?.dataset?.itemId;
+      const npcItem = npcItemId ? this.actor.items.get(npcItemId) : null;
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
-      let label = `[ability] ${ability}`;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
-      label = dataset.damageType
-        ? `${label} [damageType] ${dataset.damageType}`
-        : label;
+      const tokenImg = this.actor.prototypeToken?.texture?.src || this.actor.img;
+      const npcElementKey = npcItem?.system?.isElemental ? npcItem?.system?.element : null;
+      const label = _buildRollFlavor({
+        tokenImg,
+        actorName: this.actor.name,
+        powerName: npcItem?.name,
+        ability: ability,
+        damageType: dataset.damageType,
+        element: npcElementKey,
+      });
 
       const abilityKey = dataset.abilityKey;
       const abilityData = abilityKey ? this.actor.system.abilities[abilityKey] : null;
@@ -2751,8 +2797,6 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         rollMode: game.settings.get("core", "rollMode"),
         title: title,
       };
-      const npcItemId = element.closest(".item")?.dataset?.itemId;
-      const npcItem = npcItemId ? this.actor.items.get(npcItemId) : null;
       const npcAttackAbility = npcItem?.system?.attackTarget || dataset.abilityKey;
       const npcTargets = _getAttackTargets(npcAttackAbility);
       if (npcTargets.length) {
@@ -4287,6 +4331,51 @@ function _configureFonts() {
     },
   });
 }
+
+/* -------------------------------------------- */
+/*  Render Chat Message Hook                    */
+/* -------------------------------------------- */
+
+Hooks.on("renderChatMessage", (message, html) => {
+  const flavorEl = html.find ? html.find(".mm-roll-flavor") : html.querySelector?.(".mm-roll-flavor");
+  const flavor = flavorEl?.[0] ?? flavorEl;
+  if (!flavor) return;
+
+  const tokenImg = flavor.dataset.tokenImg;
+  const header = html.find ? html.find(".message-header")[0] : html.querySelector(".message-header");
+  if (!header) return;
+
+  header.classList.add("mm-custom-header");
+  header.style.cssText = "background:#8b0502;padding:2px 8px;position:relative;overflow:visible;min-height:32px;align-items:center;flex-wrap:nowrap;display:flex;";
+
+  const sender = header.querySelector(".message-sender");
+  if (sender) {
+    sender.style.cssText = "color:#fff;font-weight:700;font-size:14px;white-space:nowrap;flex:1;padding-left:" + (tokenImg ? "39px" : "0") + ";";
+    const nameEl = sender.querySelector(".title");
+    if (nameEl) nameEl.style.color = "#fff";
+  }
+
+  const timestamp = header.querySelector(".message-timestamp");
+  if (timestamp) timestamp.style.cssText = "color:rgba(255,255,255,0.7);white-space:nowrap;font-size:10px;";
+
+  const metadata = header.querySelector(".message-metadata");
+  if (metadata) metadata.style.cssText = "white-space:nowrap;flex-shrink:0;margin-left:auto;";
+
+  const allControls = header.querySelectorAll(".chat-control, [data-context-menu]");
+  allControls.forEach(el => el.style.cssText = "display:none !important;");
+
+  const flavorInHeader = header.querySelector(".flavor-text");
+  if (flavorInHeader) {
+    header.parentNode.insertBefore(flavorInHeader, header.nextSibling);
+  }
+
+  if (tokenImg) {
+    const img = document.createElement("img");
+    img.src = tokenImg;
+    img.style.cssText = "position:absolute;left:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
+    header.insertBefore(img, header.firstChild);
+  }
+});
 
 /* -------------------------------------------- */
 /*  Ready Hook                                  */

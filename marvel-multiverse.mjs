@@ -13,6 +13,27 @@ function _getAttackTargets(attackTargetAbility) {
   }).filter(t => t.ac !== null);
 }
 
+function _toTitleCase(str) {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element }) {
+  const lines = [];
+  if (powerName) lines.push(`<b>Power:</b> ${powerName}`);
+  if (ability) lines.push(`<b>Ability:</b> ${_toTitleCase(ability)}`);
+  if (damageType) lines.push(`<b>Type:</b> ${_toTitleCase(damageType)}`);
+  if (element) lines.push(`<b>Element:</b> ${_toTitleCase(element)}`);
+  const detailHtml = lines.join("<br/>");
+  const imgSrc = tokenImg || "";
+  const header = `<div style="position:relative;background:#8b0502;padding:4px 8px 4px 40px;min-height:32px;display:flex;align-items:center;overflow:visible;">`
+    + `<img src="${imgSrc}" style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;" />`
+    + `<span style="color:#fff;font-weight:700;font-size:14px;">${actorName}</span></div>`;
+  const tags = `<span style="display:none;">ability: ${ability || ""}${damageType ? " damagetype: " + damageType : ""}${element ? " element: " + element : ""}</span>`;
+  return `${header}<div style="padding:4px 8px;font-size:12px;">${detailHtml}</div>${tags}`;
+}
+
+
 /**
  * Extend the base Roll document by defining a pool for evaluating rolls with the Marvel DiceTerms.
  * @extends {Roll}
@@ -481,28 +502,22 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
     const speaker = ChatMessage.getSpeaker({ actor: this.actor });
     const rollMode = game.settings.get("core", "rollMode");
     const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
-    const typeName = this.type.charAt(0).toUpperCase() + this.type.slice(1);
-    const detailText = this.system.detail ? `: ${this.system.detail}` : '';
-    const header = `<div class="mm-chat-item-header" style="background:#8b0502;clip-path:polygon(0 0,calc(100% - 20px) 0,100% 100%,0 100%);padding:6px 8px;"><span style="color:#fff;font-family:Roboto,serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${this.name}</span>${detailText ? `<span style="color:#fff;font-family:Roboto,serif;font-size:14px;font-weight:400;letter-spacing:1px;">${detailText}</span>` : ''} <span style="color:#fff2ec;font-family:Roboto,serif;font-size:11px;font-weight:400;text-transform:capitalize;">(${typeName})</span></div>`;
-    let details = '';
-    if (abilityName) {
-      details += `<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#8b0502;padding:0 8px;">Ability: ${abilityName}</div>`;
-    }
-    if (this.system.damageType) {
-      details += `<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#8b0502;padding:0 8px;">Damage Type: ${this.system.damageType}</div>`;
-    }
-    if (this.system.isElemental && this.system.element) {
-      const elementConfig = CONFIG.MARVEL_MULTIVERSE.elements[this.system.element];
-      details += `<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#8b0502;padding:0 8px;">Element: ${elementConfig?.label ?? this.system.element}</div>`;
-    }
-    if (this.system.cost) {
-      details += `<div style="font-size:12px;padding:2px 8px;"><b>Cost:</b> ${this.system.cost}</div>`;
-    }
+    const tokenImg = this.actor?.prototypeToken?.texture?.src || this.actor?.img;
+    const elementKey = this.system.isElemental ? this.system.element : null;
+    const label = _buildRollFlavor({
+      tokenImg,
+      actorName: this.actor?.name,
+      powerName: this.name,
+      ability: abilityName ?? this.system.ability,
+      damageType: this.system.damageType,
+      element: elementKey,
+    });
 
     ChatMessage.create({
       speaker: speaker,
       rollMode: rollMode,
-      content: `${header}${details}<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>${
+      flavor: label,
+      content: `<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>${
         this.system.effect ? `<div style="padding:0 8px;" class="mm-chat-effect">${this.system.effect}</div>` : ""
       }`,
     });
@@ -515,21 +530,12 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
         rollData.formula,
         rollData.actor
       );
-      // If you need to store the value first, uncomment the next line.
-      // const result = await roll.evaluate();
-      let modLabel = `ability: ${abilityName ?? this.system.ability}, [ability] ${this.system.ability}`;
-      if (this.system.damageType) {
-        modLabel += ` damagetype: ${this.system.damageType}`;
-      }
-      if (this.system.isElemental && this.system.element) {
-        modLabel += ` element: ${this.system.element}`;
-      }
 
       const messageData = {
         title: this.name,
         speaker: speaker,
         rollMode: rollMode,
-        flavor: modLabel,
+        flavor: label,
       };
       const attackTargets = _getAttackTargets(this.system.attackTarget || this.system.ability);
       if (attackTargets.length) {
@@ -2272,17 +2278,17 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     if (dataset.formula) {
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
-      let label = `Ability: ${ability}`;
-      if (item) label += `<br/>${item.type}: ${item.name}`;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
-
-      label = dataset.damagetype
-        ? `${label}<br/>damagetype: ${dataset.damagetype}`
-        : label;
-
-      if (item?.system?.isElemental && item?.system?.element) {
-        label += `<br/>element: ${item.system.element}`;
-      }
+      const tokenImg = this.actor.prototypeToken?.texture?.src || this.actor.img;
+      const elementKey = item?.system?.isElemental ? item?.system?.element : null;
+      const label = _buildRollFlavor({
+        tokenImg,
+        actorName: this.actor.name,
+        powerName: item?.name,
+        ability: ability,
+        damageType: dataset.damagetype,
+        element: elementKey,
+      });
 
       const speaker = ChatMessage.getSpeaker({ actor: this.actor });
       const rollMode = game.settings.get("core", "rollMode");
@@ -2759,15 +2765,17 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       const npcItem = npcItemId ? this.actor.items.get(npcItemId) : null;
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
-      let label = `[ability] ${ability}`;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
-      label = dataset.damageType
-        ? `${label} [damageType] ${dataset.damageType}`
-        : label;
-
-      if (npcItem?.system?.isElemental && npcItem?.system?.element) {
-        label += ` [element] ${npcItem.system.element}`;
-      }
+      const tokenImg = this.actor.prototypeToken?.texture?.src || this.actor.img;
+      const npcElementKey = npcItem?.system?.isElemental ? npcItem?.system?.element : null;
+      const label = _buildRollFlavor({
+        tokenImg,
+        actorName: this.actor.name,
+        powerName: npcItem?.name,
+        ability: ability,
+        damageType: dataset.damageType,
+        element: npcElementKey,
+      });
 
       const abilityKey = dataset.abilityKey;
       const abilityData = abilityKey ? this.actor.system.abilities[abilityKey] : null;

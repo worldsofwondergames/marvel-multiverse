@@ -19,6 +19,22 @@
       </button>
     </div>
 
+    {{!-- TYPE --}}
+    <div class="mm-filter-group" data-group="actorType">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Type</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.actorTypes}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="actorType" value="{{@key}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.label}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+
     {{!-- RANK --}}
     <div class="mm-filter-group" data-group="rank">
       <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Rank</h4>

@@ -50,7 +50,7 @@ export class MarvelMultiverseActor extends Actor {
       }
     }
 
-    data.rank = this.system.attributes.rank.value;
+    data.rank = this.system.attributes?.rank?.value ?? null;
 
     return { ...super.getRollData(), ...data };
   }

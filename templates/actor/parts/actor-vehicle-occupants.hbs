@@ -1,0 +1,26 @@
+<ol class="mm-vehicle-occupants-list">
+  {{#each occupants as |occupant idx|}}
+  <li class="mm-vehicle-occupant flexrow" data-index="{{idx}}">
+    <div class="mm-vehicle-occupant-img">
+      <img src="{{occupant.img}}" title="{{occupant.name}}" width="36" height="36"/>
+    </div>
+    <div class="mm-vehicle-occupant-name">{{occupant.name}}</div>
+    <div class="mm-vehicle-occupant-role">
+      <select class="occupant-role-select" data-index="{{idx}}">
+        {{selectOptions ../occupantRoles selected=occupant.role}}
+      </select>
+    </div>
+    {{#if (eq occupant.role "pilot")}}
+    <div class="mm-vehicle-occupant-defense">
+      Melee: {{../defense.melee}} / Agility: {{../defense.agility}}
+    </div>
+    {{/if}}
+    <div class="mm-vehicle-occupant-controls">
+      <a class="occupant-delete" data-index="{{idx}}" title="Remove"><i class="fas fa-trash"></i></a>
+    </div>
+  </li>
+  {{/each}}
+  {{#unless occupants.length}}
+  <li class="mm-vehicle-occupant-empty">Drag actors here to add occupants</li>
+  {{/unless}}
+</ol>

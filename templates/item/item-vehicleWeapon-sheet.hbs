@@ -1,0 +1,64 @@
+<form class="{{cssClass}}" autocomplete="off">
+  <header class="sheet-header">
+    <div class="mm-styled-field -lg -img">
+      <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+      <div class="mm-styled-input">
+        <input name="name" type="text" value="{{item.name}}" placeholder="Name"/>
+      </div>
+    </div>
+  </header>
+
+  {{!-- Sheet Tab Navigation --}}
+  <nav class="sheet-tabs tabs mm-tabs -two" data-group="primary">
+    <a class="item" data-tab="attributes">Attributes</a>
+    <a class="item" data-tab="effects">Effects</a>
+  </nav>
+
+  {{!-- Sheet Body --}}
+  <section class="sheet-body">
+    {{!-- Attributes Tab --}}
+    <div class="tab vehicleweapon-attributes" data-group="primary" data-tab="attributes">
+      {{> "systems/marvel-multiverse/templates/item/parts/item-source.hbs"}}
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left" for="system.description"><span>Description</span></label>
+        <div class="mm-styled-input">
+          {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false editable=editable}}
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Agility</span></label>
+        <div class="mm-styled-input">
+          <input type="number" name="system.agility" value="{{system.agility}}" data-dtype="Number" min="0"/>
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Range</span></label>
+        <div class="mm-styled-input">
+          <input type="number" name="system.range" value="{{system.range}}" data-dtype="Number" min="0"/>
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Damage Multiplier</span></label>
+        <div class="mm-styled-input">
+          <input type="number" name="system.damageMultiplier" value="{{system.damageMultiplier}}" data-dtype="Number" min="0"/>
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Vehicle.Automated"}}</span></label>
+        <div class="mm-styled-input">
+          <input type="checkbox" name="system.automated" {{checked system.automated}}/>
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Vehicle.Notes"}}</span></label>
+        <div class="mm-styled-input">
+          <input type="text" name="system.notes" value="{{system.notes}}" data-dtype="String"/>
+        </div>
+      </div>
+    </div>
+    {{!-- Effects Tab --}}
+    <div class="tab vehicleweapon-effects" data-group="primary" data-tab="effects">
+      {{> "systems/marvel-multiverse/templates/item/parts/item-effects.hbs"}}
+    </div>
+  </section>
+</form>

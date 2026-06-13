@@ -404,7 +404,7 @@ class MarvelMultiverseActor extends Actor {
       }
     }
 
-    data.rank = this.system.attributes.rank.value;
+    data.rank = this.system.attributes?.rank?.value ?? null;
 
     return { ...super.getRollData(), ...data };
   }
@@ -448,6 +448,7 @@ class MarvelMultiverseActor extends Actor {
 const ITEM_DEFAULT_ICONS = {
   item: "icons/svg/item-bag.svg",
   weapon: "systems/marvel-multiverse/icons/weapons.svg",
+  vehicleWeapon: "systems/marvel-multiverse/icons/weapons.svg",
   trait: "systems/marvel-multiverse/icons/trait.svg",
   occupation: "systems/marvel-multiverse/icons/work.svg",
   origin: "systems/marvel-multiverse/icons/origin.svg",
@@ -729,6 +730,27 @@ MARVEL_MULTIVERSE.movementTypes = {
   glide: { label: "MARVEL_MULTIVERSE.Movement.Glide", active: false },
   swingline: { label: "MARVEL_MULTIVERSE.Movement.Swingline", active: false },
   levitation: { label: "MARVEL_MULTIVERSE.Movement.Levitation", active: false },
+};
+
+MARVEL_MULTIVERSE.vehicleSizes = {
+  average: { label: "Average" },
+  big: { label: "Big" },
+  huge: { label: "Huge" },
+  gigantic: { label: "Gigantic" },
+  gargantuan: { label: "Gargantuan" },
+};
+
+MARVEL_MULTIVERSE.vehicleOccupantRoles = {
+  passenger: { label: "Passenger" },
+  gunner: { label: "Gunner" },
+  pilot: { label: "Pilot" },
+};
+
+MARVEL_MULTIVERSE.vehicleSpeedLabels = {
+  run: { label: "MARVEL_MULTIVERSE.Vehicle.GroundSpeed" },
+  flight: { label: "MARVEL_MULTIVERSE.Vehicle.FlightSpeed" },
+  climb: { label: "MARVEL_MULTIVERSE.Vehicle.ClimbSpeed" },
+  swim: { label: "MARVEL_MULTIVERSE.Vehicle.NauticalSpeed" },
 };
 
 MARVEL_MULTIVERSE.elements = {
@@ -2341,6 +2363,206 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
   }
 }
 
+class MarvelMultiverseVehicleSheet extends ActorSheet {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      classes: ["marvel-multiverse", "sheet", "actor"],
+      width: 720,
+      height: 700,
+      tabs: [
+        {
+          navSelector: ".sheet-tabs",
+          contentSelector: ".sheet-body",
+          initial: "stats",
+        },
+      ],
+    });
+  }
+
+  get template() {
+    return "systems/marvel-multiverse/templates/actor/actor-vehicle-sheet.hbs";
+  }
+
+  async _render(...args) {
+    const scrollables = this.element.find(".mm-styled-container-body");
+    const scrollPositions = [];
+    scrollables.each(function() {
+      scrollPositions.push(this.scrollTop);
+    });
+    await super._render(...args);
+    const newScrollables = this.element.find(".mm-styled-container-body");
+    newScrollables.each(function(i) {
+      if (scrollPositions[i] !== undefined) this.scrollTop = scrollPositions[i];
+    });
+  }
+
+  getData() {
+    const context = super.getData();
+    const actorData = context.data;
+
+    context.system = actorData.system;
+    context.flags = actorData.flags;
+
+    this._prepareItems(context);
+
+    context.rollData = context.actor.getRollData();
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
+
+    context.vehicleSizeSelection = Object.fromEntries(
+      Object.keys(CONFIG.MARVEL_MULTIVERSE.vehicleSizes).map((key) => [
+        key,
+        CONFIG.MARVEL_MULTIVERSE.vehicleSizes[key].label,
+      ])
+    );
+
+    context.occupantRoles = Object.fromEntries(
+      Object.keys(CONFIG.MARVEL_MULTIVERSE.vehicleOccupantRoles).map((key) => [
+        key,
+        CONFIG.MARVEL_MULTIVERSE.vehicleOccupantRoles[key].label,
+      ])
+    );
+
+    context.occupants = context.system.occupants;
+    context.defense = context.system.defense;
+
+    context.effects = prepareActiveEffectCategories(
+      this.actor.allApplicableEffects()
+    );
+
+    return context;
+  }
+
+  _prepareItems(context) {
+    const powers = {};
+    const vehicleWeapons = [];
+
+    for (const i of context.items) {
+      i.img = i.img || Item.DEFAULT_ICON;
+
+      if (i.type === "power") {
+        const firstSet = i.system.powerSets?.length
+          ? i.system.powerSets[0].name
+          : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
+        if (!powers[firstSet]) powers[firstSet] = [];
+        powers[firstSet].push(i);
+      } else if (i.type === "vehicleWeapon") {
+        vehicleWeapons.push(i);
+      }
+    }
+
+    for (const set in powers) powers[set].sort((a, b) => a.name.localeCompare(b.name));
+    const sortedPowers = {};
+    for (const key of Object.keys(powers).sort()) sortedPowers[key] = powers[key];
+    context.powers = sortedPowers;
+    context.vehicleWeapons = vehicleWeapons;
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+
+    html.on("click", ".item-edit", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      const item = this.actor.items.get(li.data("itemId"));
+      item.sheet.render(true);
+    });
+
+    if (!this.isEditable) return;
+
+    html.on("click", ".item-create", this._onItemCreate.bind(this));
+
+    html.on("click", ".item-delete", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      this.actor.deleteEmbeddedDocuments("Item", [li.data("itemId")]);
+      li.slideUp(200, () => this.render(false));
+    });
+
+    html.on("click", ".effect-control", (ev) => {
+      const row = ev.currentTarget.closest("li");
+      const document =
+        row.dataset.parentId === this.actor.id
+          ? this.actor
+          : this.actor.items.get(row.dataset.parentId);
+      onManageActiveEffect(ev, document);
+    });
+
+    html.on("change", ".occupant-role-select", this._onOccupantRoleChange.bind(this));
+    html.on("click", ".occupant-delete", this._onOccupantDelete.bind(this));
+  }
+
+  async _onItemCreate(event) {
+    event.preventDefault();
+    const header = event.currentTarget;
+    const type = header.dataset.type;
+    const data = foundry.utils.duplicate(header.dataset);
+    const name = `New ${type.capitalize()}`;
+    const img = type === "vehicleWeapon" ? "systems/marvel-multiverse/icons/weapons.svg" : undefined;
+    const itemData = { name, type, img, system: data };
+    itemData.system.type = undefined;
+    return await Item.create(itemData, { parent: this.actor });
+  }
+
+  async _onOccupantRoleChange(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.dataset.index);
+    const newRole = event.currentTarget.value;
+    const occupants = foundry.utils.deepClone(this.actor.system.occupants);
+
+    if (newRole === "pilot") {
+      for (const occ of occupants) {
+        if (occ.role === "pilot") occ.role = "passenger";
+      }
+    }
+
+    occupants[index].role = newRole;
+    await this.actor.update({ "system.occupants": occupants });
+  }
+
+  async _onOccupantDelete(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.dataset.index);
+    const occupants = foundry.utils.deepClone(this.actor.system.occupants);
+    occupants.splice(index, 1);
+    await this.actor.update({ "system.occupants": occupants });
+  }
+
+  async _onDropActor(event, data) {
+    if (!this.isEditable) return;
+
+    const actor = await Actor.implementation.fromDropData(data);
+    if (!actor) return;
+
+    const occupants = foundry.utils.deepClone(this.actor.system.occupants);
+
+    if (occupants.length >= this.actor.system.passengers) {
+      ui.notifications.warn(game.i18n.localize("MARVEL_MULTIVERSE.Vehicle.VehicleFull"));
+      return;
+    }
+
+    if (occupants.some(o => o.actorId === actor.id)) {
+      ui.notifications.warn(`${actor.name} is already in this vehicle.`);
+      return;
+    }
+
+    occupants.push({
+      actorId: actor.id,
+      name: actor.name,
+      img: actor.img,
+      role: "passenger",
+    });
+
+    await this.actor.update({ "system.occupants": occupants });
+  }
+
+  async _onDropItemCreate(itemData) {
+    const allowedTypes = ["power", "vehicleWeapon"];
+    if (!allowedTypes.includes(itemData.type)) {
+      ui.notifications.warn(`Vehicles cannot hold ${itemData.type} items.`);
+      return;
+    }
+    return super._onDropItemCreate(itemData);
+  }
+}
+
 /**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
@@ -3003,6 +3225,9 @@ const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/item/parts/item-source.hbs",
     // Sidebar partials
     "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
+    // Vehicle partials
+    "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-occupants.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-weapons.hbs",
   ]);
 
 class MarvelMultiverseActorBase extends foundry.abstract
@@ -3352,6 +3577,91 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
   }
 }
 
+class MarvelMultiverseVehicle extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const requiredInteger = { required: true, nullable: false, integer: true };
+    const schema = {};
+
+    schema.health = new fields.SchemaField({
+      value: new fields.NumberField({ required: true, nullable: false, initial: 0, min: -9999 }),
+      max: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
+    });
+
+    schema.damageReduction = new fields.NumberField({ ...requiredInteger, initial: 0 });
+
+    schema.size = new fields.StringField({ required: true, initial: "big" });
+
+    schema.passengers = new fields.NumberField({ ...requiredInteger, initial: 1, min: 1 });
+    schema.crew = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
+    schema.safetyHarness = new fields.BooleanField({ required: true, initial: false });
+    schema.crashDamageMultiplier = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
+
+    const speedField = () => new fields.SchemaField({
+      value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
+      active: new fields.BooleanField({ required: true, initial: false }),
+      label: new fields.StringField({ required: true, blank: true }),
+    });
+
+    schema.speed = new fields.SchemaField({
+      run: speedField(),
+      flight: speedField(),
+      climb: speedField(),
+      swim: speedField(),
+    });
+
+    schema.occupants = new fields.ArrayField(new fields.SchemaField({
+      actorId: new fields.StringField({ required: true, blank: false }),
+      name: new fields.StringField({ required: true, blank: true }),
+      img: new fields.StringField({ required: true, blank: true }),
+      role: new fields.StringField({ required: true, initial: "passenger" }),
+    }));
+
+    schema.profile = new fields.StringField({ required: true, blank: true });
+    schema.notes = new fields.StringField({ required: true, blank: true });
+    schema.source = new fields.StringField({ required: true, blank: true });
+
+    return schema;
+  }
+
+  prepareDerivedData() {
+    const maxHealth = this.health.max;
+    const curHealth = this.health.value;
+
+    this.health.halfSpeed = curHealth > 0 && curHealth < maxHealth / 2;
+    this.health.disabled = curHealth < 1;
+    this.health.destroyed = maxHealth > 0 && curHealth <= -(maxHealth);
+
+    let healthStatus = "normal";
+    if (this.health.destroyed) healthStatus = "destroyed";
+    else if (this.health.disabled) healthStatus = "disabled";
+    else if (this.health.halfSpeed) healthStatus = "halfSpeed";
+    this.health.status = healthStatus;
+
+    for (const key in this.speed) {
+      this.speed[key].label = game.i18n.localize(
+        CONFIG.MARVEL_MULTIVERSE.vehicleSpeedLabels[key]?.label ?? key
+      );
+    }
+
+    const pilot = this.occupants.find(o => o.role === "pilot");
+    if (pilot) {
+      const pilotActor = game.actors?.get(pilot.actorId);
+      if (pilotActor) {
+        this.defense = {
+          melee: pilotActor.system.abilities.mle.defense,
+          agility: pilotActor.system.abilities.agl.defense,
+          pilotName: pilotActor.name,
+        };
+      } else {
+        this.defense = { melee: 10, agility: 10, pilotName: null };
+      }
+    } else {
+      this.defense = { melee: 10, agility: 10, pilotName: null };
+    }
+  }
+}
+
 class MarvelMultiverseItemBase extends foundry.abstract.TypeDataModel {
 
   static defineSchema() {
@@ -3518,6 +3828,22 @@ class MarvelMultiversePowerSet extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
     const schema = super.defineSchema();
+    return schema;
+  }
+}
+
+class MarvelMultiverseVehicleWeapon extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const requiredInteger = { required: true, nullable: false, integer: true };
+    const schema = super.defineSchema();
+
+    schema.agility = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
+    schema.range = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
+    schema.damageMultiplier = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
+    schema.automated = new fields.BooleanField({ required: true, initial: false });
+    schema.notes = new fields.StringField({ required: true, blank: true });
+
     return schema;
   }
 }
@@ -3704,6 +4030,7 @@ const ActorDirectoryFilter = {
     return {
       logic: "and",
       panelOpen: false,
+      actorType: [],
       rank: { op: ">=", value: null },
       size: [],
       origins: [],
@@ -3770,6 +4097,11 @@ const ActorDirectoryFilter = {
         value: s.abilities[key].value,
       };
     }
+    const actorTypes = {
+      character: { label: "Character", checked: s.actorType.includes("character") },
+      npc: { label: "NPC", checked: s.actorType.includes("npc") },
+      vehicle: { label: "Vehicle", checked: s.actorType.includes("vehicle") },
+    };
     const sizes = {};
     for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.sizes)) {
       sizes[key] = {
@@ -3816,6 +4148,7 @@ const ActorDirectoryFilter = {
       filterState: s,
       activeFilterCount: this._countActiveFilters(),
       filterOptions: {
+        actorTypes,
         sizes,
         abilities,
         movementTypes,
@@ -3891,7 +4224,7 @@ const ActorDirectoryFilter = {
       body.toggleClass("collapsed");
     });
 
-    const checkboxFilters = ["size", "origins", "occupations", "powerSets", "tags", "traits", "movementTypes", "elements"];
+    const checkboxFilters = ["actorType", "size", "origins", "occupations", "powerSets", "tags", "traits", "movementTypes", "elements"];
     for (const filterKey of checkboxFilters) {
       html.find(`.mm-filter-checkbox[data-filter='${filterKey}']`).on("change", () => {
         self._updateCheckboxFilter(filterKey, html);
@@ -3984,6 +4317,7 @@ const ActorDirectoryFilter = {
   _countActiveFilters() {
     const s = this._filterState;
     let count = 0;
+    if (s.actorType.length) count++;
     if (s.rank.value !== null) count++;
     if (s.size.length) count++;
     if (s.origins.length) count++;
@@ -4013,8 +4347,12 @@ const ActorDirectoryFilter = {
     const s = this._filterState;
     const results = [];
 
+    if (s.actorType.length) {
+      results.push(s.actorType.includes(actor.type));
+    }
+
     if (s.rank.value !== null) {
-      results.push(this._evalNumeric(actor.system.attributes.rank.value, s.rank.op, s.rank.value));
+      results.push(this._evalNumeric(actor.system.attributes?.rank?.value, s.rank.op, s.rank.value));
     }
 
     if (s.size.length) {
@@ -4052,7 +4390,7 @@ const ActorDirectoryFilter = {
 
     for (const [abl, filter] of Object.entries(s.abilities)) {
       if (filter.value !== null) {
-        results.push(this._evalNumeric(actor.system.abilities[abl]?.value ?? 0, filter.op, filter.value));
+        results.push(this._evalNumeric(actor.system.abilities?.[abl]?.value ?? 0, filter.op, filter.value));
       }
     }
 
@@ -4061,7 +4399,7 @@ const ActorDirectoryFilter = {
     }
 
     if (s.movementTypes.length) {
-      results.push(s.movementTypes.every(mt => actor.system.movement[mt]?.active));
+      results.push(s.movementTypes.every(mt => actor.system.movement?.[mt]?.active));
     }
 
     if (s.elements.length) {
@@ -4077,15 +4415,15 @@ const ActorDirectoryFilter = {
     }
 
     if (s.healthMax.value !== null) {
-      results.push(this._evalNumeric(actor.system.health.max ?? 0, s.healthMax.op, s.healthMax.value));
+      results.push(this._evalNumeric(actor.system.health?.max ?? 0, s.healthMax.op, s.healthMax.value));
     }
 
     if (s.focusMax.value !== null) {
-      results.push(this._evalNumeric(actor.system.focus.max ?? 0, s.focusMax.op, s.focusMax.value));
+      results.push(this._evalNumeric(actor.system.focus?.max ?? 0, s.focusMax.op, s.focusMax.value));
     }
 
     if (s.karmaMax.value !== null) {
-      results.push(this._evalNumeric(actor.system.karma.max ?? 0, s.karmaMax.op, s.karmaMax.value));
+      results.push(this._evalNumeric(actor.system.karma?.max ?? 0, s.karmaMax.op, s.karmaMax.value));
     }
 
     if (!results.length) return true;
@@ -4144,6 +4482,7 @@ Hooks.once("init", () => {
   CONFIG.Actor.dataModels = {
     character: MarvelMultiverseCharacter,
     npc: MarvelMultiverseNPC,
+    vehicle: MarvelMultiverseVehicle,
   };
   CONFIG.ChatMessage.documentClass = ChatMessageMarvel;
   CONFIG.Item.documentClass = MarvelMultiverseItem$1;
@@ -4156,6 +4495,7 @@ Hooks.once("init", () => {
     tag: MarvelMultiverseTag,
     power: MarvelMultiversePower,
     powerSet: MarvelMultiversePowerSet,
+    vehicleWeapon: MarvelMultiverseVehicleWeapon,
   };
 
   game.settings.register("marvel-multiverse", "autoPopulateOrigin", {
@@ -4211,6 +4551,11 @@ Hooks.once("init", () => {
     types: ["npc"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.NPC",
+  });
+  Actors.registerSheet("marvel-multiverse", MarvelMultiverseVehicleSheet, {
+    types: ["vehicle"],
+    makeDefault: true,
+    label: "MARVEL_MULTIVERSE.SheetLabels.Vehicle",
   });
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("marvel-multiverse", MarvelMultiverseItemSheet, {

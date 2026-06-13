@@ -1,0 +1,33 @@
+<ol class="mm-vehicle-weapons-list item-list">
+  <li class="mm-vehicle-weapon-header flexrow">
+    <div class="mm-vehicle-weapon-name"><strong>Name</strong></div>
+    <div class="mm-vehicle-weapon-stat"><strong>Agl</strong></div>
+    <div class="mm-vehicle-weapon-stat"><strong>Range</strong></div>
+    <div class="mm-vehicle-weapon-stat"><strong>DM</strong></div>
+    <div class="mm-vehicle-weapon-stat"><strong>Auto</strong></div>
+    <div class="mm-vehicle-weapon-controls"></div>
+  </li>
+  {{#each vehicleWeapons as |weapon|}}
+  <li class="mm-vehicle-weapon flexrow item" data-item-id="{{weapon._id}}">
+    <div class="mm-vehicle-weapon-name">
+      <div class="item-image"><img src="{{weapon.img}}" title="{{weapon.name}}" width="24" height="24"/></div>
+      <span class="item-edit">{{weapon.name}}</span>
+    </div>
+    <div class="mm-vehicle-weapon-stat">{{#if weapon.system.agility}}{{weapon.system.agility}}{{else}}&mdash;{{/if}}</div>
+    <div class="mm-vehicle-weapon-stat">{{#if weapon.system.range}}{{weapon.system.range}}{{else}}&mdash;{{/if}}</div>
+    <div class="mm-vehicle-weapon-stat">{{#if weapon.system.damageMultiplier}}&times;{{weapon.system.damageMultiplier}}{{else}}&mdash;{{/if}}</div>
+    <div class="mm-vehicle-weapon-stat">{{#if weapon.system.automated}}<i class="fas fa-robot" title="Automated"></i>{{/if}}</div>
+    <div class="mm-vehicle-weapon-controls">
+      <a class="item-delete" title="Delete"><i class="fas fa-trash"></i></a>
+    </div>
+  </li>
+  {{#if weapon.system.notes}}
+  <li class="mm-vehicle-weapon-notes">
+    <em>{{weapon.system.notes}}</em>
+  </li>
+  {{/if}}
+  {{/each}}
+</ol>
+<div class="mm-vehicle-add-weapon">
+  <a class="item-create" data-type="vehicleWeapon"><i class="fas fa-plus"></i> Add Weapon</a>
+</div>

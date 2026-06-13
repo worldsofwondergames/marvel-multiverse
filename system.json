@@ -97,6 +97,15 @@
             "type": "Item",
             "private": false,
             "flags": {}
+        },
+        {
+            "name": "vehicles",
+            "label": "Vehicles",
+            "system": "marvel-multiverse",
+            "path": "packs/vehicles",
+            "type": "Actor",
+            "private": false,
+            "flags": {}
         }
     ],
     "packFolders": [
@@ -110,7 +119,8 @@
                 "origins",
                 "occupations",
                 "items",
-                "powers"
+                "powers",
+                "vehicles"
             ]
         }
     ],

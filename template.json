@@ -2,7 +2,8 @@
   "Actor": {
     "types": [
       "character",
-      "npc"
+      "npc",
+      "vehicle"
     ]
   },
   "Item": {
@@ -14,7 +15,8 @@
       "origin",
       "occupation",
       "power",
-      "powerSet"
+      "powerSet",
+      "vehicleWeapon"
     ]
   }
 }

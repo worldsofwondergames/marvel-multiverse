@@ -1757,29 +1757,38 @@
 /* Vehicle Sheet Styles   */
 /* ====================== */
 
-.mm-vehicle-portrait-block {
-  flex: 0 0 150px;
-  margin-right: 8px;
-}
-
-.mm-vehicle-portrait-block .mm-hero-portrait img {
-  border: 2px solid #4b4a44;
-  border-radius: 4px;
-  height: 150px;
-  object-fit: cover;
-  width: 150px;
-}
-
-/* Vehicle header — portrait row stretches all boxes to portrait height */
+/* Portrait row: portrait, health, DR each ~1/3 width, all square.
+   Portrait never shrinks below 150px; health & DR absorb the squeeze. */
 .mm-vehicle-portrait-row {
   align-items: stretch;
   gap: 8px;
 }
 
+.mm-vehicle-portrait-block {
+  flex: 1 1 0;
+  min-width: 100px;
+  max-width: 200px;
+}
+
+.marvel-multiverse.sheet.actor .mm-vehicle-portrait-block .mm-hero-portrait {
+  height: 100%;
+  width: 100%;
+}
+
+.marvel-multiverse.sheet.actor .mm-vehicle-portrait-block .mm-hero-portrait img {
+  border: 2px solid #4b4a44;
+  border-radius: 4px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
 .mm-vehicle-header-stats {
   align-items: stretch;
-  flex: 1 1 0;
+  flex: 2 1 0;
   gap: 8px;
+  min-width: 0;
 }
 
 /* Vehicle header stat block — standalone class, no base-class specificity fights */

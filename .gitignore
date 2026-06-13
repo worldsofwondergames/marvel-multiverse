@@ -1,7 +1,7 @@
 .claude/
 node_modules/
 marvel-multiverse-compiled.mjs
-packs/*/LOCK
+packs/
 
 # Node
 node_modules/
@@ -10,4 +10,4 @@ npm-debug.log
 # Stryker mutation testing reports
 reports/
 
-docs/superpowers
+docs/

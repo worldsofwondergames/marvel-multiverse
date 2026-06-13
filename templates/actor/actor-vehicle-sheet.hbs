@@ -11,7 +11,7 @@
           </div>
         </div>
 
-        <div class="flexrow -nowrap">
+        <div class="flexrow -nowrap mm-vehicle-portrait-row">
           {{!-- Portrait --}}
           <div class="mm-vehicle-portrait-block">
             <div class="mm-hero-portrait">
@@ -19,57 +19,51 @@
             </div>
           </div>
 
-          {{!-- Stats Block --}}
-          <div class="flexcol -gap-sm -grow-2">
-            <div class="flexrow -nowrap -gap-sm">
-              {{!-- Health --}}
-              <div class="mm-stat-block mm-vehicle-health mm-vehicle-health-{{system.health.status}}">
-                <label class="mm-label">Health</label>
-                <div class="mm-input">
-                  <input type="number" name="system.health.value" value="{{system.health.value}}" data-dtype="Number"/>
-                  <span>/</span>
-                  <input type="number" name="system.health.max" value="{{system.health.max}}" data-dtype="Number" min="0"/>
-                </div>
-                {{#if system.health.halfSpeed}}
-                <span class="mm-vehicle-status-badge -warning">{{localize "MARVEL_MULTIVERSE.Vehicle.HalfSpeed"}}</span>
-                {{/if}}
-                {{#if system.health.disabled}}
-                <span class="mm-vehicle-status-badge -danger">{{localize "MARVEL_MULTIVERSE.Vehicle.Disabled"}}</span>
-                {{/if}}
-                {{#if system.health.destroyed}}
-                <span class="mm-vehicle-status-badge -destroyed">{{localize "MARVEL_MULTIVERSE.Vehicle.Destroyed"}}</span>
-                {{/if}}
+          {{!-- Three equal stat boxes --}}
+          <div class="flexrow -nowrap mm-vehicle-header-stats">
+            {{!-- Health --}}
+            <div class="mm-vehicle-stat-block mm-vehicle-health mm-vehicle-health-{{system.health.status}}">
+              <label class="mm-vehicle-stat-label">Health</label>
+              <div class="mm-vehicle-stat-input">
+                <input type="number" name="system.health.value" value="{{system.health.value}}" data-dtype="Number"/>
+                <span>/</span>
+                <input type="number" name="system.health.max" value="{{system.health.max}}" data-dtype="Number" min="0"/>
               </div>
-              {{!-- DR --}}
-              <div class="mm-stat-block">
-                <label class="mm-label">{{localize "MARVEL_MULTIVERSE.Vehicle.DamageReduction"}}</label>
-                <div class="mm-input">
-                  {{#if (gt system.damageReduction 0)}}-{{/if}}{{system.damageReduction}}
-                </div>
-              </div>
-            </div>
-
-            {{!-- Active Speeds --}}
-            <div class="flexrow -nowrap -gap-sm mm-vehicle-speeds">
-              {{#each system.speed as |spd key|}}
-                {{#if spd.active}}
-                <div class="mm-stat-block">
-                  <label class="mm-label">{{spd.label}}</label>
-                  <div class="mm-input">{{spd.value}}</div>
-                </div>
-                {{/if}}
-              {{/each}}
-            </div>
-
-            {{!-- Defense --}}
-            <div class="mm-vehicle-defense">
-              <strong>{{localize "MARVEL_MULTIVERSE.Vehicle.VehicleDefense"}}:</strong>
-              {{#if system.defense.pilotName}}
-                Melee {{system.defense.melee}} / Agility {{system.defense.agility}}
-                <em>({{system.defense.pilotName}})</em>
-              {{else}}
-                10 ({{localize "MARVEL_MULTIVERSE.Vehicle.Unpiloted"}})
+              {{#if system.health.halfSpeed}}
+              <span class="mm-vehicle-status-badge -warning">{{localize "MARVEL_MULTIVERSE.Vehicle.HalfSpeed"}}</span>
               {{/if}}
+              {{#if system.health.disabled}}
+              <span class="mm-vehicle-status-badge -danger">{{localize "MARVEL_MULTIVERSE.Vehicle.Disabled"}}</span>
+              {{/if}}
+              {{#if system.health.destroyed}}
+              <span class="mm-vehicle-status-badge -destroyed">{{localize "MARVEL_MULTIVERSE.Vehicle.Destroyed"}}</span>
+              {{/if}}
+            </div>
+
+            {{!-- Damage Reduction (editable) --}}
+            <div class="mm-vehicle-stat-block">
+              <label class="mm-vehicle-stat-label">{{localize "MARVEL_MULTIVERSE.Vehicle.DamageReduction"}}</label>
+              <div class="mm-vehicle-stat-input">
+                <input type="number" name="system.damageReduction" value="{{system.damageReduction}}" data-dtype="Number"/>
+              </div>
+            </div>
+
+            {{!-- Size / Crew --}}
+            <div class="mm-vehicle-info-block">
+              <div class="mm-vehicle-info-field">
+                <label class="mm-vehicle-info-label">Size</label>
+                <select name="system.size">
+                  {{selectOptions vehicleSizeSelection selected=system.size}}
+                </select>
+              </div>
+              <div class="mm-vehicle-info-field">
+                <label class="mm-vehicle-info-label">Crew</label>
+                <input type="number" name="system.crew" value="{{system.crew}}" data-dtype="Number" min="0"/>
+              </div>
+              <div class="mm-vehicle-info-field">
+                <label class="mm-vehicle-info-label">Max Crew</label>
+                <input type="number" name="system.passengers" value="{{system.passengers}}" data-dtype="Number" min="1"/>
+              </div>
             </div>
           </div>
         </div>
@@ -78,131 +72,111 @@
   </header>
 
   {{!-- Sheet Tab Navigation --}}
-  <nav class="sheet-tabs tabs mm-tabs" data-group="primary">
-    <a class="item" data-tab="stats">Stats</a>
-    <a class="item" data-tab="occupants">{{localize "MARVEL_MULTIVERSE.Vehicle.Occupants"}} ({{system.occupants.length}} / {{system.passengers}})</a>
-    <a class="item" data-tab="combat">Powers &amp; Weapons</a>
-    <a class="item" data-tab="profile">{{localize "MARVEL_MULTIVERSE.Vehicle.Profile"}}</a>
+  <nav class="sheet-tabs tabs mm-tabs -four" data-group="primary">
+    <div class="sheet-tabs-wrapper">
+      <a class="item" data-tab="stats">Details</a>
+      <a class="item" data-tab="occupants">{{localize "MARVEL_MULTIVERSE.Vehicle.Occupants"}} ({{system.occupants.length}}/{{system.passengers}})</a>
+      <a class="item" data-tab="combat">Powers &amp; Weapons</a>
+      <a class="item" data-tab="profile">{{localize "MARVEL_MULTIVERSE.Vehicle.Profile"}}</a>
+    </div>
   </nav>
 
   {{!-- Sheet Body --}}
   <section class="sheet-body">
 
-    {{!-- Stats Tab --}}
+    {{!-- Details Tab --}}
     <div class="tab flexcol" data-group="primary" data-tab="stats">
-      <div class="mm-styled-container">
-        <h3>Speeds</h3>
-        <div class="mm-styled-container-body">
-          {{#each system.speed as |spd key|}}
-          <div class="mm-styled-field -fill flexrow -nowrap">
-            <label class="mm-styled-label -align-left"><span>{{spd.label}}</span></label>
-            <div class="mm-styled-input -narrow">
-              <input type="number" name="system.speed.{{key}}.value" value="{{spd.value}}" data-dtype="Number" min="0"/>
-            </div>
-            <label class="mm-vehicle-speed-active">
-              <input type="checkbox" name="system.speed.{{key}}.active" {{checked spd.active}}/>
-              Active
-            </label>
-          </div>
-          {{/each}}
-        </div>
-      </div>
+      <div class="mm-vehicle-tab-scroll">
 
-      <div class="mm-styled-container">
-        <h3>Vehicle Details</h3>
-        <div class="mm-styled-container-body">
-          <div class="mm-styled-field -sm">
-            <label class="mm-styled-label -align-left"><span>Size</span></label>
-            <div class="mm-styled-input">
-              <select name="system.size">
-                {{selectOptions vehicleSizeSelection selected=system.size}}
-              </select>
-            </div>
-          </div>
-          <div class="mm-styled-field -fill">
-            <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Vehicle.Passengers"}} (Max)</span></label>
-            <div class="mm-styled-input">
-              <input type="number" name="system.passengers" value="{{system.passengers}}" data-dtype="Number" min="1"/>
-            </div>
-          </div>
-          <div class="mm-styled-field -fill">
-            <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Vehicle.Crew"}}</span></label>
-            <div class="mm-styled-input">
-              <input type="number" name="system.crew" value="{{system.crew}}" data-dtype="Number" min="0"/>
-            </div>
-          </div>
-          <div class="mm-styled-field -fill">
-            <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Vehicle.DamageReduction"}}</span></label>
-            <div class="mm-styled-input">
-              <input type="number" name="system.damageReduction" value="{{system.damageReduction}}" data-dtype="Number"/>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mm-styled-container">
-        <h3>{{localize "MARVEL_MULTIVERSE.Vehicle.CrashDamage"}}</h3>
-        <div class="mm-styled-container-body">
-          <div class="flexrow -nowrap">
-            <div class="mm-stat-block">
-              <label class="mm-label">Crash DM</label>
-              <div class="mm-input mm-derived-value">&times;{{system.crashDamageMultiplier}}</div>
-            </div>
+        {{!-- Crash Damage & Safety Harness --}}
+        <div class="mm-styled-container -no-header">
+          <div class="mm-styled-container-body">
             <div class="mm-styled-field -fill">
-              <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Vehicle.SafetyHarness"}}</span></label>
-              <div class="mm-styled-input">
-                <input type="checkbox" name="system.safetyHarness" {{checked system.safetyHarness}}/>
+              <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Vehicle.CrashDamage"}}</span></label>
+              <div class="mm-styled-input mm-vehicle-crash-row">
+                <span class="mm-vehicle-crash-dm-prefix">&times;</span>
+                <input type="number" name="system.crashDamageMultiplier" value="{{system.crashDamageMultiplier}}" data-dtype="Number" min="0" class="mm-vehicle-crash-dm"/>
+                <label class="mm-vehicle-harness-label">
+                  <input type="checkbox" name="system.safetyHarness" {{checked system.safetyHarness}}/>
+                  {{localize "MARVEL_MULTIVERSE.Vehicle.SafetyHarness"}}
+                </label>
               </div>
             </div>
           </div>
         </div>
+
+        {{!-- Speeds --}}
+        <div class="mm-styled-container">
+          <h3>Speed</h3>
+          <ul class="mm-styled-container-body mm-vehicle-speed-list">
+            <li class="mm-vehicle-speed-header">
+              <span>Speed Type</span>
+              <span>Value</span>
+              <span>Active</span>
+            </li>
+            {{#each system.speed as |spd key|}}
+            <li class="mm-vehicle-speed-row">
+              <span class="mm-vehicle-speed-name">{{spd.label}}</span>
+              <input type="number" name="system.speed.{{key}}.value" value="{{spd.value}}" data-dtype="Number" min="0"/>
+              <input type="checkbox" name="system.speed.{{key}}.active" {{checked spd.active}}/>
+            </li>
+            {{/each}}
+          </ul>
+        </div>
+
       </div>
     </div>
 
     {{!-- Occupants Tab --}}
     <div class="tab flexcol" data-group="primary" data-tab="occupants">
-      <div class="mm-styled-container">
-        <h3>{{localize "MARVEL_MULTIVERSE.Vehicle.Occupants"}} ({{system.occupants.length}} / {{system.passengers}})</h3>
-        <div class="mm-styled-container-body mm-vehicle-occupants-drop-zone">
-          {{> "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-occupants.hbs"}}
+      <div class="mm-vehicle-tab-scroll">
+        <div class="mm-styled-container">
+          <h3>{{localize "MARVEL_MULTIVERSE.Vehicle.Occupants"}}</h3>
+          <div class="mm-styled-container-body mm-vehicle-occupants-drop-zone">
+            {{> "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-occupants.hbs"}}
+          </div>
         </div>
       </div>
     </div>
 
     {{!-- Powers & Weapons Tab --}}
     <div class="tab flexcol" data-group="primary" data-tab="combat">
-      <div class="mm-styled-container mm-powers-block">
-        <h3>Powers</h3>
-        <div class="mm-styled-container-body">
-          {{> "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs"}}
+      <div class="mm-vehicle-tab-scroll">
+        <div class="mm-styled-container mm-powers-block">
+          <h3>Powers</h3>
+          <div class="mm-styled-container-body">
+            {{> "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs"}}
+          </div>
         </div>
-      </div>
-      <div class="mm-styled-container">
-        <h3>Weapons</h3>
-        <div class="mm-styled-container-body">
-          {{> "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-weapons.hbs"}}
+        <div class="mm-styled-container">
+          <h3>Weapons</h3>
+          <div class="mm-styled-container-body">
+            {{> "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-weapons.hbs"}}
+          </div>
         </div>
       </div>
     </div>
 
     {{!-- Profile & Notes Tab --}}
     <div class="tab flexcol" data-group="primary" data-tab="profile">
-      <div class="mm-styled-container">
-        <h3>{{localize "MARVEL_MULTIVERSE.Vehicle.Profile"}}</h3>
-        <div class="mm-styled-container-body">
-          <div class="mm-styled-field -fill">
-            <div class="mm-styled-input">
-              {{editor system.profile target="system.profile" button=false engine="prosemirror" collaborate=false editable=editable}}
+      <div class="mm-vehicle-tab-scroll">
+        <div class="mm-styled-container">
+          <h3>{{localize "MARVEL_MULTIVERSE.Vehicle.Profile"}}</h3>
+          <div class="mm-styled-container-body">
+            <div class="mm-styled-field -fill">
+              <div class="mm-styled-input">
+                {{editor system.profile target="system.profile" button=false engine="prosemirror" collaborate=false editable=editable}}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="mm-styled-container">
-        <h3>{{localize "MARVEL_MULTIVERSE.Vehicle.Notes"}}</h3>
-        <div class="mm-styled-container-body">
-          <div class="mm-styled-field -fill">
-            <div class="mm-styled-input">
-              {{editor system.notes target="system.notes" button=false engine="prosemirror" collaborate=false editable=editable}}
+        <div class="mm-styled-container">
+          <h3>{{localize "MARVEL_MULTIVERSE.Vehicle.Notes"}}</h3>
+          <div class="mm-styled-container-body">
+            <div class="mm-styled-field -fill">
+              <div class="mm-styled-input">
+                {{editor system.notes target="system.notes" button=false engine="prosemirror" collaborate=false editable=editable}}
+              </div>
             </div>
           </div>
         </div>

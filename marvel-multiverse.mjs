@@ -404,7 +404,7 @@ class MarvelMultiverseActor extends Actor {
       }
     }
 
-    data.rank = this.system.attributes.rank.value;
+    data.rank = this.system.attributes?.rank?.value ?? null;
 
     return { ...super.getRollData(), ...data };
   }
@@ -2366,7 +2366,7 @@ class MarvelMultiverseVehicleSheet extends ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "actor"],
-      width: 690,
+      width: 720,
       height: 700,
       tabs: [
         {
@@ -2494,7 +2494,8 @@ class MarvelMultiverseVehicleSheet extends ActorSheet {
     const type = header.dataset.type;
     const data = foundry.utils.duplicate(header.dataset);
     const name = `New ${type.capitalize()}`;
-    const itemData = { name, type, system: data };
+    const img = type === "vehicleWeapon" ? "icons/svg/sword.svg" : undefined;
+    const itemData = { name, type, img, system: data };
     itemData.system.type = undefined;
     return await Item.create(itemData, { parent: this.actor });
   }
@@ -3593,10 +3594,12 @@ class MarvelMultiverseVehicle extends foundry.abstract.TypeDataModel {
     schema.passengers = new fields.NumberField({ ...requiredInteger, initial: 1, min: 1 });
     schema.crew = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
     schema.safetyHarness = new fields.BooleanField({ required: true, initial: false });
+    schema.crashDamageMultiplier = new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 });
 
     const speedField = () => new fields.SchemaField({
       value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
       active: new fields.BooleanField({ required: true, initial: false }),
+      label: new fields.StringField({ required: true, blank: true }),
     });
 
     schema.speed = new fields.SchemaField({
@@ -3633,17 +3636,6 @@ class MarvelMultiverseVehicle extends foundry.abstract.TypeDataModel {
     else if (this.health.disabled) healthStatus = "disabled";
     else if (this.health.halfSpeed) healthStatus = "halfSpeed";
     this.health.status = healthStatus;
-
-    const activeSpeedValues = Object.values(this.speed)
-      .filter(s => s.active)
-      .map(s => s.value);
-    const highestActiveSpeed = activeSpeedValues.length > 0 ? Math.max(...activeSpeedValues) : 0;
-
-    let crashDM = highestActiveSpeed > 0 ? Math.min(20, Math.ceil(highestActiveSpeed / 3)) : 0;
-    if (this.safetyHarness && crashDM > 0) {
-      crashDM = Math.ceil(crashDM / 2);
-    }
-    this.crashDamageMultiplier = crashDM;
 
     for (const key in this.speed) {
       this.speed[key].label = game.i18n.localize(

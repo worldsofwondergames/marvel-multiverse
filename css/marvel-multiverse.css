@@ -927,6 +927,27 @@
   padding-inline-start: 16px;
   clip-path: polygon(0% 100%, 16px 0%, 100% 0%, 100% calc(100% - 20px), calc(100% - 20px) 100%);
 }
+.sheet nav.mm-tabs.-four .item:nth-of-type(1) {
+  flex-basis: calc(25% + 16px);
+  margin-inline-end: -10px;
+  padding-inline-end: 16px;
+  clip-path: polygon(0% 20px, 20px 0%, 100% 0%, calc(100% - 16px) 100%, 0% 100%);
+}
+.sheet nav.mm-tabs.-four .item:nth-of-type(2) {
+  flex-basis: calc(25% + 6px);
+  margin-inline-end: -10px;
+  clip-path: polygon(16px 0%, 100% 0%, calc(100% - 16px) 100%, 0% 100%);
+}
+.sheet nav.mm-tabs.-four .item:nth-of-type(3) {
+  flex-basis: calc(25% + 6px);
+  clip-path: polygon(16px 0%, 100% 0%, calc(100% - 16px) 100%, 0% 100%);
+}
+.sheet nav.mm-tabs.-four .item:nth-of-type(4) {
+  flex-basis: calc(25% + 16px);
+  margin-inline-start: -10px;
+  padding-inline-start: 16px;
+  clip-path: polygon(0% 100%, 16px 0%, 100% 0%, 100% calc(100% - 20px), calc(100% - 20px) 100%);
+}
 .sheet nav.mm-tabs .sheet-tabs-wrapper {
   display: flex;
   width: 100%;
@@ -1531,6 +1552,7 @@
   max-width: 72px;
 }
 
+
 .marvel-multiverse.sheet.actor .mm-abilities-block .mm-ability-rows::before {
   background: #fff2ec;
   bottom: 4px;
@@ -1748,20 +1770,182 @@
   width: 150px;
 }
 
-.mm-vehicle-health {
+/* Vehicle header — portrait row stretches all boxes to portrait height */
+.mm-vehicle-portrait-row {
+  align-items: stretch;
+  gap: 8px;
+}
+
+.mm-vehicle-header-stats {
+  align-items: stretch;
+  flex: 1 1 0;
+  gap: 8px;
+}
+
+/* Vehicle header stat block — standalone class, no base-class specificity fights */
+.mm-vehicle-stat-block {
+  align-items: center;
+  background: #e41d18;
+  clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px);
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+  min-width: 0;
+  padding: 8px;
+  position: relative;
+  text-align: center;
+}
+
+.mm-vehicle-stat-block::before {
+  background: #fff2ec;
+  bottom: 2px;
+  clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px);
+  content: "";
+  left: 2px;
+  position: absolute;
+  right: 3px;
+  top: 3px;
+}
+
+.mm-vehicle-stat-label {
+  color: #7a2020;
+  font-size: 11px;
+  font-weight: 700;
+  position: relative;
+  text-transform: uppercase;
+  z-index: 1;
+}
+
+.mm-vehicle-stat-input {
+  align-items: center;
+  color: #4b4a44;
+  display: flex;
+  font-size: 20px;
+  font-weight: 700;
+  gap: 4px;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.mm-vehicle-stat-input input[type="number"] {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  color: #4b4a44;
+  font-size: 20px;
+  height: 28px;
+  max-width: 44px;
+  text-align: center;
+  width: auto;
+}
+
+.mm-vehicle-stat-input span {
+  color: #4b4a44;
+}
+
+/* Crash DM row — derived value + safety harness checkbox inline */
+.mm-vehicle-crash-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.mm-vehicle-crash-dm-prefix {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mm-vehicle-crash-dm {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  color: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  width: 44px;
+}
+
+.mm-vehicle-harness-label {
+  align-items: center;
+  display: flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 4px;
+  text-transform: uppercase;
+}
+
+.mm-vehicle-stat-block.mm-vehicle-health-halfSpeed {
+  background: #c89e18;
+}
+
+.mm-vehicle-stat-block.mm-vehicle-health-disabled {
+  background: #c05a2e;
+}
+
+.mm-vehicle-stat-block.mm-vehicle-health-destroyed {
+  background: #8b0502;
+}
+
+/* Third header box — size/crew multi-field block */
+.mm-vehicle-info-block {
+  align-items: flex-start;
+  background: #e41d18;
+  clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px);
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-width: 0;
+  padding: 8px 10px;
   position: relative;
 }
 
-.mm-vehicle-health-halfSpeed {
-  border-color: #c89e18;
+.mm-vehicle-info-block::before {
+  background: #fff2ec;
+  bottom: 2px;
+  clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px);
+  content: "";
+  left: 2px;
+  position: absolute;
+  right: 3px;
+  top: 3px;
 }
 
-.mm-vehicle-health-disabled {
-  border-color: #c05a2e;
+.mm-vehicle-info-field {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  width: 100%;
+  z-index: 1;
 }
 
-.mm-vehicle-health-destroyed {
-  border-color: #8b0502;
+.mm-vehicle-info-label {
+  color: #4b4a44;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mm-vehicle-info-block input[type="number"],
+.mm-vehicle-info-block select {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  color: #4b4a44;
+  font-size: 12px;
+  height: 20px;
+  text-align: center;
+  width: 44px;
+}
+
+.mm-vehicle-info-block select {
+  width: auto;
 }
 
 .mm-vehicle-status-badge {
@@ -1788,10 +1972,6 @@
   background: #8b0502;
 }
 
-.mm-vehicle-speeds {
-  flex-wrap: wrap;
-}
-
 .mm-vehicle-defense {
   font-size: 12px;
   padding: 4px 0;
@@ -1799,6 +1979,82 @@
 
 .mm-vehicle-defense em {
   color: #7a7971;
+}
+
+/* Vehicle sheet — tab scroll wrapper */
+.mm-vehicle-tab-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.marvel-multiverse.sheet.actor.vehicle .mm-styled-container-body {
+  height: auto;
+}
+
+/* Vehicle sheet — fix h3 width constraint */
+.marvel-multiverse.sheet.actor.vehicle .mm-styled-container h3 {
+  width: auto;
+}
+
+/* Vehicle speed list */
+.mm-vehicle-speed-list {
+  list-style: none;
+}
+
+.mm-vehicle-speed-header,
+.mm-vehicle-speed-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 60px 80px;
+  padding: 3px 4px;
+}
+
+.mm-vehicle-speed-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.mm-vehicle-speed-header span:first-child {
+  text-align: left;
+}
+
+.mm-vehicle-speed-name {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mm-vehicle-speed-row input[type="number"] {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  color: #fff;
+  padding: 2px 4px;
+  text-align: center;
+  width: 100%;
+}
+
+.mm-vehicle-speed-row input[type="checkbox"] {
+  justify-self: center;
+}
+
+.mm-vehicle-speed-row .mm-vehicle-speed-active {
+  align-items: center;
+  display: flex;
+  font-size: 11px;
+  gap: 4px;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 /* Vehicle Speed Toggle */
@@ -1835,13 +2091,25 @@
 }
 
 .mm-vehicle-occupant-name {
+  color: #fff;
   flex: 1;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .mm-vehicle-occupant-role select {
+  background: #3a1010;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
   font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
   width: auto;
+}
+
+.mm-vehicle-occupant-role select option {
+  background: #3a1010;
+  color: #fff;
 }
 
 .mm-vehicle-occupant-defense {
@@ -1849,13 +2117,17 @@
   font-size: 11px;
 }
 
+.mm-vehicle-occupant-controls {
+  margin-left: auto;
+}
+
 .mm-vehicle-occupant-controls a {
-  color: #7a7971;
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
 }
 
 .mm-vehicle-occupant-controls a:hover {
-  color: #8b0502;
+  color: #fff;
 }
 
 .mm-vehicle-occupant-empty {
@@ -1877,14 +2149,16 @@
 }
 
 .mm-vehicle-weapon-header {
-  border-bottom: 2px solid #4b4a44;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
   font-size: 11px;
   padding: 2px 0;
 }
 
 .mm-vehicle-weapon {
   align-items: center;
-  border-bottom: 1px solid #c9c7b8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
   gap: 4px;
   padding: 4px 0;
 }
@@ -1894,6 +2168,17 @@
   display: flex;
   flex: 2;
   gap: 4px;
+}
+
+.mm-vehicle-weapon-name .item-image {
+  background: transparent;
+}
+
+.mm-vehicle-weapon-name .item-image img {
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  display: block;
 }
 
 .mm-vehicle-weapon-name .item-edit {
@@ -1915,16 +2200,16 @@
 }
 
 .mm-vehicle-weapon-controls a {
-  color: #7a7971;
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
 }
 
 .mm-vehicle-weapon-controls a:hover {
-  color: #8b0502;
+  color: #fff;
 }
 
 .mm-vehicle-weapon-notes {
-  color: #7a7971;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 11px;
   padding: 0 0 4px 28px;
 }
@@ -1934,11 +2219,11 @@
 }
 
 .mm-vehicle-add-weapon a {
-  color: #7a7971;
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   font-size: 12px;
 }
 
 .mm-vehicle-add-weapon a:hover {
-  color: #4b4a44;
+  color: #fff;
 }

@@ -1072,8 +1072,9 @@
   margin-bottom: 0;
 }
 .mm-sidebar-filters .mm-filter-group-header {
-  font-size: 11px;
-  font-weight: 700;
+  font-family: "Roboto", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
   text-transform: uppercase;
   color: #8b0502;
   margin: 0 0 2px;
@@ -1957,6 +1958,14 @@
   width: auto;
 }
 
+.mm-vehicle-info-value {
+  color: #4b4a44;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  width: 44px;
+}
+
 .mm-vehicle-status-badge {
   border-radius: 3px;
   color: #fff;
@@ -2093,6 +2102,10 @@
   padding: 4px 0;
 }
 
+.mm-vehicle-occupant:last-child {
+  border-bottom: none;
+}
+
 .mm-vehicle-occupant-img img {
   border: 1px solid #4b4a44;
   border-radius: 3px;
@@ -2127,7 +2140,9 @@
 }
 
 .mm-vehicle-occupant-controls {
+  flex: 0 0 auto;
   margin-left: auto;
+  padding-right: 4px;
 }
 
 .mm-vehicle-occupant-controls a {

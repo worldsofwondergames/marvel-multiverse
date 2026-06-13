@@ -65,6 +65,8 @@ export default class MarvelMultiverseVehicle extends foundry.abstract.TypeDataMo
       );
     }
 
+    this.crew = this.occupants.length;
+
     const pilot = this.occupants.find(o => o.role === "pilot");
     if (pilot) {
       const pilotActor = game.actors?.get(pilot.actorId);

@@ -58,7 +58,7 @@
               </div>
               <div class="mm-vehicle-info-field">
                 <label class="mm-vehicle-info-label">Crew</label>
-                <input type="number" name="system.crew" value="{{system.crew}}" data-dtype="Number" min="0"/>
+                <span class="mm-vehicle-info-value">{{system.crew}}</span>
               </div>
               <div class="mm-vehicle-info-field">
                 <label class="mm-vehicle-info-label">Max Crew</label>
@@ -75,7 +75,7 @@
   <nav class="sheet-tabs tabs mm-tabs -four" data-group="primary">
     <div class="sheet-tabs-wrapper">
       <a class="item" data-tab="stats">Details</a>
-      <a class="item" data-tab="occupants">{{localize "MARVEL_MULTIVERSE.Vehicle.Occupants"}} ({{system.occupants.length}}/{{system.passengers}})</a>
+      <a class="item" data-tab="occupants">Crew</a>
       <a class="item" data-tab="combat">Powers &amp; Weapons</a>
       <a class="item" data-tab="profile">{{localize "MARVEL_MULTIVERSE.Vehicle.Profile"}}</a>
     </div>
@@ -131,7 +131,7 @@
     <div class="tab flexcol" data-group="primary" data-tab="occupants">
       <div class="mm-vehicle-tab-scroll">
         <div class="mm-styled-container">
-          <h3>{{localize "MARVEL_MULTIVERSE.Vehicle.Occupants"}}</h3>
+          <h3>Crew</h3>
           <div class="mm-styled-container-body mm-vehicle-occupants-drop-zone">
             {{> "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-occupants.hbs"}}
           </div>

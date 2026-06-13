@@ -4029,6 +4029,7 @@ const ActorDirectoryFilter = {
     return {
       logic: "and",
       panelOpen: false,
+      actorType: [],
       rank: { op: ">=", value: null },
       size: [],
       origins: [],
@@ -4095,6 +4096,11 @@ const ActorDirectoryFilter = {
         value: s.abilities[key].value,
       };
     }
+    const actorTypes = {
+      character: { label: "Character", checked: s.actorType.includes("character") },
+      npc: { label: "NPC", checked: s.actorType.includes("npc") },
+      vehicle: { label: "Vehicle", checked: s.actorType.includes("vehicle") },
+    };
     const sizes = {};
     for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.sizes)) {
       sizes[key] = {
@@ -4141,6 +4147,7 @@ const ActorDirectoryFilter = {
       filterState: s,
       activeFilterCount: this._countActiveFilters(),
       filterOptions: {
+        actorTypes,
         sizes,
         abilities,
         movementTypes,
@@ -4216,7 +4223,7 @@ const ActorDirectoryFilter = {
       body.toggleClass("collapsed");
     });
 
-    const checkboxFilters = ["size", "origins", "occupations", "powerSets", "tags", "traits", "movementTypes", "elements"];
+    const checkboxFilters = ["actorType", "size", "origins", "occupations", "powerSets", "tags", "traits", "movementTypes", "elements"];
     for (const filterKey of checkboxFilters) {
       html.find(`.mm-filter-checkbox[data-filter='${filterKey}']`).on("change", () => {
         self._updateCheckboxFilter(filterKey, html);
@@ -4309,6 +4316,7 @@ const ActorDirectoryFilter = {
   _countActiveFilters() {
     const s = this._filterState;
     let count = 0;
+    if (s.actorType.length) count++;
     if (s.rank.value !== null) count++;
     if (s.size.length) count++;
     if (s.origins.length) count++;
@@ -4338,8 +4346,12 @@ const ActorDirectoryFilter = {
     const s = this._filterState;
     const results = [];
 
+    if (s.actorType.length) {
+      results.push(s.actorType.includes(actor.type));
+    }
+
     if (s.rank.value !== null) {
-      results.push(this._evalNumeric(actor.system.attributes.rank.value, s.rank.op, s.rank.value));
+      results.push(this._evalNumeric(actor.system.attributes?.rank?.value, s.rank.op, s.rank.value));
     }
 
     if (s.size.length) {
@@ -4377,7 +4389,7 @@ const ActorDirectoryFilter = {
 
     for (const [abl, filter] of Object.entries(s.abilities)) {
       if (filter.value !== null) {
-        results.push(this._evalNumeric(actor.system.abilities[abl]?.value ?? 0, filter.op, filter.value));
+        results.push(this._evalNumeric(actor.system.abilities?.[abl]?.value ?? 0, filter.op, filter.value));
       }
     }
 
@@ -4386,7 +4398,7 @@ const ActorDirectoryFilter = {
     }
 
     if (s.movementTypes.length) {
-      results.push(s.movementTypes.every(mt => actor.system.movement[mt]?.active));
+      results.push(s.movementTypes.every(mt => actor.system.movement?.[mt]?.active));
     }
 
     if (s.elements.length) {
@@ -4402,15 +4414,15 @@ const ActorDirectoryFilter = {
     }
 
     if (s.healthMax.value !== null) {
-      results.push(this._evalNumeric(actor.system.health.max ?? 0, s.healthMax.op, s.healthMax.value));
+      results.push(this._evalNumeric(actor.system.health?.max ?? 0, s.healthMax.op, s.healthMax.value));
     }
 
     if (s.focusMax.value !== null) {
-      results.push(this._evalNumeric(actor.system.focus.max ?? 0, s.focusMax.op, s.focusMax.value));
+      results.push(this._evalNumeric(actor.system.focus?.max ?? 0, s.focusMax.op, s.focusMax.value));
     }
 
     if (s.karmaMax.value !== null) {
-      results.push(this._evalNumeric(actor.system.karma.max ?? 0, s.karmaMax.op, s.karmaMax.value));
+      results.push(this._evalNumeric(actor.system.karma?.max ?? 0, s.karmaMax.op, s.karmaMax.value));
     }
 
     if (!results.length) return true;

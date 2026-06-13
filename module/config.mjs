@@ -147,6 +147,13 @@ MARVEL_MULTIVERSE.movementTypes = {
   levitation: { label: "MARVEL_MULTIVERSE.Movement.Levitation", active: false },
 };
 
+MARVEL_MULTIVERSE.vehicleSpeedLabels = {
+  run: { label: "MARVEL_MULTIVERSE.Vehicle.GroundSpeed" },
+  flight: { label: "MARVEL_MULTIVERSE.Vehicle.FlightSpeed" },
+  climb: { label: "MARVEL_MULTIVERSE.Vehicle.ClimbSpeed" },
+  swim: { label: "MARVEL_MULTIVERSE.Vehicle.NauticalSpeed" },
+};
+
 MARVEL_MULTIVERSE.elements = {
   air: {
     label: "Air",

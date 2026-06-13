@@ -448,6 +448,7 @@ class MarvelMultiverseActor extends Actor {
 const ITEM_DEFAULT_ICONS = {
   item: "icons/svg/item-bag.svg",
   weapon: "systems/marvel-multiverse/icons/weapons.svg",
+  vehicleWeapon: "systems/marvel-multiverse/icons/weapons.svg",
   trait: "systems/marvel-multiverse/icons/trait.svg",
   occupation: "systems/marvel-multiverse/icons/work.svg",
   origin: "systems/marvel-multiverse/icons/origin.svg",
@@ -2494,7 +2495,7 @@ class MarvelMultiverseVehicleSheet extends ActorSheet {
     const type = header.dataset.type;
     const data = foundry.utils.duplicate(header.dataset);
     const name = `New ${type.capitalize()}`;
-    const img = type === "vehicleWeapon" ? "icons/svg/sword.svg" : undefined;
+    const img = type === "vehicleWeapon" ? "systems/marvel-multiverse/icons/weapons.svg" : undefined;
     const itemData = { name, type, img, system: data };
     itemData.system.type = undefined;
     return await Item.create(itemData, { parent: this.actor });

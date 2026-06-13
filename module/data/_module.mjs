@@ -2,6 +2,7 @@
 export {default as MarvelMultiverseActorBase} from "./actor-base.mjs";
 export {default as MarvelMultiverseCharacter} from "./character.mjs";
 export {default as MarvelMultiverseNPC} from "./npc.mjs";
+export {default as MarvelMultiverseVehicle} from "./vehicle.mjs";
 
 // Export Items
 export {default as MarvelMultiverseItemBase} from "./item-base.mjs";

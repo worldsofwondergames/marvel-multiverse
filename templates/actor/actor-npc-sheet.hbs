@@ -34,6 +34,10 @@
                     <span><label class="mm-label" for="system.health.damage-reduction">DR</label>
                     {{#if (gt system.healthDamageReduction 0)}}-{{/if}}
                     {{system.healthDamageReduction}}</span>
+                    {{#if (gt system.conditionDamageReduction 0)}}
+                    <span><label class="mm-label">CDR</label>
+                    -{{system.conditionDamageReduction}}/turn</span>
+                    {{/if}}
                   </div>
                 </div>
               </div>

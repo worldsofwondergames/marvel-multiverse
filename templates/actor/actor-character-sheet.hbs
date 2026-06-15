@@ -116,6 +116,14 @@
                   {{#if (gt system.healthDamageReduction 0)}}-{{/if}}{{system.healthDamageReduction}}
                 </div>
               </div>
+              {{#if (gt system.conditionDamageReduction 0)}}
+              <div class="mm-stat-corner-block" style="top: auto; bottom: 0;">
+                <label class="mm-label -sm">Condition DR</label>
+                <div class="mm-input">
+                  -{{system.conditionDamageReduction}}/turn
+                </div>
+              </div>
+              {{/if}}
             </div>
             {{!-- Focus & Focus DR --}}
             <div class="flexrow -relative">

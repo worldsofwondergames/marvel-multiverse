@@ -178,7 +178,7 @@ MARVEL_MULTIVERSE.elements = {
   fire: {
     label: "Fire",
     fantasticEffect: "Sets target ablaze.",
-    statusId: "bleeding",
+    statusId: "ablaze",
   },
   force: {
     label: "Force",
@@ -699,6 +699,47 @@ MARVEL_MULTIVERSE.sizeEffects = {
     flags: {},
   },
 };
+
+MARVEL_MULTIVERSE.conditionEffects = {
+  corroding: {
+    name: "Corroding",
+    disabled: false,
+    changes: [],
+    description:
+      "Character loses 5 Health at end of each of their turns. Ends on death or removal of corrosive chemical. Washed off with copious water.",
+    transfer: true,
+    statuses: ["corroding"],
+    flags: {},
+  },
+  poisoned: {
+    name: "Poisoned",
+    disabled: false,
+    changes: [],
+    description:
+      "Resilience vs. TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+    transfer: true,
+    statuses: ["poisoned"],
+    flags: {},
+  },
+  infected: {
+    name: "Infected",
+    disabled: false,
+    changes: [],
+    description:
+      "Airborne: target within 3 spaces, breathing. Contact: close attack doing at least 1 damage. Resilience check vs. infection TN (default TN 12). Fantastic success: immunity for 1 full day. Effects and duration vary by disease.",
+    transfer: true,
+    statuses: ["infected"],
+    flags: {},
+  },
+};
+
+MARVEL_MULTIVERSE.additionalStatuses = [
+  {
+    id: "infected",
+    name: "Infected",
+    img: "icons/svg/biohazard.svg",
+  },
+];
 
 // ASCII Artwork
 MARVEL_MULTIVERSE.ASCII = `

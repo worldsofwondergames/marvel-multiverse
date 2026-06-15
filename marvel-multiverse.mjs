@@ -4317,7 +4317,7 @@ Hooks.once("init", () => {
 
   // Replace Foundry defaults with only MMRPG-valid status effects
   const mmrpgStatuses = [
-    { id: "bleeding", name: "Ablaze", img: "systems/marvel-multiverse/icons/statuses/bleeding.svg" },
+    { id: "bleeding", name: "Ablaze", img: "icons/svg/fire.svg" },
     { id: "blinded", name: "Blinded", img: "systems/marvel-multiverse/icons/statuses/blinded.svg" },
     { id: "corroding", name: "Corroding", img: "icons/svg/acid.svg" },
     { id: "deafened", name: "Deafened", img: "systems/marvel-multiverse/icons/statuses/deafened.svg" },

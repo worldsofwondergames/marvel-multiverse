@@ -409,6 +409,15 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
         label += ` [element] ${npcItem.system.element}`;
       }
 
+      if (dataset.abilityKey === "ego" && game.settings.get("marvel-multiverse", "mutantReputationEnabled")) {
+        const repOverride = this.actor.system.mutantReputation;
+        const repKey = repOverride !== "world" ? repOverride : game.settings.get("marvel-multiverse", "mutantReputationLevel");
+        const repConfig = CONFIG.MARVEL_MULTIVERSE.mutantReputationLevels[repKey];
+        if (repConfig && repKey !== "neutral") {
+          label += `<div style="margin-top:4px;padding:2px 6px;background:#5c3d6e;color:#fff;border-radius:3px;font-size:11px;"><b>Mutant Reputation (${repConfig.label}):</b> ${repConfig.effect}</div>`;
+        }
+      }
+
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
         dataset.formula,
         this.actor.getRollData()

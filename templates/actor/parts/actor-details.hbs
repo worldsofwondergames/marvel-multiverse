@@ -75,4 +75,19 @@
       </div>
     </div>
   </div>
+  {{#if mutantReputationEnabled}}
+  <div class="flexrow -nowrap -gap-md">
+    <div class="mm-styled-field -flex-relative -sm">
+      <label class="mm-styled-label -align-left"><span>Mutant Reputation</span></label>
+      <div class="mm-styled-input">
+        <select name="system.mutantReputation">
+          <option value="world" {{#if (eq system.mutantReputation "world")}}selected{{/if}}>Use World Setting ({{worldReputationLabel}})</option>
+          {{#each mutantReputationLevels as |rep key|}}
+            <option value="{{key}}" {{#if (eq ../system.mutantReputation key)}}selected{{/if}}>{{rep.label}}</option>
+          {{/each}}
+        </select>
+      </div>
+    </div>
+  </div>
+  {{/if}}
 </div>

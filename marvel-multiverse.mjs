@@ -1286,6 +1286,14 @@ MARVEL_MULTIVERSE.additionalStatuses = [
   },
 ];
 
+MARVEL_MULTIVERSE.mutantReputationLevels = {
+  beloved: { label: "Beloved", effect: "Double Edge" },
+  liked: { label: "Liked", effect: "Edge" },
+  neutral: { label: "Neutral", effect: "No effect" },
+  feared: { label: "Feared", effect: "Trouble" },
+  hated: { label: "Hated", effect: "Double Trouble" },
+};
+
 // ASCII Artwork
 MARVEL_MULTIVERSE.ASCII = `
 =ccccc,      ,cccc       ccccc      ,cccc,  ?$$$$$$$,  ,ccc,   -ccc
@@ -1997,6 +2005,12 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
     context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
 
+    context.mutantReputationEnabled = game.settings.get("marvel-multiverse", "mutantReputationEnabled");
+    context.mutantReputationLevels = MARVEL_MULTIVERSE.mutantReputationLevels;
+    const charWorldRepKey = game.settings.get("marvel-multiverse", "mutantReputationLevel");
+    context.worldReputationLevel = charWorldRepKey;
+    context.worldReputationLabel = MARVEL_MULTIVERSE.mutantReputationLevels[charWorldRepKey]?.label ?? "Neutral";
+
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [
         key,
@@ -2395,9 +2409,19 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         { edgeMode }
       );
 
+      let flavor = label;
+      if (dataset.abilityKey === "ego" && game.settings.get("marvel-multiverse", "mutantReputationEnabled")) {
+        const repOverride = this.actor.system.mutantReputation;
+        const repKey = repOverride !== "world" ? repOverride : game.settings.get("marvel-multiverse", "mutantReputationLevel");
+        const repConfig = MARVEL_MULTIVERSE.mutantReputationLevels[repKey];
+        if (repConfig && repKey !== "neutral") {
+          flavor += `<div style="margin-top:4px;padding:2px 6px;background:#5c3d6e;color:#fff;border-radius:3px;font-size:11px;"><b>Mutant Reputation (${repConfig.label}):</b> ${repConfig.effect}</div>`;
+        }
+      }
+
       const messageData = {
         speaker: speaker,
-        flavor: label,
+        flavor: flavor,
         rollMode: rollMode,
         title: title,
       };
@@ -3068,9 +3092,19 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         { edgeMode }
       );
 
+      let npcFlavor = label;
+      if (dataset.abilityKey === "ego" && game.settings.get("marvel-multiverse", "mutantReputationEnabled")) {
+        const repOverride = this.actor.system.mutantReputation;
+        const repKey = repOverride !== "world" ? repOverride : game.settings.get("marvel-multiverse", "mutantReputationLevel");
+        const repConfig = MARVEL_MULTIVERSE.mutantReputationLevels[repKey];
+        if (repConfig && repKey !== "neutral") {
+          npcFlavor += `<div style="margin-top:4px;padding:2px 6px;background:#5c3d6e;color:#fff;border-radius:3px;font-size:11px;"><b>Mutant Reputation (${repConfig.label}):</b> ${repConfig.effect}</div>`;
+        }
+      }
+
       const messageData = {
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        flavor: label,
+        flavor: npcFlavor,
         rollMode: game.settings.get("core", "rollMode"),
         title: title,
       };
@@ -3484,6 +3518,10 @@ class MarvelMultiverseActorBase extends foundry.abstract
     schema.defaultWeaponType = new fields.StringField({
       required: true,
       blank: true,
+    });
+    schema.mutantReputation = new fields.StringField({
+      required: true,
+      initial: "world",
     });
 
     return schema;
@@ -4637,6 +4675,27 @@ Hooks.once("init", () => {
     config: true,
     type: Boolean,
     default: true,
+  });
+
+  game.settings.register("marvel-multiverse", "mutantReputationEnabled", {
+    name: "Enable Mutant Reputation",
+    hint: "Enable the optional Mutant Reputation system from the X-Men Expansion. When active, Ego checks display reputation-based edge/trouble notices.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+  });
+
+  game.settings.register("marvel-multiverse", "mutantReputationLevel", {
+    name: "Mutant Reputation Level",
+    hint: "The current world-level mutant reputation. Affects all mutant characters unless overridden per-actor.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "neutral",
+    choices: Object.fromEntries(
+      Object.entries(MARVEL_MULTIVERSE.mutantReputationLevels).map(([k, v]) => [k, `${v.label} (${v.effect})`])
+    ),
   });
 
   // Active Effects are never copied to the Actor,

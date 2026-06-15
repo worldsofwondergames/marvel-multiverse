@@ -4319,7 +4319,7 @@ Hooks.once("init", () => {
   const mmrpgStatuses = [
     { id: "bleeding", name: "Ablaze", img: "systems/marvel-multiverse/icons/statuses/bleeding.svg" },
     { id: "blinded", name: "Blinded", img: "systems/marvel-multiverse/icons/statuses/blinded.svg" },
-    { id: "corroding", name: "Corroding", img: "systems/marvel-multiverse/icons/statuses/corroding.svg" },
+    { id: "corroding", name: "Corroding", img: "icons/svg/acid.svg" },
     { id: "deafened", name: "Deafened", img: "systems/marvel-multiverse/icons/statuses/deafened.svg" },
     { id: "encumbered", name: "Encumbered", img: "systems/marvel-multiverse/icons/statuses/encumbered.svg" },
     { id: "exhaustion", name: "Exhaustion", img: "systems/marvel-multiverse/icons/statuses/exhaustion.svg" },

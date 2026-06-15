@@ -4337,7 +4337,7 @@ Hooks.once("init", () => {
     { id: "silenced", name: "Silenced", img: "systems/marvel-multiverse/icons/statuses/silenced.svg" },
     { id: "stunned", name: "Stunned", img: "systems/marvel-multiverse/icons/statuses/stunned.svg" },
     { id: "surprised", name: "Surprised", img: "systems/marvel-multiverse/icons/statuses/surprised.svg" },
-    { id: "unconscious", name: "Unconscious", img: "systems/marvel-multiverse/icons/statuses/unconscious.svg" },
+    { id: "unconscious", name: "Unconscious", img: "icons/svg/unconscious.svg" },
   ];
   // Keep Foundry's "dead" status for the combat tracker defeated toggle
   const deadStatus = CONFIG.statusEffects.find((s) => s.id === "dead");

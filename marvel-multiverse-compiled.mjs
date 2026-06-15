@@ -3516,7 +3516,7 @@ class MarvelMultiverseTrait extends MarvelMultiverseItemBase {
 
 class MarvelMultiversePowerSet extends MarvelMultiverseItemBase {
   static defineSchema() {
-    const fields = foundry.data.fields;
+    foundry.data.fields;
     const schema = super.defineSchema();
     return schema;
   }

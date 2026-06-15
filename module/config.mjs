@@ -210,7 +210,7 @@ MARVEL_MULTIVERSE.elements = {
   chemical: {
     label: "Chemical",
     fantasticEffect: "The target is corroding.",
-    statusId: "bleeding",
+    statusId: "corroding",
   },
   swarm: {
     label: "Swarm",

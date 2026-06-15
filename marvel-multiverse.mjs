@@ -1222,6 +1222,47 @@ MARVEL_MULTIVERSE.sizeEffects = {
   },
 };
 
+MARVEL_MULTIVERSE.conditionEffects = {
+  corroding: {
+    name: "Corroding",
+    disabled: false,
+    changes: [],
+    description:
+      "Character loses 5 Health at end of each of their turns. Ends on death or removal of corrosive chemical. Washed off with copious water.",
+    transfer: true,
+    statuses: ["corroding"],
+    flags: {},
+  },
+  poisoned: {
+    name: "Poisoned",
+    disabled: false,
+    changes: [],
+    description:
+      "Resilience vs. TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+    transfer: true,
+    statuses: ["poisoned"],
+    flags: {},
+  },
+  infected: {
+    name: "Infected",
+    disabled: false,
+    changes: [],
+    description:
+      "Airborne: target within 3 spaces, breathing. Contact: close attack doing at least 1 damage. Resilience check vs. infection TN (default TN 12). Fantastic success: immunity for 1 full day. Effects and duration vary by disease.",
+    transfer: true,
+    statuses: ["infected"],
+    flags: {},
+  },
+};
+
+MARVEL_MULTIVERSE.additionalStatuses = [
+  {
+    id: "infected",
+    name: "Infected",
+    img: "systems/marvel-multiverse/icons/statuses/infected.svg",
+  },
+];
+
 // ASCII Artwork
 MARVEL_MULTIVERSE.ASCII = `
 =ccccc,      ,cccc       ccccc      ,cccc,  ?$$$$$$$,  ,ccc,   -ccc
@@ -1597,6 +1638,12 @@ class ChatMessageMarvel extends ChatMessage {
         if (elementConfig.statusId) {
           for (const target of targets) {
             await target.toggleStatusEffect(elementConfig.statusId, { active: true });
+            const cdr = target.system.conditionDamageReduction ?? 0;
+            if (cdr > 0) {
+              damageContent.push(
+                `<p style="font-size:11px;color:#555;"><b>${target.name}</b> has Condition DR ${cdr}/turn</p>`
+              );
+            }
           }
         }
       }
@@ -3249,6 +3296,9 @@ class MarvelMultiverseActorBase extends foundry.abstract
       this.focusDamageReduction = maxFocusDR;
     }
 
+    // Each level of Health DR protects up to 5 points of condition damage per turn
+    this.conditionDamageReduction = this.healthDamageReduction * 5;
+
     // Loop through ability scores, and add their modifiers to our sheet output.
     for (const key in this.abilities) {
       // Caclulate the defense score using mmrpg rules.
@@ -3362,6 +3412,9 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       this.healthDamageReduction = maxHealthDR;
       this.focusDamageReduction = maxFocusDR;
     }
+
+    // Each level of Health DR protects up to 5 points of condition damage per turn
+    this.conditionDamageReduction = this.healthDamageReduction * 5;
 
     // Loop through ability scores, and add their modifiers to our sheet output.
     for (const key in this.abilities) {
@@ -4272,6 +4325,13 @@ Hooks.once("init", () => {
       .filter(
         (entry, idx, arr) => arr.findIndex((e) => e.id === entry.id) === idx
       )
+  );
+
+  // Register additional status effects not tied to elements (e.g. infected)
+  CONFIG.statusEffects = CONFIG.statusEffects.concat(
+    MARVEL_MULTIVERSE.additionalStatuses.filter(
+      (s) => !CONFIG.statusEffects.some((e) => e.id === s.id)
+    )
   );
 
   // Add fonts

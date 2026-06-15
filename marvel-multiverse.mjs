@@ -738,7 +738,7 @@ MARVEL_MULTIVERSE.elements = {
   earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round.", statusId: "exhaustion" },
   electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round.", statusId: "stunned" },
   energy: { label: "Energy", fantasticEffect: "Blinds target for one round.", statusId: "blinded" },
-  fire: { label: "Fire", fantasticEffect: "Sets target ablaze.", statusId: "bleeding" },
+  fire: { label: "Fire", fantasticEffect: "Sets target ablaze.", statusId: "ablaze" },
   force: { label: "Force", fantasticEffect: "Target has trouble on all actions for one round.", statusId: "encumbered" },
   hellfire: { label: "Hellfire", fantasticEffect: "Splits damage equally between Health and Focus." },
   ice: { label: "Ice", fantasticEffect: "Paralyzes target for one round.", statusId: "paralyzed" },
@@ -4317,7 +4317,8 @@ Hooks.once("init", () => {
 
   // Replace Foundry defaults with only MMRPG-valid status effects
   const mmrpgStatuses = [
-    { id: "bleeding", name: "Ablaze", img: "icons/svg/fire.svg" },
+    { id: "ablaze", name: "Ablaze", img: "icons/svg/fire.svg" },
+    { id: "bleeding", name: "Bleeding", img: "systems/marvel-multiverse/icons/statuses/bleeding.svg" },
     { id: "blinded", name: "Blinded", img: "systems/marvel-multiverse/icons/statuses/blinded.svg" },
     { id: "corroding", name: "Corroding", img: "icons/svg/acid.svg" },
     { id: "deafened", name: "Deafened", img: "systems/marvel-multiverse/icons/statuses/deafened.svg" },

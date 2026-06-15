@@ -171,7 +171,7 @@ MARVEL_MULTIVERSE.elements = {
   fire: {
     label: "Fire",
     fantasticEffect: "Sets target ablaze.",
-    statusId: "bleeding",
+    statusId: "ablaze",
   },
   force: {
     label: "Force",

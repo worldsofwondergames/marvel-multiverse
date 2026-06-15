@@ -2,7 +2,7 @@
 import { jest } from '@jest/globals';
 import MarvelMultiverseActorBase from '../data/actor-base.mjs';
 
-function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {} } = {}) {
+function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {}, effects = null, dmgBonuses = {}, healthDR = 0, focusDR = 0 } = {}) {
     const ability = (value = 0) => ({ value, defense: 0, noncom: 0, damageMultiplier: 0, edge: false, label: '' });
     const movement = (value = 0, calc = '') => ({ value, noncom: value, active: true, calc, label: '' });
     const instance = new MarvelMultiverseActorBase({
@@ -15,6 +15,8 @@ function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {} }
             ego: ability(abilities.ego ?? 0),
             log: ability(abilities.log ?? 0),
         },
+        healthDamageReduction: healthDR,
+        focusDamageReduction: focusDR,
         movement: {
             run: movement(run),
             climb: movement(0),
@@ -27,6 +29,13 @@ function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {} }
             ...movementOverrides,
         },
     });
+    // Simulate AE-summed values for damage bonuses (AEs use ADD mode, which sums)
+    for (const [abil, bonus] of Object.entries(dmgBonuses)) {
+        instance.abilities[abil].damageMultiplier = bonus;
+    }
+    if (effects) {
+        instance.parent = { items: [], effects };
+    }
     instance.prepareDerivedData();
     return instance;
 }
@@ -64,6 +73,94 @@ describe('Rules: Damage Multiplier', () => {
         for (const key of ['mle', 'agl', 'res', 'vig', 'ego', 'log']) {
             expect(actor.abilities[key].damageMultiplier).toBe(3);
         }
+    });
+});
+
+describe('Rulebook: Damage Multiplier Bonuses Do Not Stack', () => {
+    function makeEffect(key, value, mode = 2) {
+        return { disabled: false, changes: [{ key, value: String(value), mode }] };
+    }
+
+    test('single bonus: Mighty 2 (+2) → DM = rank + 2', () => {
+        const actor = makeActor({
+            rank: 3,
+            dmgBonuses: { mle: 2 },
+            effects: [makeEffect('system.abilities.mle.damageMultiplier', 2)],
+        });
+        expect(actor.abilities.mle.damageMultiplier).toBe(5);
+    });
+
+    test('stacking: Mighty 2 (+2) and weapon (+1) → DM = rank + max(2,1) = rank + 2', () => {
+        const actor = makeActor({
+            rank: 3,
+            dmgBonuses: { mle: 3 },
+            effects: [
+                makeEffect('system.abilities.mle.damageMultiplier', 2),
+                makeEffect('system.abilities.mle.damageMultiplier', 1),
+            ],
+        });
+        expect(actor.abilities.mle.damageMultiplier).toBe(5);
+    });
+
+    test('different abilities: Mighty 2 on MLE and Accuracy 1 on AGL are independent', () => {
+        const actor = makeActor({
+            rank: 3,
+            dmgBonuses: { mle: 2, agl: 1 },
+            effects: [
+                makeEffect('system.abilities.mle.damageMultiplier', 2),
+                makeEffect('system.abilities.agl.damageMultiplier', 1),
+            ],
+        });
+        expect(actor.abilities.mle.damageMultiplier).toBe(5);
+        expect(actor.abilities.agl.damageMultiplier).toBe(4);
+    });
+
+    test('disabled effect is ignored', () => {
+        const actor = makeActor({
+            rank: 3,
+            dmgBonuses: { mle: 5 },
+            effects: [
+                makeEffect('system.abilities.mle.damageMultiplier', 2),
+                { disabled: true, changes: [{ key: 'system.abilities.mle.damageMultiplier', value: '3', mode: 2 }] },
+            ],
+        });
+        expect(actor.abilities.mle.damageMultiplier).toBe(5);
+    });
+});
+
+describe('Rulebook: Damage Reduction Does Not Stack', () => {
+    function makeEffect(key, value) {
+        return { disabled: false, changes: [{ key, value: String(value), mode: 2 }] };
+    }
+
+    test('single Sturdy 2: Health DR = 2', () => {
+        const actor = makeActor({
+            healthDR: 2,
+            effects: [makeEffect('system.healthDamageReduction', 2)],
+        });
+        expect(actor.healthDamageReduction).toBe(2);
+    });
+
+    test('Sturdy 2 + Reinforced Skeleton: Health DR = max(2,1) = 2', () => {
+        const actor = makeActor({
+            healthDR: 3,
+            effects: [
+                makeEffect('system.healthDamageReduction', 2),
+                makeEffect('system.healthDamageReduction', 1),
+            ],
+        });
+        expect(actor.healthDamageReduction).toBe(2);
+    });
+
+    test('Focus DR: two sources → use highest', () => {
+        const actor = makeActor({
+            focusDR: 5,
+            effects: [
+                makeEffect('system.focusDamageReduction', 3),
+                makeEffect('system.focusDamageReduction', 2),
+            ],
+        });
+        expect(actor.focusDamageReduction).toBe(3);
     });
 });
 
@@ -164,6 +261,54 @@ describe('Rules: Movement Calc Modes', () => {
             movementOverrides: { flight: { value: 0, noncom: 0, active: true, calc: 'rank', label: '' } },
         });
         expect(actor.movement.flight.value).toBe(3);
+    });
+
+    test('"runspeed-rank" sets value to base run speed × rank', () => {
+        const actor = makeActor({
+            run: 5, rank: 4,
+            movementOverrides: { flight: { value: 0, noncom: 0, active: true, calc: 'runspeed-rank', label: '' } },
+        });
+        expect(actor.movement.flight.value).toBe(20);
+    });
+});
+
+describe('Rulebook: Speed Powers Do Not Stack', () => {
+    test('Speed Run + Flight: flight uses base run speed, not boosted run', () => {
+        const actor = makeActor({
+            run: 5, rank: 4,
+            movementOverrides: {
+                run: { value: 5, noncom: 5, active: true, calc: 'runspeed-rank', label: '' },
+                flight: { value: 0, noncom: 0, active: true, calc: 'runspeed-rank', label: '' },
+            },
+        });
+        expect(actor.movement.run.value).toBe(20);
+        expect(actor.movement.flight.value).toBe(20);
+    });
+
+    test('climb/swim/jump derive from boosted run speed when no power override', () => {
+        const actor = makeActor({
+            run: 5, rank: 4,
+            movementOverrides: {
+                run: { value: 5, noncom: 5, active: true, calc: 'runspeed-rank', label: '' },
+            },
+        });
+        expect(actor.movement.run.value).toBe(20);
+        expect(actor.movement.climb.value).toBe(10);
+        expect(actor.movement.swim.value).toBe(10);
+        expect(actor.movement.jump.value).toBe(10);
+    });
+
+    test('climb/swim/jump keep power-based calc when present', () => {
+        const actor = makeActor({
+            run: 5, rank: 4,
+            movementOverrides: {
+                run: { value: 5, noncom: 5, active: true, calc: 'runspeed-rank', label: '' },
+                swim: { value: 0, noncom: 0, active: true, calc: 'runspeed-rank', label: '' },
+            },
+        });
+        expect(actor.movement.run.value).toBe(20);
+        expect(actor.movement.swim.value).toBe(20);
+        expect(actor.movement.climb.value).toBe(10);
     });
 });
 

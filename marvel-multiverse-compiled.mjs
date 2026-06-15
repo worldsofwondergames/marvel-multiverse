@@ -3216,6 +3216,37 @@ class MarvelMultiverseActorBase extends foundry.abstract
   }
 
   prepareDerivedData() {
+    if (this.parent?.effects) {
+      const maxDmgBonus = {};
+      for (const key in this.abilities) maxDmgBonus[key] = 0;
+      let maxHealthDR = 0;
+      let maxFocusDR = 0;
+
+      for (const effect of this.parent.effects) {
+        if (effect.disabled) continue;
+        for (const change of effect.changes) {
+          if (Number(change.mode) !== 2) continue;
+          const val = Number(change.value) || 0;
+          const dmgMatch = change.key.match(/^system\.abilities\.(\w+)\.damageMultiplier$/);
+          if (dmgMatch && dmgMatch[1] in maxDmgBonus) {
+            maxDmgBonus[dmgMatch[1]] = Math.max(maxDmgBonus[dmgMatch[1]], val);
+          }
+          if (change.key === "system.healthDamageReduction") {
+            maxHealthDR = Math.max(maxHealthDR, val);
+          }
+          if (change.key === "system.focusDamageReduction") {
+            maxFocusDR = Math.max(maxFocusDR, val);
+          }
+        }
+      }
+
+      for (const key in this.abilities) {
+        this.abilities[key].damageMultiplier = maxDmgBonus[key];
+      }
+      this.healthDamageReduction = maxHealthDR;
+      this.focusDamageReduction = maxFocusDR;
+    }
+
     // Loop through ability scores, and add their modifiers to our sheet output.
     for (const key in this.abilities) {
       // Caclulate the defense score using mmrpg rules.
@@ -3237,9 +3268,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
     this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
-    this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
-    this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
-    this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
+    const baseRunSpeed = this.movement.run.value;
+
+    this.movement.climb.value = Math.ceil(baseRunSpeed * 0.5);
+    this.movement.jump.value = Math.ceil(baseRunSpeed * 0.5);
+    this.movement.swim.value = Math.ceil(baseRunSpeed * 0.5);
 
     this.attributes.init.value += this.abilities.vig.value;
 
@@ -3260,10 +3293,10 @@ class MarvelMultiverseActorBase extends foundry.abstract
           this.movement[key].value *= 3;
           break;
         case "runspeed":
-          this.movement[key].value = this.movement.run.value;
+          this.movement[key].value = baseRunSpeed;
           break;
         case "runspeed-rank":
-          this.movement[key].value = this.movement.run.value * this.attributes.rank.value;
+          this.movement[key].value = baseRunSpeed * this.attributes.rank.value;
           break;
         case "rank": {
           const val =
@@ -3273,6 +3306,10 @@ class MarvelMultiverseActorBase extends foundry.abstract
         }
       }
     }
+
+    if (!this.movement.climb.calc) this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
+    if (!this.movement.jump.calc) this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
+    if (!this.movement.swim.calc) this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
   }
 }
 
@@ -3292,6 +3329,37 @@ class MarvelMultiverseCharacter extends MarvelMultiverseActorBase {
 
 class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
   prepareDerivedData() {
+    if (this.parent?.effects) {
+      const maxDmgBonus = {};
+      for (const key in this.abilities) maxDmgBonus[key] = 0;
+      let maxHealthDR = 0;
+      let maxFocusDR = 0;
+
+      for (const effect of this.parent.effects) {
+        if (effect.disabled) continue;
+        for (const change of effect.changes) {
+          if (Number(change.mode) !== 2) continue;
+          const val = Number(change.value) || 0;
+          const dmgMatch = change.key.match(/^system\.abilities\.(\w+)\.damageMultiplier$/);
+          if (dmgMatch && dmgMatch[1] in maxDmgBonus) {
+            maxDmgBonus[dmgMatch[1]] = Math.max(maxDmgBonus[dmgMatch[1]], val);
+          }
+          if (change.key === "system.healthDamageReduction") {
+            maxHealthDR = Math.max(maxHealthDR, val);
+          }
+          if (change.key === "system.focusDamageReduction") {
+            maxFocusDR = Math.max(maxFocusDR, val);
+          }
+        }
+      }
+
+      for (const key in this.abilities) {
+        this.abilities[key].damageMultiplier = maxDmgBonus[key];
+      }
+      this.healthDamageReduction = maxHealthDR;
+      this.focusDamageReduction = maxFocusDR;
+    }
+
     // Loop through ability scores, and add their modifiers to our sheet output.
     for (const key in this.abilities) {
       // Caclulate the defense score using mmrpg rules.
@@ -3313,9 +3381,11 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
     this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
-    this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
-    this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
-    this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
+    const baseRunSpeed = this.movement.run.value;
+
+    this.movement.climb.value = Math.ceil(baseRunSpeed * 0.5);
+    this.movement.jump.value = Math.ceil(baseRunSpeed * 0.5);
+    this.movement.swim.value = Math.ceil(baseRunSpeed * 0.5);
 
     this.attributes.init.value += this.abilities.vig.value;
 
@@ -3336,10 +3406,10 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
           this.movement[key].value *= 3;
           break;
         case "runspeed":
-          this.movement[key].value = this.movement.run.value;
+          this.movement[key].value = baseRunSpeed;
           break;
         case "runspeed-rank":
-          this.movement[key].value = this.movement.run.value * this.attributes.rank.value;
+          this.movement[key].value = baseRunSpeed * this.attributes.rank.value;
           break;
         case "rank": {
           const val =
@@ -3349,6 +3419,10 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
         }
       }
     }
+
+    if (!this.movement.climb.calc) this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
+    if (!this.movement.jump.calc) this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
+    if (!this.movement.swim.calc) this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
   }
 }
 

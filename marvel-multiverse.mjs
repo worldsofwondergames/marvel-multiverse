@@ -10,7 +10,8 @@ function _getAttackTargets(attackTargetAbility) {
       ac,
       uuid: actor?.uuid ?? ""
     };
-  }).filter(t => t.ac !== null);
+  }).filter(t => t.ac !== null)
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function _toTitleCase(str) {
@@ -1259,7 +1260,7 @@ MARVEL_MULTIVERSE.additionalStatuses = [
   {
     id: "infected",
     name: "Infected",
-    img: "systems/marvel-multiverse/icons/statuses/infected.svg",
+    img: "icons/svg/biohazard.svg",
   },
 ];
 
@@ -1489,9 +1490,10 @@ class ChatMessageMarvel extends ChatMessage {
         </li>
       `,
           isMiss,
+          name,
         ];
       })
-      .sort((a, b) => (a[1] === b[1] ? 0 : a[1] ? 1 : -1))
+      .sort((a, b) => (a[1] === b[1] ? a[2].localeCompare(b[2]) : a[1] ? 1 : -1))
       .reduce((str, [li]) => str + li, "");
     for (const target of evaluation.querySelectorAll("li")) {
       target.addEventListener("click", this._onTargetMouseDown.bind(this));
@@ -4313,26 +4315,33 @@ Hooks.once("init", () => {
   CONFIG.Dice.rolls.push(MarvelMultiverseRoll);
   CONFIG.Dice.terms.m = MarvelDie;
 
-  // Register elemental status effects so toggleStatusEffect() resolves them
-  CONFIG.statusEffects = CONFIG.statusEffects.concat(
-    Object.entries(MARVEL_MULTIVERSE.elements)
-      .filter(([, el]) => el.statusId)
-      .map(([, el]) => ({
-        id: el.statusId,
-        name: el.statusId.charAt(0).toUpperCase() + el.statusId.slice(1),
-        img: `systems/marvel-multiverse/icons/statuses/${el.statusId}.svg`,
-      }))
-      .filter(
-        (entry, idx, arr) => arr.findIndex((e) => e.id === entry.id) === idx
-      )
-  );
-
-  // Register additional status effects not tied to elements (e.g. infected)
-  CONFIG.statusEffects = CONFIG.statusEffects.concat(
-    MARVEL_MULTIVERSE.additionalStatuses.filter(
-      (s) => !CONFIG.statusEffects.some((e) => e.id === s.id)
-    )
-  );
+  // Replace Foundry defaults with only MMRPG-valid status effects
+  const mmrpgStatuses = [
+    { id: "bleeding", name: "Ablaze", img: "systems/marvel-multiverse/icons/statuses/bleeding.svg" },
+    { id: "blinded", name: "Blinded", img: "systems/marvel-multiverse/icons/statuses/blinded.svg" },
+    { id: "corroding", name: "Corroding", img: "systems/marvel-multiverse/icons/statuses/corroding.svg" },
+    { id: "deafened", name: "Deafened", img: "systems/marvel-multiverse/icons/statuses/deafened.svg" },
+    { id: "encumbered", name: "Encumbered", img: "systems/marvel-multiverse/icons/statuses/encumbered.svg" },
+    { id: "exhaustion", name: "Exhaustion", img: "systems/marvel-multiverse/icons/statuses/exhaustion.svg" },
+    { id: "flying", name: "Flying", img: "systems/marvel-multiverse/icons/statuses/flying.svg" },
+    { id: "frightened", name: "Frightened", img: "systems/marvel-multiverse/icons/statuses/frightened.svg" },
+    { id: "grappled", name: "Grappled", img: "systems/marvel-multiverse/icons/statuses/grappled.svg" },
+    { id: "incapacitated", name: "Incapacitated", img: "systems/marvel-multiverse/icons/statuses/incapacitated.svg" },
+    { id: "infected", name: "Infected", img: "icons/svg/biohazard.svg" },
+    { id: "invisible", name: "Invisible", img: "systems/marvel-multiverse/icons/statuses/invisible.svg" },
+    { id: "paralyzed", name: "Paralyzed", img: "systems/marvel-multiverse/icons/statuses/paralyzed.svg" },
+    { id: "petrified", name: "Petrified", img: "systems/marvel-multiverse/icons/statuses/petrified.svg" },
+    { id: "poisoned", name: "Poisoned", img: "systems/marvel-multiverse/icons/statuses/poisoned.svg" },
+    { id: "prone", name: "Prone", img: "systems/marvel-multiverse/icons/statuses/prone.svg" },
+    { id: "restrained", name: "Restrained", img: "systems/marvel-multiverse/icons/statuses/restrained.svg" },
+    { id: "silenced", name: "Silenced", img: "systems/marvel-multiverse/icons/statuses/silenced.svg" },
+    { id: "stunned", name: "Stunned", img: "systems/marvel-multiverse/icons/statuses/stunned.svg" },
+    { id: "surprised", name: "Surprised", img: "systems/marvel-multiverse/icons/statuses/surprised.svg" },
+    { id: "unconscious", name: "Unconscious", img: "systems/marvel-multiverse/icons/statuses/unconscious.svg" },
+  ];
+  // Keep Foundry's "dead" status for the combat tracker defeated toggle
+  const deadStatus = CONFIG.statusEffects.find((s) => s.id === "dead");
+  CONFIG.statusEffects = deadStatus ? [deadStatus, ...mmrpgStatuses] : mmrpgStatuses;
 
   // Add fonts
   _configureFonts();

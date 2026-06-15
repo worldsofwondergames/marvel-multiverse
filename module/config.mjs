@@ -730,7 +730,7 @@ MARVEL_MULTIVERSE.additionalStatuses = [
   {
     id: "infected",
     name: "Infected",
-    img: "systems/marvel-multiverse/icons/statuses/infected.svg",
+    img: "icons/svg/biohazard.svg",
   },
 ];
 

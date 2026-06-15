@@ -4331,7 +4331,7 @@ Hooks.once("init", () => {
     { id: "invisible", name: "Invisible", img: "systems/marvel-multiverse/icons/statuses/invisible.svg" },
     { id: "paralyzed", name: "Paralyzed", img: "systems/marvel-multiverse/icons/statuses/paralyzed.svg" },
     { id: "petrified", name: "Petrified", img: "systems/marvel-multiverse/icons/statuses/petrified.svg" },
-    { id: "poisoned", name: "Poisoned", img: "systems/marvel-multiverse/icons/statuses/poisoned.svg" },
+    { id: "poisoned", name: "Poisoned", img: "icons/svg/poison.svg" },
     { id: "prone", name: "Prone", img: "systems/marvel-multiverse/icons/statuses/prone.svg" },
     { id: "restrained", name: "Restrained", img: "systems/marvel-multiverse/icons/statuses/restrained.svg" },
     { id: "silenced", name: "Silenced", img: "systems/marvel-multiverse/icons/statuses/silenced.svg" },

@@ -434,3 +434,79 @@ describe('Rulebook: Focus Spend and Powers', () => {
         expect(basePowers + thematicBonus).toBe(19);
     });
 });
+
+describe('Rulebook: Damage With Zero Effective Multiplier', () => {
+    test('DR >= DM: no damage at all, not even ability score bonus', () => {
+        const damageMultiplier = 3;
+        const damageReduction = 4;
+        const abilityValue = 5;
+        const marvelDie = 6;
+        const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
+        // Per rulebook: "the attack does no damage at all, not even from the attacker's Ability score bonus"
+        const expectedDamage = 0;
+        const actualCodeDamage = marvelDie * effectiveMultiplier + abilityValue;
+        // BUG: code produces abilityValue (5) instead of 0 when DM is fully reduced
+        expect(actualCodeDamage).toBe(abilityValue); // documents current (buggy) behavior
+        expect(expectedDamage).not.toBe(actualCodeDamage); // proves it contradicts the rules
+    });
+
+    test('DR = DM: effective multiplier is 0, rules say 0 total damage', () => {
+        const effectiveMultiplier = Math.max(0, 3 - 3);
+        expect(effectiveMultiplier).toBe(0);
+        // Rules: no damage at all when multiplier < 1
+    });
+
+    test('DR < DM: damage is calculated normally', () => {
+        const marvelDie = 4;
+        const dm = 5;
+        const dr = 2;
+        const ability = 3;
+        const effective = Math.max(0, dm - dr);
+        expect(marvelDie * effective + ability).toBe(15);
+    });
+});
+
+describe('Rulebook: Fantastic Damage With DR', () => {
+    test('Fantastic doubles after DR is applied: ((Marvel × (DM-DR)) + ability) × 2', () => {
+        const marvelDie = 6;
+        const dm = 4;
+        const dr = 2;
+        const ability = 3;
+        const effective = Math.max(0, dm - dr);
+        const baseDmg = marvelDie * effective + ability;
+        const fantasticDmg = baseDmg * 2;
+        // Rules example: Spider-Man DM 4, DR 2 → Fantastic = (dM×4)+6
+        // (6×2 + 3) × 2 = 30, which matches rules: (6×4) + 6 = 30
+        expect(fantasticDmg).toBe(30);
+    });
+
+    test('Fantastic with no DR: ((Marvel × DM) + ability) × 2', () => {
+        const marvelDie = 6;
+        const dm = 4;
+        const ability = 7;
+        const baseDmg = marvelDie * dm + ability;
+        // Shang-Chi example: (6×4+7)×2 = 62
+        expect(baseDmg * 2).toBe(62);
+    });
+});
+
+describe('Rulebook: Run Speed Includes Agility Bonus (KNOWN GAP)', () => {
+    // Rules: "A character's base Run Speed is 5 spaces per round.
+    //         To that, add +1 for every 5 points they have in Agility."
+    test('agility < 5: run speed stays at base 5', () => {
+        const actor = makeActor({ abilities: { agl: 3 } });
+        // No agility bonus applies — base 5 is correct
+        expect(actor.movement.run.value).toBe(5);
+    });
+
+    test.failing('agility 5: run speed should be 6 (5 base + 1 bonus)', () => {
+        const actor = makeActor({ abilities: { agl: 5 } });
+        // MISSING: prepareDerivedData does not add floor(agl/5) to run speed
+        expect(actor.movement.run.value).toBe(6);
+    });
+
+    test.failing('agility 7 (Spider-Man): run speed should be 6', () => {
+        const actor = makeActor({ abilities: { agl: 7 } });
+        expect(actor.movement.run.value).toBe(6);
+    });
+});

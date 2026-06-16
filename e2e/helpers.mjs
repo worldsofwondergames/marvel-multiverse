@@ -403,3 +403,194 @@ export async function createActorViaAPI(page, name, type = 'character') {
   }, { name, type });
   await page.waitForTimeout(500);
 }
+
+/**
+ * Create a simple scene via the API.
+ */
+export async function createScene(page, name) {
+  await page.evaluate(async (name) => {
+    await Scene.create({
+      name,
+      width: 1000,
+      height: 1000,
+      grid: { size: 100 },
+      tokenVision: false,
+      fogExploration: false,
+    });
+  }, name);
+  await page.waitForTimeout(500);
+}
+
+/**
+ * Activate and view a scene so its canvas is rendered.
+ */
+export async function activateScene(page, name) {
+  await page.evaluate(async (name) => {
+    const scene = game.scenes.find(s => s.name === name);
+    if (!scene) throw new Error(`Scene "${name}" not found`);
+    await scene.activate();
+    await scene.view();
+  }, name);
+  // Wait for canvas to be fully ready
+  await page.waitForFunction(() => canvas?.ready === true && canvas?.tokens?.objects != null, { timeout: 30000 });
+  await page.waitForTimeout(1000);
+}
+
+/**
+ * Place a token for the named actor on the active scene.
+ * Returns the token ID.
+ */
+export async function placeToken(page, actorName, x = 200, y = 200) {
+  return page.evaluate(async ({ actorName, x, y }) => {
+    const actor = game.actors.find(a => a.name === actorName);
+    if (!actor) throw new Error(`Actor "${actorName}" not found`);
+    const scene = game.scenes.active;
+    if (!scene) throw new Error('No active scene');
+    const [token] = await scene.createEmbeddedDocuments('Token', [{
+      name: actor.name,
+      actorId: actor.id,
+      x, y,
+      texture: { src: actor.img || 'icons/svg/mystery-man.svg' },
+    }]);
+    return token.id;
+  }, { actorName, x, y });
+}
+
+/**
+ * Target a token on the canvas by its actor name.
+ */
+export async function targetToken(page, actorName) {
+  await page.evaluate(async (actorName) => {
+    const token = canvas.tokens.placeables.find(t => t.actor?.name === actorName);
+    if (!token) throw new Error(`Token for "${actorName}" not found on canvas`);
+    token.setTarget(true, { releaseOthers: true });
+  }, actorName);
+  await page.waitForTimeout(300);
+}
+
+/**
+ * Clear all token targets for the current user.
+ */
+export async function clearTargets(page) {
+  await page.evaluate(() => {
+    game.user.targets.forEach(t => t.setTarget(false));
+  });
+  await page.waitForTimeout(300);
+}
+
+/**
+ * Delete a scene by name.
+ */
+export async function deleteScene(page, name) {
+  await page.evaluate(async (name) => {
+    const scene = game.scenes.find(s => s.name === name);
+    if (scene) await scene.delete();
+  }, name);
+  await page.waitForTimeout(500);
+}
+
+/**
+ * Click the damage button in the most recent chat message.
+ * Uses native DOM click dispatch to trigger the bound event listener,
+ * falling back to direct _handleDamageChatButton invocation.
+ */
+export async function clickDamageButton(page) {
+  // Ensure the chat sidebar is open
+  await page.evaluate(() => {
+    ui.sidebar?.activateTab?.('chat');
+  });
+  await page.waitForTimeout(500);
+
+  // Try native DOM click on the damage button (triggers the bound event listener)
+  const clicked = await page.evaluate(() => {
+    const buttons = document.querySelectorAll('button.damage');
+    if (buttons.length > 0) {
+      const btn = buttons[buttons.length - 1];
+      btn.click();
+      return true;
+    }
+    return false;
+  });
+
+  if (clicked) {
+    await page.waitForTimeout(3000);
+    return;
+  }
+
+  // Fallback: invoke the damage handler programmatically
+  await page.evaluate(async () => {
+    const messages = game.messages.contents;
+    const last = messages[messages.length - 1];
+    if (!last) throw new Error('No chat messages found');
+
+    const flavor = last.flavor ?? '';
+    const roll = last.rolls?.[0];
+    const pool = roll?.terms?.[0];
+    const marvelRoll = pool?.rolls?.[1];
+    const marvelResult = marvelRoll?.dice?.[0]?.results?.[0]?.result;
+    const fantastic = marvelResult === 1 ? true : null;
+
+    if (typeof last._handleDamageChatButton === 'function') {
+      await last._handleDamageChatButton(last.id, flavor, fantastic);
+    } else {
+      throw new Error('_handleDamageChatButton not found on ChatMessage instance');
+    }
+  });
+  await page.waitForTimeout(3000);
+}
+
+/**
+ * Get the HTML content of the last chat message.
+ */
+export async function getLastChatMessageHTML(page) {
+  return page.evaluate(() => {
+    const messages = game.messages.contents;
+    if (messages.length === 0) return null;
+    const last = messages[messages.length - 1];
+    return {
+      content: last.content,
+      flavor: last.flavor ?? '',
+      flags: last.flags ?? {},
+    };
+  });
+}
+
+/**
+ * Trigger an ability roll programmatically on an actor and return the chat message.
+ * This bypasses the sheet UI and calls the roll directly.
+ */
+export async function triggerAbilityRoll(page, actorName, abilityKey) {
+  await page.evaluate(async ({ actorName, abilityKey }) => {
+    const actor = game.actors.find(a => a.name === actorName);
+    if (!actor) throw new Error(`Actor "${actorName}" not found`);
+    const ability = actor.system.abilities[abilityKey];
+    if (!ability) throw new Error(`Ability "${abilityKey}" not found`);
+    const abilityLabels = { mle: 'Melee', agl: 'Agility', res: 'Resilience', vig: 'Vigilance', ego: 'Ego', log: 'Logic' };
+    const label = abilityLabels[abilityKey] || abilityKey;
+    const edgeMode = ability.edge
+      ? CONFIG.Dice.MarvelMultiverseRoll.EDGE_MODE.EDGE
+      : ability.trouble
+        ? CONFIG.Dice.MarvelMultiverseRoll.EDGE_MODE.TROUBLE
+        : CONFIG.Dice.MarvelMultiverseRoll.EDGE_MODE.NORMAL;
+    const roll = new CONFIG.Dice.MarvelMultiverseRoll(
+      `{1d6,1dm,1d6}+@abilities.${abilityKey}.value`,
+      actor.getRollData(),
+      { edgeMode },
+    );
+    const speaker = ChatMessage.getSpeaker({ actor });
+    let flavor = `[ability] ${label}`;
+    await roll.toMessage({ speaker, flavor, rollMode: 'publicroll' });
+  }, { actorName, abilityKey });
+  await page.waitForTimeout(2000);
+}
+
+/**
+ * Delete all chat messages to start with a clean slate.
+ */
+export async function clearChatMessages(page) {
+  await page.evaluate(async () => {
+    const ids = game.messages.contents.map(m => m.id);
+    if (ids.length) await ChatMessage.deleteDocuments(ids);
+  });
+  await page.waitForTimeout(500);
+}

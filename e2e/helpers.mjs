@@ -187,3 +187,219 @@ export async function getActorItems(page, actorName, itemType) {
     return actor.items.filter(i => i.type === itemType).map(i => i.name).sort();
   }, { actorName, itemType });
 }
+
+/**
+ * Get derived actor data by manually reading each property.
+ * JSON.stringify strips Foundry's derived (non-schema) fields,
+ * so we extract them explicitly.
+ */
+export async function getActorSystemData(page, actorName) {
+  return page.evaluate((name) => {
+    const actor = game.actors.find(a => a.name === name);
+    if (!actor) throw new Error(`Actor "${name}" not found`);
+    const s = actor.system;
+    const isVehicle = actor.type === 'vehicle';
+
+    if (isVehicle) {
+      return {
+        health: {
+          value: s.health.value, max: s.health.max,
+          halfSpeed: s.health.halfSpeed, disabled: s.health.disabled,
+          destroyed: s.health.destroyed, status: s.health.status,
+        },
+        damageReduction: s.damageReduction,
+        size: s.size,
+        defense: s.defense,
+        crew: s.crew,
+        passengers: s.passengers,
+        occupants: s.occupants?.map(o => ({ actorId: o.actorId, name: o.name, role: o.role })) ?? [],
+        speed: (() => {
+          const sp = {};
+          for (const key of Object.keys(s.speed)) {
+            sp[key] = { value: s.speed[key].value, active: s.speed[key].active };
+          }
+          return sp;
+        })(),
+      };
+    }
+
+    const abilities = {};
+    for (const key of ['mle', 'agl', 'res', 'vig', 'ego', 'log']) {
+      abilities[key] = {
+        value: s.abilities[key].value,
+        defense: s.abilities[key].defense,
+        noncom: s.abilities[key].noncom,
+        damageMultiplier: s.abilities[key].damageMultiplier,
+        edge: s.abilities[key].edge,
+        label: s.abilities[key].label,
+      };
+    }
+    const movement = {};
+    for (const key of Object.keys(s.movement)) {
+      movement[key] = {
+        value: s.movement[key].value,
+        noncom: s.movement[key].noncom,
+        active: s.movement[key].active,
+        calc: s.movement[key].calc,
+        label: s.movement[key].label,
+      };
+    }
+    return {
+      abilities,
+      attributes: {
+        rank: { value: s.attributes.rank.value },
+        init: { value: s.attributes.init.value, edge: s.attributes.init.edge, trouble: s.attributes.init.trouble },
+      },
+      health: { value: s.health.value, max: s.health.max, bonus: s.health.bonus },
+      focus: { value: s.focus.value, max: s.focus.max, bonus: s.focus.bonus },
+      karma: { value: s.karma.value, max: s.karma.max },
+      healthDamageReduction: s.healthDamageReduction,
+      focusDamageReduction: s.focusDamageReduction,
+      conditionDamageReduction: s.conditionDamageReduction,
+      size: s.size,
+      reach: s.reach,
+      mutantReputation: s.mutantReputation,
+      movement,
+    };
+  }, actorName);
+}
+
+/**
+ * Update an actor's data directly via the API.
+ */
+export async function updateActorData(page, actorName, updateData) {
+  await page.evaluate(async ({ name, data }) => {
+    const actor = game.actors.find(a => a.name === name);
+    if (!actor) throw new Error(`Actor "${name}" not found`);
+    await actor.update(data);
+  }, { name: actorName, data: updateData });
+  await page.waitForTimeout(500);
+}
+
+/**
+ * Create an Active Effect on an actor and return its ID.
+ */
+export async function createActiveEffect(page, actorName, effectData) {
+  return page.evaluate(async ({ name, data }) => {
+    const actor = game.actors.find(a => a.name === name);
+    if (!actor) throw new Error(`Actor "${name}" not found`);
+    const [effect] = await actor.createEmbeddedDocuments('ActiveEffect', [data]);
+    return effect.id;
+  }, { name: actorName, data: effectData });
+}
+
+/**
+ * Get names of all Active Effects on an actor.
+ */
+export async function getActiveEffectNames(page, actorName) {
+  return page.evaluate((name) => {
+    const actor = game.actors.find(a => a.name === name);
+    if (!actor) return [];
+    return actor.effects.contents.map(e => e.name);
+  }, actorName);
+}
+
+/**
+ * Set a game setting for the marvel-multiverse system.
+ */
+export async function setGameSetting(page, key, value) {
+  await page.evaluate(async ({ key, value }) => {
+    await game.settings.set('marvel-multiverse', key, value);
+  }, { key, value });
+  await page.waitForTimeout(500);
+}
+
+/**
+ * Get a game setting for the marvel-multiverse system.
+ */
+export async function getGameSetting(page, key) {
+  return page.evaluate((key) => {
+    return game.settings.get('marvel-multiverse', key);
+  }, key);
+}
+
+/**
+ * Evaluate a d616 roll and return structured results.
+ */
+export async function evaluateRoll(page, formula = '{1d6,1dm,1d6}', data = {}) {
+  return page.evaluate(async ({ formula, data }) => {
+    const Roll = CONFIG.Dice.rolls[0];
+    const roll = new Roll(formula, data);
+    await roll.evaluate();
+    return {
+      total: roll.total,
+      formula: roll.formula,
+      terms: roll.terms.map(t => {
+        if (t.results) {
+          return {
+            faces: t.faces,
+            results: t.results.map(r => ({ result: r.result, active: r.active })),
+            total: t.total,
+          };
+        }
+        return { number: t.number };
+      }),
+    };
+  }, { formula, data });
+}
+
+/**
+ * Get the last chat message's content and flavor.
+ */
+export async function getLastChatMessage(page) {
+  return page.evaluate(() => {
+    const messages = game.messages.contents;
+    if (messages.length === 0) return null;
+    const last = messages[messages.length - 1];
+    return {
+      content: last.content,
+      flavor: last.flavor ?? '',
+    };
+  });
+}
+
+/**
+ * Create a combat encounter.
+ */
+export async function createCombat(page) {
+  await page.evaluate(async () => {
+    await Combat.create({});
+  });
+  await page.waitForTimeout(500);
+}
+
+/**
+ * Add an actor to the active combat as a combatant.
+ */
+export async function addToCombat(page, actorName) {
+  await page.evaluate(async (name) => {
+    const actor = game.actors.find(a => a.name === name);
+    if (!actor) throw new Error(`Actor "${name}" not found`);
+    await game.combat.createEmbeddedDocuments('Combatant', [{
+      actorId: actor.id,
+      hidden: false,
+    }]);
+  }, actorName);
+  await page.waitForTimeout(500);
+}
+
+/**
+ * Delete the active combat encounter.
+ */
+export async function deleteCombat(page) {
+  await page.evaluate(async () => {
+    if (game.combat) await game.combat.delete();
+  });
+  await page.waitForTimeout(500);
+}
+
+/**
+ * Create an actor via the API (no UI interaction). Returns the actor name.
+ * Useful for tests that don't need the sheet open.
+ */
+export async function createActorViaAPI(page, name, type = 'character') {
+  await page.evaluate(async ({ name, type }) => {
+    await Actor.create({ name, type });
+  }, { name, type });
+  await page.waitForTimeout(500);
+}

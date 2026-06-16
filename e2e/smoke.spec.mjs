@@ -12,8 +12,8 @@ test.describe('FoundryVTT Marvel Multiverse - Smoke Tests', () => {
     expect(systemId).toBe('marvel-multiverse');
   });
 
-  test('sidebar is rendered', async ({ foundryPage }) => {
-    await expect(foundryPage.locator('#sidebar')).toBeVisible();
+  test('sidebar tabs are rendered', async ({ foundryPage }) => {
+    await expect(foundryPage.locator('#sidebar-tabs')).toBeVisible();
   });
 
 });

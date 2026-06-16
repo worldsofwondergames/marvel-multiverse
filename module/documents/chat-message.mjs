@@ -243,7 +243,7 @@ export class ChatMessageMarvel extends ChatMessage {
     const messageId =
       eventTarget.closest("[data-message-id]").dataset.messageId;
     const fantastic = eventTarget.parentNode.querySelector(
-      "li.roll.marvel-roll.fantastic"
+      "li.roll.marvel-roll.fantastic:not(.discarded)"
     );
 
     const messageHeader = eventTarget.closest("li.chat-message");

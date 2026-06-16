@@ -22,7 +22,9 @@ function _toTitleCase(str) {
 function _getTokenImg(actor) {
   const activeToken = actor?.getActiveTokens?.()?.[0];
   if (activeToken?.document?.texture?.src) return activeToken.document.texture.src;
-  return actor?.prototypeToken?.texture?.src || actor?.img || "";
+  const protoSrc = actor?.prototypeToken?.texture?.src;
+  if (protoSrc && !protoSrc.includes("*")) return protoSrc;
+  return actor?.img || "";
 }
 
 function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element }) {
@@ -1579,7 +1581,7 @@ class ChatMessageMarvel extends ChatMessage {
     const messageId =
       eventTarget.closest("[data-message-id]").dataset.messageId;
     const fantastic = eventTarget.parentNode.querySelector(
-      "li.roll.marvel-roll.fantastic"
+      "li.roll.marvel-roll.fantastic:not(.discarded)"
     );
 
     const messageHeader = eventTarget.closest("li.chat-message");

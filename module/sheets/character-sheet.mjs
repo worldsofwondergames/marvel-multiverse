@@ -80,6 +80,12 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
       ])
     );
 
+    context.mutantReputationEnabled = game.settings.get("marvel-multiverse", "mutantReputationEnabled");
+    context.mutantReputationLevels = CONFIG.MARVEL_MULTIVERSE.mutantReputationLevels;
+    const worldRepKey = game.settings.get("marvel-multiverse", "mutantReputationLevel");
+    context.worldReputationLevel = worldRepKey;
+    context.worldReputationLabel = CONFIG.MARVEL_MULTIVERSE.mutantReputationLevels[worldRepKey]?.label ?? "Neutral";
+
     // Prepare active effects
     context.effects = prepareActiveEffectCategories(
       // A generator that returns all effects stored on the actor
@@ -414,6 +420,15 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
             item.system.effect ? item.system.effect : ""
           }</div>`,
         });
+      }
+
+      if (dataset.abilityKey === "ego" && game.settings.get("marvel-multiverse", "mutantReputationEnabled")) {
+        const repOverride = this.actor.system.mutantReputation;
+        const repKey = repOverride !== "world" ? repOverride : game.settings.get("marvel-multiverse", "mutantReputationLevel");
+        const repConfig = CONFIG.MARVEL_MULTIVERSE.mutantReputationLevels[repKey];
+        if (repConfig && repKey !== "neutral") {
+          label += `<br/><div style="margin-top:4px;padding:2px 6px;background:#5c3d6e;color:#fff;border-radius:3px;font-size:11px;"><b>Mutant Reputation (${repConfig.label}):</b> ${repConfig.effect}</div>`;
+        }
       }
 
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(

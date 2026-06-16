@@ -741,6 +741,14 @@ MARVEL_MULTIVERSE.additionalStatuses = [
   },
 ];
 
+MARVEL_MULTIVERSE.mutantReputationLevels = {
+  beloved: { label: "Beloved", effect: "Double Edge" },
+  liked: { label: "Liked", effect: "Edge" },
+  neutral: { label: "Neutral", effect: "No effect" },
+  feared: { label: "Feared", effect: "Trouble" },
+  hated: { label: "Hated", effect: "Double Trouble" },
+};
+
 // ASCII Artwork
 MARVEL_MULTIVERSE.ASCII = `
 =ccccc,      ,cccc       ccccc      ,cccc,  ?$$$$$$$,  ,ccc,   -ccc

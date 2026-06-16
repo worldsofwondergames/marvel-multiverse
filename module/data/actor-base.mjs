@@ -187,6 +187,11 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       blank: true,
     });
 
+    schema.mutantReputation = new fields.StringField({
+      required: true,
+      initial: "world",
+    });
+
     return schema;
   }
 

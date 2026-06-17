@@ -565,6 +565,17 @@ describe('Rulebook: Fantastic Damage With DR', () => {
     });
 });
 
+describe('Config: Power Sets', () => {
+    test('iconicItems power set is registered', () => {
+        expect(CONFIG.MARVEL_MULTIVERSE.powersets.iconicItems).toBeDefined();
+        expect(CONFIG.MARVEL_MULTIVERSE.powersets.iconicItems.label).toBe("Iconic Items");
+    });
+
+    test('reverseSetList maps "Iconic Items" back to "iconicItems"', () => {
+        expect(CONFIG.MARVEL_MULTIVERSE.reverseSetList["Iconic Items"]).toBe("iconicItems");
+    });
+});
+
 describe('Rulebook: Run Speed Includes Agility Bonus (KNOWN GAP)', () => {
     // Rules: "A character's base Run Speed is 5 spaces per round.
     //         To that, add +1 for every 5 points they have in Agility."

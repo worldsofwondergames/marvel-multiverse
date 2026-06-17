@@ -104,6 +104,7 @@ MARVEL_MULTIVERSE.powersets = {
   basic: { label: "Basic" },
   elementalControl: { label: "Elemental Control" },
   healing: { label: "Healing" },
+  iconicItems: { label: "Iconic Items" },
   illusion: { label: "Illusion" },
   luck: { label: "Luck" },
   magic: { label: "Magic" },

@@ -272,6 +272,26 @@ describe('Rules: Movement Calc Modes', () => {
     });
 });
 
+describe('Rules: Movement Auto-Activation', () => {
+    test('movement type with calc mode is automatically activated', () => {
+        const actor = makeActor({
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: false, noncomMultiplier: 1, calc: 'runspeed', label: '' },
+            },
+        });
+        expect(actor.movement.flight.active).toBe(true);
+    });
+
+    test('movement type without calc mode stays inactive', () => {
+        const actor = makeActor({
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: false, noncomMultiplier: 1, calc: '', label: '' },
+            },
+        });
+        expect(actor.movement.flight.active).toBe(false);
+    });
+});
+
 describe('Rules: Non-Combat Movement Speed', () => {
     test('noncom defaults to combat value when noncomMultiplier is 1', () => {
         const actor = makeActor({ run: 5 });

@@ -58,6 +58,7 @@ export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       this.movement[key].label =
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.movementTypes[key].label) ??
         key;
+      if (this.movement[key].calc) this.movement[key].active = true;
       switch (this.movement[key].calc) {
         case "half": {
           this.movement[key].value = Math.ceil(this.movement[key].value * 0.5);

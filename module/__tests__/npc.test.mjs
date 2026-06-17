@@ -142,6 +142,26 @@ describe('MarvelMultiverseNPC — Movement Calc Modes', () => {
     });
 });
 
+describe('MarvelMultiverseNPC — Movement Auto-Activation', () => {
+    test('movement type with calc mode is automatically activated', () => {
+        const npc = makeNPC({
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: false, noncomMultiplier: 1, calc: 'runspeed', label: '' },
+            },
+        });
+        expect(npc.movement.flight.active).toBe(true);
+    });
+
+    test('movement type without calc mode stays inactive', () => {
+        const npc = makeNPC({
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: false, noncomMultiplier: 1, calc: '', label: '' },
+            },
+        });
+        expect(npc.movement.flight.active).toBe(false);
+    });
+});
+
 describe('MarvelMultiverseNPC — Non-Combat Movement Speed', () => {
     test('noncom defaults to combat value when noncomMultiplier is 1', () => {
         const npc = makeNPC({ run: 6 });

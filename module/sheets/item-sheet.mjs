@@ -14,6 +14,7 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
       classes: ["marvel-multiverse", "sheet", "item"],
       width: 520,
       height: 480,
+      dragDrop: [{ dropSelector: null }],
       tabs: [
         {
           navSelector: ".sheet-tabs",

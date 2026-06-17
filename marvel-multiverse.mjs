@@ -1617,7 +1617,7 @@ class ChatMessageMarvel extends ChatMessage {
     const damageMultiplier =
       actor.system.abilities[abilityAbr].damageMultiplier;
 
-    const targetTokens = canvas.tokens.objects.children.filter(
+    const targetTokens = (canvas.tokens?.objects?.children ?? []).filter(
       (t) => t.isTargeted
     );
 

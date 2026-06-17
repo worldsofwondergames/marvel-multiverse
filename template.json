@@ -9,6 +9,7 @@
   "Item": {
     "types": [
       "item",
+      "iconicItem",
       "weapon",
       "trait",
       "tag",

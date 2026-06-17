@@ -4785,6 +4785,7 @@ Hooks.once("init", () => {
 // If you need to add Handlebars helpers, here is a useful example:
 Handlebars.registerHelper("toLowerCase", (mle) => mle.toLowerCase());
 Handlebars.registerHelper("eq", (a, b) => a === b);
+Handlebars.registerHelper("gt", (a, b) => a > b);
 
 
 Hooks.on("renderDialogV2", (app, html) => {

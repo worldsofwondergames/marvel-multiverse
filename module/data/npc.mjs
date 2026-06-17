@@ -88,5 +88,10 @@ export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
     if (!this.movement.climb.calc) this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
     if (!this.movement.jump.calc) this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
     if (!this.movement.swim.calc) this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
+
+    for (const key in this.movement) {
+      const mult = this.movement[key].noncomMultiplier ?? 1;
+      this.movement[key].noncom = this.movement[key].value * mult;
+    }
   }
 }

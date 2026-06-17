@@ -3393,7 +3393,12 @@ class MarvelMultiverseItemSheet extends ItemSheet {
   }
 
   async _onDrop(event) {
-    const data = TextEditor.getDragData(event);
+    let data;
+    try {
+      data = JSON.parse(event.dataTransfer.getData("text/plain"));
+    } catch (e) {
+      return super._onDrop(event);
+    }
     if (data?.type !== "Item") return super._onDrop(event);
 
     const droppedItem = await Item.implementation.fromDropData(data);

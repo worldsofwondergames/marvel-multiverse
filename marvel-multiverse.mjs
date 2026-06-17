@@ -3270,7 +3270,7 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
       const powersCount = context.system.powers?.length ?? 0;
       const restrictionsCount = context.system.restrictions?.length ?? 0;
-      context.powerValue = Math.max(1, powersCount - restrictionsCount);
+      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
     }
     return context;
   }
@@ -4090,6 +4090,7 @@ class MarvelMultiverseIconicItem extends MarvelMultiverseItemBase {
   get powerValue() {
     const powersCount = this.powers?.length ?? 0;
     const restrictionsCount = this.restrictions?.length ?? 0;
+    if (powersCount === 0 && restrictionsCount === 0) return 0;
     return Math.max(1, powersCount - restrictionsCount);
   }
 }

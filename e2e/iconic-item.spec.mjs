@@ -82,6 +82,17 @@ test.describe('Iconic Item Type', () => {
     expect(data.weaponData.isWeapon).toBe(false);
   });
 
+  test('power value is 0 with no powers or restrictions', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createIconicItemViaAPI(page, ICONIC_ITEM_NAME);
+
+    const pv = await page.evaluate((name) => {
+      const item = game.items.find(i => i.name === name);
+      return item.system.powerValue;
+    }, ICONIC_ITEM_NAME);
+    expect(pv).toBe(0);
+  });
+
   test('iconic item sheet opens with correct tabs', async ({ foundryPage }) => {
     const page = foundryPage;
     await createIconicItemViaAPI(page, ICONIC_ITEM_NAME);

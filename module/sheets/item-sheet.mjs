@@ -121,7 +121,7 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
       const powersCount = context.system.powers?.length ?? 0;
       const restrictionsCount = context.system.restrictions?.length ?? 0;
-      context.powerValue = Math.max(1, powersCount - restrictionsCount);
+      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
     }
     return context;
   }

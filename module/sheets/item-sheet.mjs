@@ -105,6 +105,14 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
         },
       };
     }
+    if (itemData.type === "restriction") {
+      context.restrictionKinds = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.restrictionKinds).map((k) => [
+          k,
+          CONFIG.MARVEL_MULTIVERSE.restrictionKinds[k].label,
+        ])
+      );
+    }
     if (itemData.type === "iconicItem") {
       context.ownershipModes = Object.fromEntries(
         Object.keys(CONFIG.MARVEL_MULTIVERSE.ownershipModes).map((k) => [
@@ -211,13 +219,13 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
       await this.item.update({ "system.powers": powers });
     });
 
-    // Iconic item: powers drop zone visual feedback
-    const iconicDropZone = html.find(".mm-iconic-powers-drop-zone");
-    iconicDropZone.on("dragover", (ev) => {
+    // Iconic item: drop zone visual feedback
+    const dropZones = html.find(".mm-iconic-powers-drop-zone, .mm-iconic-restrictions-drop-zone");
+    dropZones.on("dragover", (ev) => {
       ev.preventDefault();
       ev.currentTarget.classList.add("drag-over");
     });
-    iconicDropZone.on("dragleave", (ev) => {
+    dropZones.on("dragleave", (ev) => {
       ev.currentTarget.classList.remove("drag-over");
     });
   }
@@ -244,6 +252,18 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
       });
       const powerSet = powerSets.map(ps => ps.name).join(", ");
       return await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
+    }
+
+    // Handle restriction drops onto iconic items
+    if (droppedItem.type === "restriction" && this.item.type === "iconicItem") {
+      const restrictions = [...this.item.system.restrictions];
+      if (restrictions.some(r => r.name === droppedItem.name)) return;
+      restrictions.push({
+        kind: droppedItem.system.kind,
+        name: droppedItem.name,
+        description: droppedItem.system.description,
+      });
+      return await this.item.update({ "system.restrictions": restrictions });
     }
 
     // Handle power drops onto iconic items

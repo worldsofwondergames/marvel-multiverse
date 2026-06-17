@@ -3272,6 +3272,14 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       const restrictionsCount = context.system.restrictions?.length ?? 0;
       context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
     }
+    if (itemData.type === "restriction") {
+      context.restrictionKinds = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.restrictionKinds).map((k) => [
+          k,
+          CONFIG.MARVEL_MULTIVERSE.restrictionKinds[k].label,
+        ])
+      );
+    }
     return context;
   }
 
@@ -3381,13 +3389,13 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       await this.item.update({ "system.powers": powers });
     });
 
-    // Iconic item: powers drop zone visual feedback
-    const iconicDropZone = html.find(".mm-iconic-powers-drop-zone");
-    iconicDropZone.on("dragover", (ev) => {
+    // Iconic item: drop zone visual feedback
+    const iconicDropZones = html.find(".mm-iconic-powers-drop-zone, .mm-iconic-restrictions-drop-zone");
+    iconicDropZones.on("dragover", (ev) => {
       ev.preventDefault();
       ev.currentTarget.classList.add("drag-over");
     });
-    iconicDropZone.on("dragleave", (ev) => {
+    iconicDropZones.on("dragleave", (ev) => {
       ev.currentTarget.classList.remove("drag-over");
     });
   }
@@ -3414,6 +3422,18 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       });
       const powerSet = powerSets.map(ps => ps.name).join(", ");
       return await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
+    }
+
+    // Handle restriction drops onto iconic items
+    if (droppedItem.type === "restriction" && this.item.type === "iconicItem") {
+      const restrictions = [...this.item.system.restrictions];
+      if (restrictions.some(r => r.name === droppedItem.name)) return;
+      restrictions.push({
+        kind: droppedItem.system.kind,
+        name: droppedItem.name,
+        description: droppedItem.system.description,
+      });
+      return await this.item.update({ "system.restrictions": restrictions });
     }
 
     // Handle power drops onto iconic items
@@ -4218,6 +4238,20 @@ class MarvelMultiverseTrait extends MarvelMultiverseItemBase {
     }
 }
 
+class MarvelMultiverseRestriction extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = super.defineSchema();
+
+    schema.kind = new fields.StringField({
+      required: true,
+      initial: "access",
+    });
+
+    return schema;
+  }
+}
+
 class MarvelMultiversePowerSet extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
@@ -4890,6 +4924,7 @@ Hooks.once("init", () => {
     tag: MarvelMultiverseTag,
     power: MarvelMultiversePower,
     powerSet: MarvelMultiversePowerSet,
+    restriction: MarvelMultiverseRestriction,
     vehicleWeapon: MarvelMultiverseVehicleWeapon,
   };
 

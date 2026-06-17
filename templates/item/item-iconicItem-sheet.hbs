@@ -84,7 +84,7 @@
 
     {{!-- Restrictions Tab --}}
     <div class="tab" data-group="primary" data-tab="restrictions">
-      <ol class="mm-item-list">
+      <ol class="mm-item-list mm-iconic-restrictions-drop-zone" data-drop-type="restriction">
         <li class="flexrow item mm-item-header">
           <span>Restrictions</span>
           <hr />
@@ -113,7 +113,7 @@
         {{#unless system.restrictions.length}}
           <li class="flexrow item mm-item">
             <div class="item-name mm-item-name">
-              <span>No restrictions</span>
+              <span class="mm-powerset-placeholder">Drag restrictions here or use +</span>
             </div>
           </li>
         {{/unless}}

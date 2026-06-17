@@ -3324,6 +3324,10 @@ class MarvelMultiverseItemSheet extends ItemSheet {
     html.on("click", ".iconic-restriction-add", async (ev) => {
       ev.preventDefault();
       const restrictions = [...this.item.system.restrictions];
+      if (restrictions.length >= 3) {
+        ui.notifications.warn("An iconic item can have no more than 3 restrictions.");
+        return;
+      }
       restrictions.push({ kind: "access", name: "", description: "" });
       await this.item.update({ "system.restrictions": restrictions });
     });
@@ -3366,8 +3370,16 @@ class MarvelMultiverseItemSheet extends ItemSheet {
           save: {
             label: "Save",
             callback: async (html) => {
+              const newKind = html.find('[name="kind"]').val();
+              if (newKind !== "obvious" && newKind !== restriction.kind) {
+                const otherSameKind = restrictions.some((r, i) => i !== index && r.kind === newKind);
+                if (otherSameKind) {
+                  ui.notifications.warn(`This item already has a restriction of kind "${newKind}". Only Obvious restrictions can appear more than once.`);
+                  return;
+                }
+              }
               restrictions[index] = {
-                kind: html.find('[name="kind"]').val(),
+                kind: newKind,
                 name: html.find('[name="name"]').val(),
                 description: html.find('[name="description"]').val(),
               };
@@ -3428,8 +3440,17 @@ class MarvelMultiverseItemSheet extends ItemSheet {
     if (droppedItem.type === "restriction" && this.item.type === "iconicItem") {
       const restrictions = [...this.item.system.restrictions];
       if (restrictions.some(r => r.name === droppedItem.name)) return;
+      if (restrictions.length >= 3) {
+        ui.notifications.warn("An iconic item can have no more than 3 restrictions.");
+        return;
+      }
+      const kind = droppedItem.system.kind;
+      if (kind !== "obvious" && restrictions.some(r => r.kind === kind)) {
+        ui.notifications.warn(`This item already has a restriction of kind "${kind}". Only Obvious restrictions can appear more than once.`);
+        return;
+      }
       restrictions.push({
-        kind: droppedItem.system.kind,
+        kind,
         name: droppedItem.name,
         description: droppedItem.system.description,
       });

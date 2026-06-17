@@ -1617,7 +1617,7 @@ class ChatMessageMarvel extends ChatMessage {
     const damageMultiplier =
       actor.system.abilities[abilityAbr].damageMultiplier;
 
-    const targetTokens = canvas.tokens.objects.children.filter(
+    const targetTokens = (canvas.tokens?.objects?.children ?? []).filter(
       (t) => t.isTargeted
     );
 
@@ -3476,7 +3476,7 @@ class MarvelMultiverseActorBase extends foundry.abstract
             }),
             noncom: new fields.NumberField({
               ...requiredInteger,
-              initial: 5,
+              initial: 0,
               min: 0,
             }),
             active: new fields.BooleanField({
@@ -3485,6 +3485,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
             }),
             rankMode: new fields.StringField({ required: true, blank: true }),
             calc: new fields.StringField({ blank: true }),
+            noncomMultiplier: new fields.NumberField({
+              ...requiredInteger,
+              initial: 1,
+              min: 1,
+            }),
           });
           return obj;
         },
@@ -3599,6 +3604,7 @@ class MarvelMultiverseActorBase extends foundry.abstract
       this.movement[key].label =
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.movementTypes[key].label) ??
         key;
+      if (this.movement[key].calc) this.movement[key].active = true;
       switch (this.movement[key].calc) {
         case "half": {
           this.movement[key].value = Math.ceil(this.movement[key].value * 0.5);
@@ -3630,6 +3636,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
     if (!this.movement.climb.calc) this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
     if (!this.movement.jump.calc) this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
     if (!this.movement.swim.calc) this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
+
+    for (const key in this.movement) {
+      const mult = this.movement[key].noncomMultiplier ?? 1;
+      this.movement[key].noncom = this.movement[key].value * mult;
+    }
   }
 }
 
@@ -3716,6 +3727,7 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       this.movement[key].label =
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.movementTypes[key].label) ??
         key;
+      if (this.movement[key].calc) this.movement[key].active = true;
       switch (this.movement[key].calc) {
         case "half": {
           this.movement[key].value = Math.ceil(this.movement[key].value * 0.5);
@@ -3746,6 +3758,11 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
     if (!this.movement.climb.calc) this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
     if (!this.movement.jump.calc) this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
     if (!this.movement.swim.calc) this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
+
+    for (const key in this.movement) {
+      const mult = this.movement[key].noncomMultiplier ?? 1;
+      this.movement[key].noncom = this.movement[key].value * mult;
+    }
   }
 }
 
@@ -4785,6 +4802,7 @@ Hooks.once("init", () => {
 // If you need to add Handlebars helpers, here is a useful example:
 Handlebars.registerHelper("toLowerCase", (mle) => mle.toLowerCase());
 Handlebars.registerHelper("eq", (a, b) => a === b);
+Handlebars.registerHelper("gt", (a, b) => a > b);
 
 
 Hooks.on("renderDialogV2", (app, html) => {

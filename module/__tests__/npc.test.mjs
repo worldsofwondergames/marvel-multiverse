@@ -4,7 +4,7 @@ import MarvelMultiverseNPC from '../data/npc.mjs';
 
 function makeNPC({ rank = 1, abilities = {}, run = 5, movementOverrides = {} } = {}) {
     const ability = (value = 0) => ({ value, defense: 0, noncom: 0, damageMultiplier: 0, edge: false, label: '' });
-    const movement = (value = 0, calc = '') => ({ value, noncom: value, active: true, calc, label: '' });
+    const movement = (value = 0, calc = '', noncomMultiplier = 1) => ({ value, noncom: value, active: true, calc, noncomMultiplier, label: '' });
     const instance = new MarvelMultiverseNPC({
         attributes: { rank: { value: rank }, init: { value: 0, edge: false, trouble: false } },
         abilities: {
@@ -112,33 +112,98 @@ describe('MarvelMultiverseNPC — Climb/Jump/Swim Movement', () => {
 
 describe('MarvelMultiverseNPC — Movement Calc Modes', () => {
     test('"half" halves flight value', () => {
-        const npc = makeNPC({ movementOverrides: { flight: { value: 8, noncom: 0, active: true, calc: 'half', label: '' } } });
+        const npc = makeNPC({ movementOverrides: { flight: { value: 8, noncom: 0, active: true, noncomMultiplier: 1, calc: 'half', label: '' } } });
         expect(npc.movement.flight.value).toBe(4);
     });
 
     test('"double" doubles flight value', () => {
-        const npc = makeNPC({ movementOverrides: { flight: { value: 6, noncom: 0, active: true, calc: 'double', label: '' } } });
+        const npc = makeNPC({ movementOverrides: { flight: { value: 6, noncom: 0, active: true, noncomMultiplier: 1, calc: 'double', label: '' } } });
         expect(npc.movement.flight.value).toBe(12);
     });
 
     test('"triple" triples flight value', () => {
-        const npc = makeNPC({ movementOverrides: { flight: { value: 3, noncom: 0, active: true, calc: 'triple', label: '' } } });
+        const npc = makeNPC({ movementOverrides: { flight: { value: 3, noncom: 0, active: true, noncomMultiplier: 1, calc: 'triple', label: '' } } });
         expect(npc.movement.flight.value).toBe(9);
     });
 
     test('"runspeed" sets flight to run speed', () => {
-        const npc = makeNPC({ run: 10, movementOverrides: { flight: { value: 0, noncom: 0, active: true, calc: 'runspeed', label: '' } } });
+        const npc = makeNPC({ run: 10, movementOverrides: { flight: { value: 0, noncom: 0, active: true, noncomMultiplier: 1, calc: 'runspeed', label: '' } } });
         expect(npc.movement.flight.value).toBe(10);
     });
 
     test('"rank" multiplies value by rank (value > 0)', () => {
-        const npc = makeNPC({ rank: 4, movementOverrides: { flight: { value: 3, noncom: 0, active: true, calc: 'rank', label: '' } } });
+        const npc = makeNPC({ rank: 4, movementOverrides: { flight: { value: 3, noncom: 0, active: true, noncomMultiplier: 1, calc: 'rank', label: '' } } });
         expect(npc.movement.flight.value).toBe(12);
     });
 
     test('"rank" uses 1 when value is 0', () => {
-        const npc = makeNPC({ rank: 4, movementOverrides: { flight: { value: 0, noncom: 0, active: true, calc: 'rank', label: '' } } });
+        const npc = makeNPC({ rank: 4, movementOverrides: { flight: { value: 0, noncom: 0, active: true, noncomMultiplier: 1, calc: 'rank', label: '' } } });
         expect(npc.movement.flight.value).toBe(4);
+    });
+});
+
+describe('MarvelMultiverseNPC — Movement Auto-Activation', () => {
+    test('movement type with calc mode is automatically activated', () => {
+        const npc = makeNPC({
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: false, noncomMultiplier: 1, calc: 'runspeed', label: '' },
+            },
+        });
+        expect(npc.movement.flight.active).toBe(true);
+    });
+
+    test('movement type without calc mode stays inactive', () => {
+        const npc = makeNPC({
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: false, noncomMultiplier: 1, calc: '', label: '' },
+            },
+        });
+        expect(npc.movement.flight.active).toBe(false);
+    });
+});
+
+describe('MarvelMultiverseNPC — Non-Combat Movement Speed', () => {
+    test('noncom defaults to combat value when noncomMultiplier is 1', () => {
+        const npc = makeNPC({ run: 6 });
+        expect(npc.movement.run.noncom).toBe(6);
+    });
+
+    test('noncom = value × noncomMultiplier (3× for Speed Run)', () => {
+        const npc = makeNPC({
+            run: 5, rank: 3,
+            movementOverrides: {
+                run: { value: 5, noncom: 0, active: true, noncomMultiplier: 3, calc: 'runspeed-rank', label: '' },
+            },
+        });
+        expect(npc.movement.run.value).toBe(15);
+        expect(npc.movement.run.noncom).toBe(45);
+    });
+
+    test('noncom = value × noncomMultiplier (3× for Flight)', () => {
+        const npc = makeNPC({
+            run: 5, rank: 4,
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: true, noncomMultiplier: 3, calc: 'runspeed-rank', label: '' },
+            },
+        });
+        expect(npc.movement.flight.value).toBe(20);
+        expect(npc.movement.flight.noncom).toBe(60);
+    });
+
+    test('noncom for climb defaults to combat value', () => {
+        const npc = makeNPC({ run: 6 });
+        expect(npc.movement.climb.value).toBe(3);
+        expect(npc.movement.climb.noncom).toBe(3);
+    });
+
+    test('noncom applies after calc mode (triple + 2× multiplier)', () => {
+        const npc = makeNPC({
+            movementOverrides: {
+                flight: { value: 3, noncom: 0, active: true, noncomMultiplier: 2, calc: 'triple', label: '' },
+            },
+        });
+        expect(npc.movement.flight.value).toBe(9);
+        expect(npc.movement.flight.noncom).toBe(18);
     });
 });
 

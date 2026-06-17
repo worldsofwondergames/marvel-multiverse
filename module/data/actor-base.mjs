@@ -145,7 +145,7 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
             }),
             noncom: new fields.NumberField({
               ...requiredInteger,
-              initial: 5,
+              initial: 0,
               min: 0,
             }),
             active: new fields.BooleanField({
@@ -154,6 +154,11 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
             }),
             rankMode: new fields.StringField({ required: true, blank: true }),
             calc: new fields.StringField({ blank: true }),
+            noncomMultiplier: new fields.NumberField({
+              ...requiredInteger,
+              initial: 1,
+              min: 1,
+            }),
           });
           return obj;
         },
@@ -254,6 +259,7 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       this.movement[key].label =
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.movementTypes[key].label) ??
         key;
+      if (this.movement[key].calc) this.movement[key].active = true;
       switch (this.movement[key].calc) {
         case "half": {
           this.movement[key].value = Math.ceil(this.movement[key].value * 0.5);
@@ -284,5 +290,10 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
     if (!this.movement.climb.calc) this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
     if (!this.movement.jump.calc) this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
     if (!this.movement.swim.calc) this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
+
+    for (const key in this.movement) {
+      const mult = this.movement[key].noncomMultiplier ?? 1;
+      this.movement[key].noncom = this.movement[key].value * mult;
+    }
   }
 }

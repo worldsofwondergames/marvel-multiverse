@@ -4,7 +4,7 @@ import MarvelMultiverseActorBase from '../data/actor-base.mjs';
 
 function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {}, effects = null, dmgBonuses = {}, healthDR = 0, focusDR = 0 } = {}) {
     const ability = (value = 0) => ({ value, defense: 0, noncom: 0, damageMultiplier: 0, edge: false, label: '' });
-    const movement = (value = 0, calc = '') => ({ value, noncom: value, active: true, calc, label: '' });
+    const movement = (value = 0, calc = '', noncomMultiplier = 1) => ({ value, noncom: value, active: true, calc, noncomMultiplier, label: '' });
     const instance = new MarvelMultiverseActorBase({
         attributes: { rank: { value: rank }, init: { value: 0, edge: false, trouble: false } },
         abilities: {
@@ -220,21 +220,21 @@ describe('Rules: Climb/Jump/Swim Movement', () => {
 describe('Rules: Movement Calc Modes', () => {
     test('"half" halves movement value (ceil)', () => {
         const actor = makeActor({
-            movementOverrides: { flight: { value: 10, noncom: 0, active: true, calc: 'half', label: '' } },
+            movementOverrides: { flight: { value: 10, noncom: 0, active: true, noncomMultiplier: 1, calc: 'half', label: '' } },
         });
         expect(actor.movement.flight.value).toBe(5);
     });
 
     test('"double" doubles movement value', () => {
         const actor = makeActor({
-            movementOverrides: { flight: { value: 5, noncom: 0, active: true, calc: 'double', label: '' } },
+            movementOverrides: { flight: { value: 5, noncom: 0, active: true, noncomMultiplier: 1, calc: 'double', label: '' } },
         });
         expect(actor.movement.flight.value).toBe(10);
     });
 
     test('"triple" triples movement value', () => {
         const actor = makeActor({
-            movementOverrides: { flight: { value: 4, noncom: 0, active: true, calc: 'triple', label: '' } },
+            movementOverrides: { flight: { value: 4, noncom: 0, active: true, noncomMultiplier: 1, calc: 'triple', label: '' } },
         });
         expect(actor.movement.flight.value).toBe(12);
     });
@@ -242,7 +242,7 @@ describe('Rules: Movement Calc Modes', () => {
     test('"runspeed" sets value equal to run speed', () => {
         const actor = makeActor({
             run: 8,
-            movementOverrides: { flight: { value: 0, noncom: 0, active: true, calc: 'runspeed', label: '' } },
+            movementOverrides: { flight: { value: 0, noncom: 0, active: true, noncomMultiplier: 1, calc: 'runspeed', label: '' } },
         });
         expect(actor.movement.flight.value).toBe(8);
     });
@@ -250,7 +250,7 @@ describe('Rules: Movement Calc Modes', () => {
     test('"rank" multiplies value by rank', () => {
         const actor = makeActor({
             rank: 3,
-            movementOverrides: { flight: { value: 2, noncom: 0, active: true, calc: 'rank', label: '' } },
+            movementOverrides: { flight: { value: 2, noncom: 0, active: true, noncomMultiplier: 1, calc: 'rank', label: '' } },
         });
         expect(actor.movement.flight.value).toBe(6);
     });
@@ -258,7 +258,7 @@ describe('Rules: Movement Calc Modes', () => {
     test('"rank" with value 0 uses 1 as base, then multiplies by rank', () => {
         const actor = makeActor({
             rank: 3,
-            movementOverrides: { flight: { value: 0, noncom: 0, active: true, calc: 'rank', label: '' } },
+            movementOverrides: { flight: { value: 0, noncom: 0, active: true, noncomMultiplier: 1, calc: 'rank', label: '' } },
         });
         expect(actor.movement.flight.value).toBe(3);
     });
@@ -266,9 +266,84 @@ describe('Rules: Movement Calc Modes', () => {
     test('"runspeed-rank" sets value to base run speed × rank', () => {
         const actor = makeActor({
             run: 5, rank: 4,
-            movementOverrides: { flight: { value: 0, noncom: 0, active: true, calc: 'runspeed-rank', label: '' } },
+            movementOverrides: { flight: { value: 0, noncom: 0, active: true, noncomMultiplier: 1, calc: 'runspeed-rank', label: '' } },
         });
         expect(actor.movement.flight.value).toBe(20);
+    });
+});
+
+describe('Rules: Movement Auto-Activation', () => {
+    test('movement type with calc mode is automatically activated', () => {
+        const actor = makeActor({
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: false, noncomMultiplier: 1, calc: 'runspeed', label: '' },
+            },
+        });
+        expect(actor.movement.flight.active).toBe(true);
+    });
+
+    test('movement type without calc mode stays inactive', () => {
+        const actor = makeActor({
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: false, noncomMultiplier: 1, calc: '', label: '' },
+            },
+        });
+        expect(actor.movement.flight.active).toBe(false);
+    });
+});
+
+describe('Rules: Non-Combat Movement Speed', () => {
+    test('noncom defaults to combat value when noncomMultiplier is 1', () => {
+        const actor = makeActor({ run: 5 });
+        expect(actor.movement.run.noncom).toBe(5);
+    });
+
+    test('noncom = value × noncomMultiplier (3× for Speed Run)', () => {
+        const actor = makeActor({
+            run: 5, rank: 4,
+            movementOverrides: {
+                run: { value: 5, noncom: 0, active: true, noncomMultiplier: 3, calc: 'runspeed-rank', label: '' },
+            },
+        });
+        expect(actor.movement.run.value).toBe(20);
+        expect(actor.movement.run.noncom).toBe(60);
+    });
+
+    test('noncom = value × noncomMultiplier (3× for Flight)', () => {
+        const actor = makeActor({
+            run: 5, rank: 4,
+            movementOverrides: {
+                flight: { value: 0, noncom: 0, active: true, noncomMultiplier: 3, calc: 'runspeed-rank', label: '' },
+            },
+        });
+        expect(actor.movement.flight.value).toBe(20);
+        expect(actor.movement.flight.noncom).toBe(60);
+    });
+
+    test('noncom for climb/jump/swim defaults to combat value (half run speed)', () => {
+        const actor = makeActor({ run: 5 });
+        expect(actor.movement.climb.value).toBe(3);
+        expect(actor.movement.climb.noncom).toBe(3);
+    });
+
+    test('noncom with multiplier 2 doubles non-combat speed', () => {
+        const actor = makeActor({
+            movementOverrides: {
+                flight: { value: 10, noncom: 0, active: true, noncomMultiplier: 2, calc: '', label: '' },
+            },
+        });
+        expect(actor.movement.flight.value).toBe(10);
+        expect(actor.movement.flight.noncom).toBe(20);
+    });
+
+    test('noncom applies after calc mode (half + 3× multiplier)', () => {
+        const actor = makeActor({
+            movementOverrides: {
+                flight: { value: 10, noncom: 0, active: true, noncomMultiplier: 3, calc: 'half', label: '' },
+            },
+        });
+        expect(actor.movement.flight.value).toBe(5);
+        expect(actor.movement.flight.noncom).toBe(15);
     });
 });
 
@@ -277,8 +352,8 @@ describe('Rulebook: Speed Powers Do Not Stack', () => {
         const actor = makeActor({
             run: 5, rank: 4,
             movementOverrides: {
-                run: { value: 5, noncom: 5, active: true, calc: 'runspeed-rank', label: '' },
-                flight: { value: 0, noncom: 0, active: true, calc: 'runspeed-rank', label: '' },
+                run: { value: 5, noncom: 5, active: true, noncomMultiplier: 1, calc: 'runspeed-rank', label: '' },
+                flight: { value: 0, noncom: 0, active: true, noncomMultiplier: 1, calc: 'runspeed-rank', label: '' },
             },
         });
         expect(actor.movement.run.value).toBe(20);
@@ -289,7 +364,7 @@ describe('Rulebook: Speed Powers Do Not Stack', () => {
         const actor = makeActor({
             run: 5, rank: 4,
             movementOverrides: {
-                run: { value: 5, noncom: 5, active: true, calc: 'runspeed-rank', label: '' },
+                run: { value: 5, noncom: 5, active: true, noncomMultiplier: 1, calc: 'runspeed-rank', label: '' },
             },
         });
         expect(actor.movement.run.value).toBe(20);
@@ -302,8 +377,8 @@ describe('Rulebook: Speed Powers Do Not Stack', () => {
         const actor = makeActor({
             run: 5, rank: 4,
             movementOverrides: {
-                run: { value: 5, noncom: 5, active: true, calc: 'runspeed-rank', label: '' },
-                swim: { value: 0, noncom: 0, active: true, calc: 'runspeed-rank', label: '' },
+                run: { value: 5, noncom: 5, active: true, noncomMultiplier: 1, calc: 'runspeed-rank', label: '' },
+                swim: { value: 0, noncom: 0, active: true, noncomMultiplier: 1, calc: 'runspeed-rank', label: '' },
             },
         });
         expect(actor.movement.run.value).toBe(20);

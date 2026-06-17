@@ -150,7 +150,7 @@
                   {{#each system.movement as |mvmnt|}}
                     {{#if mvmnt.active }}
                       <div class="flexrow -gap-sm">
-                        <span>{{mvmnt.label}}:</span><span>{{mvmnt.value}}</span>
+                        <span>{{mvmnt.label}}:</span><span>{{mvmnt.value}}{{#if (gt mvmnt.noncom mvmnt.value)}} ({{mvmnt.noncom}}){{/if}}</span>
                       </div>
                     {{/if}}
                   {{/each}}

@@ -104,21 +104,22 @@
   justify-content: end;
   line-height: 1.1;
   padding-block-start: 1px;
-  padding-inline-start: $mm-spacing-sm;
+  padding-inline-start: $mm-spacing-sm + 5px;
   text-align: left;
   width: 120%;
   z-index: 1;
 
   .flexrow {
-    overflow: hidden;
+    overflow: visible;
+    white-space: nowrap;
   }
 
   span {
     display: inline-block;
-    overflow: hidden;
 
     &:first-child {
       max-width: 72px;
+      overflow: hidden;
     }
   }
 }

@@ -1519,16 +1519,17 @@
 }
 
 .marvel-multiverse.sheet.actor .mm-speed-fields .flexrow {
-  overflow: hidden;
+  overflow: visible;
+  white-space: nowrap;
 }
 
 .marvel-multiverse.sheet.actor .mm-speed-fields span {
   display: inline-block;
-  overflow: hidden;
 }
 
 .marvel-multiverse.sheet.actor .mm-speed-fields span:first-child {
   max-width: 72px;
+  overflow: hidden;
 }
 
 .marvel-multiverse.sheet.actor .mm-abilities-block .mm-ability-rows::before {

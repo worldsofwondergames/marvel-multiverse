@@ -104,6 +104,24 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
         },
       };
     }
+    if (itemData.type === "iconicItem") {
+      context.ownershipModes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.ownershipModes).map((k) => [
+          k,
+          CONFIG.MARVEL_MULTIVERSE.ownershipModes[k].label,
+        ])
+      );
+      context.specialEffectTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.specialEffectTypes).map((k) => [
+          k,
+          CONFIG.MARVEL_MULTIVERSE.specialEffectTypes[k].label,
+        ])
+      );
+      context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
+      const powersCount = context.system.powers?.length ?? 0;
+      const restrictionsCount = context.system.restrictions?.length ?? 0;
+      context.powerValue = Math.max(1, powersCount - restrictionsCount);
+    }
     return context;
   }
 
@@ -122,5 +140,118 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
     html.on("click", ".effect-control", (ev) =>
       onManageActiveEffect(ev, this.item)
     );
+
+    // Iconic item: restriction management
+    html.on("click", ".iconic-restriction-add", async (ev) => {
+      ev.preventDefault();
+      const restrictions = [...this.item.system.restrictions];
+      restrictions.push({ kind: "access", name: "", description: "" });
+      await this.item.update({ "system.restrictions": restrictions });
+    });
+
+    html.on("click", ".iconic-restriction-remove", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const restrictions = [...this.item.system.restrictions];
+      restrictions.splice(index, 1);
+      await this.item.update({ "system.restrictions": restrictions });
+    });
+
+    html.on("click", ".iconic-restriction-edit", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const restrictions = [...this.item.system.restrictions];
+      const restriction = restrictions[index];
+      const kindOptions = Object.entries(CONFIG.MARVEL_MULTIVERSE.restrictionKinds)
+        .map(([k, v]) => `<option value="${k}" ${k === restriction.kind ? "selected" : ""}>${v.label}</option>`)
+        .join("");
+      const content = `
+        <form>
+          <div class="form-group">
+            <label>Kind</label>
+            <select name="kind">${kindOptions}</select>
+          </div>
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" name="name" value="${restriction.name ?? ""}" />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea name="description">${restriction.description ?? ""}</textarea>
+          </div>
+        </form>`;
+      new Dialog({
+        title: "Edit Restriction",
+        content,
+        buttons: {
+          save: {
+            label: "Save",
+            callback: async (html) => {
+              restrictions[index] = {
+                kind: html.find('[name="kind"]').val(),
+                name: html.find('[name="name"]').val(),
+                description: html.find('[name="description"]').val(),
+              };
+              await this.item.update({ "system.restrictions": restrictions });
+            },
+          },
+          cancel: { label: "Cancel" },
+        },
+        default: "save",
+      }).render(true);
+    });
+
+    // Iconic item: power removal
+    html.on("click", ".iconic-power-remove", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const powers = [...this.item.system.powers];
+      powers.splice(index, 1);
+      await this.item.update({ "system.powers": powers });
+    });
+
+    // Iconic item: powers drop zone visual feedback
+    const iconicDropZone = html.find(".mm-iconic-powers-drop-zone");
+    iconicDropZone.on("dragover", (ev) => {
+      ev.preventDefault();
+      ev.currentTarget.classList.add("drag-over");
+    });
+    iconicDropZone.on("dragleave", (ev) => {
+      ev.currentTarget.classList.remove("drag-over");
+    });
+  }
+
+  async _onDrop(event) {
+    const data = TextEditor.getDragData(event);
+    if (data?.type !== "Item") return super._onDrop(event);
+
+    const droppedItem = await Item.implementation.fromDropData(data);
+
+    // Handle powerSet drops onto power items
+    if (droppedItem.type === "powerSet" && this.item.type === "power") {
+      const powerSets = [...this.item.system.powerSets];
+      if (powerSets.some(ps => ps.name === droppedItem.name)) return;
+      powerSets.push({
+        id: droppedItem.id,
+        name: droppedItem.name,
+        img: droppedItem.img,
+      });
+      const powerSet = powerSets.map(ps => ps.name).join(", ");
+      return await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
+    }
+
+    // Handle power drops onto iconic items
+    if (droppedItem.type === "power" && this.item.type === "iconicItem") {
+      const powers = [...this.item.system.powers];
+      if (powers.some(p => p.name === droppedItem.name)) return;
+      powers.push({
+        id: droppedItem.id,
+        name: droppedItem.name,
+        img: droppedItem.img,
+      });
+      return await this.item.update({ "system.powers": powers });
+    }
+
+    return super._onDrop(event);
   }
 }

@@ -725,6 +725,25 @@ MARVEL_MULTIVERSE.reverseSetList = Object.fromEntries(
   ])
 );
 
+MARVEL_MULTIVERSE.restrictionKinds = {
+  access: { label: "Access" },
+  challenging: { label: "Challenging" },
+  obvious: { label: "Obvious" },
+  unattached: { label: "Unattached" },
+  use: { label: "Use" },
+};
+
+MARVEL_MULTIVERSE.ownershipModes = {
+  owned: { label: "Owned" },
+  borrowed: { label: "Borrowed" },
+};
+
+MARVEL_MULTIVERSE.specialEffectTypes = {
+  blunt: { label: "Blunt" },
+  sharp: { label: "Sharp" },
+  elemental: { label: "Elemental" },
+};
+
 MARVEL_MULTIVERSE.movementTypes = {
   run: { label: "MARVEL_MULTIVERSE.Movement.Run", active: true },
   climb: { label: "MARVEL_MULTIVERSE.Movement.Climb", active: true },
@@ -2065,6 +2084,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
   _prepareItems(context) {
     // Initialize containers.
     const gear = [];
+    const iconicItems = [];
     const origins = [];
     const occupations = [];
     const weapons = [];
@@ -2083,6 +2103,8 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       // Append to origin tags traits and powers as well as origins.
       if (i.type === "occupation") {
         occupations.push(i);
+      } else if (i.type === "iconicItem") {
+        iconicItems.push(i);
       } else if (i.type === "item") {
         gear.push(i);
       } else if (i.type === "weapon") {
@@ -2101,6 +2123,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
 
       // Assign and return
       context.gear = gear;
+      context.iconicItems = iconicItems;
       context.origins = origins;
       context.occupations = occupations;
       context.weapons = weapons;
@@ -2765,6 +2788,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
   _prepareItems(context) {
     // Initialize containers.
     const gear = [];
+    const iconicItems = [];
     const traits = [];
     const origins = [];
     const occupations = [];
@@ -2797,6 +2821,8 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
           : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
         if (!powers[firstSet]) powers[firstSet] = [];
         powers[firstSet].push(i);
+      } else if (i.type === "iconicItem") {
+        iconicItems.push(i);
       } else if (i.type === "item") {
         gear.push(i);
       } else if (i.type === "weapon") {
@@ -2805,6 +2831,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
 
       // Assign and return
       context.gear = gear;
+      context.iconicItems = iconicItems;
       context.traits = traits.sort((a, b) => a.name.localeCompare(b.name));
       context.tags = tags.sort((a, b) => a.name.localeCompare(b.name));
       for (const set in powers) powers[set].sort((a, b) => a.name.localeCompare(b.name));
@@ -3226,6 +3253,24 @@ class MarvelMultiverseItemSheet extends ItemSheet {
         },
       };
     }
+    if (itemData.type === "iconicItem") {
+      context.ownershipModes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.ownershipModes).map((k) => [
+          k,
+          CONFIG.MARVEL_MULTIVERSE.ownershipModes[k].label,
+        ])
+      );
+      context.specialEffectTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.specialEffectTypes).map((k) => [
+          k,
+          CONFIG.MARVEL_MULTIVERSE.specialEffectTypes[k].label,
+        ])
+      );
+      context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
+      const powersCount = context.system.powers?.length ?? 0;
+      const restrictionsCount = context.system.restrictions?.length ?? 0;
+      context.powerValue = Math.max(1, powersCount - restrictionsCount);
+    }
     return context;
   }
 
@@ -3265,6 +3310,85 @@ class MarvelMultiverseItemSheet extends ItemSheet {
     dropZone.on("dragleave", (ev) => {
       ev.currentTarget.classList.remove("drag-over");
     });
+
+    // Iconic item: restriction management
+    html.on("click", ".iconic-restriction-add", async (ev) => {
+      ev.preventDefault();
+      const restrictions = [...this.item.system.restrictions];
+      restrictions.push({ kind: "access", name: "", description: "" });
+      await this.item.update({ "system.restrictions": restrictions });
+    });
+
+    html.on("click", ".iconic-restriction-remove", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const restrictions = [...this.item.system.restrictions];
+      restrictions.splice(index, 1);
+      await this.item.update({ "system.restrictions": restrictions });
+    });
+
+    html.on("click", ".iconic-restriction-edit", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const restrictions = [...this.item.system.restrictions];
+      const restriction = restrictions[index];
+      const kindOptions = Object.entries(CONFIG.MARVEL_MULTIVERSE.restrictionKinds)
+        .map(([k, v]) => `<option value="${k}" ${k === restriction.kind ? "selected" : ""}>${v.label}</option>`)
+        .join("");
+      const content = `
+        <form>
+          <div class="form-group">
+            <label>Kind</label>
+            <select name="kind">${kindOptions}</select>
+          </div>
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" name="name" value="${restriction.name ?? ""}" />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea name="description">${restriction.description ?? ""}</textarea>
+          </div>
+        </form>`;
+      new Dialog({
+        title: "Edit Restriction",
+        content,
+        buttons: {
+          save: {
+            label: "Save",
+            callback: async (html) => {
+              restrictions[index] = {
+                kind: html.find('[name="kind"]').val(),
+                name: html.find('[name="name"]').val(),
+                description: html.find('[name="description"]').val(),
+              };
+              await this.item.update({ "system.restrictions": restrictions });
+            },
+          },
+          cancel: { label: "Cancel" },
+        },
+        default: "save",
+      }).render(true);
+    });
+
+    // Iconic item: power removal
+    html.on("click", ".iconic-power-remove", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const powers = [...this.item.system.powers];
+      powers.splice(index, 1);
+      await this.item.update({ "system.powers": powers });
+    });
+
+    // Iconic item: powers drop zone visual feedback
+    const iconicDropZone = html.find(".mm-iconic-powers-drop-zone");
+    iconicDropZone.on("dragover", (ev) => {
+      ev.preventDefault();
+      ev.currentTarget.classList.add("drag-over");
+    });
+    iconicDropZone.on("dragleave", (ev) => {
+      ev.currentTarget.classList.remove("drag-over");
+    });
   }
 
   async _onDrop(event) {
@@ -3272,19 +3396,33 @@ class MarvelMultiverseItemSheet extends ItemSheet {
     if (data?.type !== "Item") return super._onDrop(event);
 
     const droppedItem = await Item.implementation.fromDropData(data);
-    if (droppedItem.type !== "powerSet") return super._onDrop(event);
-    if (this.item.type !== "power") return;
 
-    const powerSets = [...this.item.system.powerSets];
-    if (powerSets.some(ps => ps.name === droppedItem.name)) return;
+    // Handle powerSet drops onto power items
+    if (droppedItem.type === "powerSet" && this.item.type === "power") {
+      const powerSets = [...this.item.system.powerSets];
+      if (powerSets.some(ps => ps.name === droppedItem.name)) return;
+      powerSets.push({
+        id: droppedItem.id,
+        name: droppedItem.name,
+        img: droppedItem.img,
+      });
+      const powerSet = powerSets.map(ps => ps.name).join(", ");
+      return await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
+    }
 
-    powerSets.push({
-      id: droppedItem.id,
-      name: droppedItem.name,
-      img: droppedItem.img
-    });
-    const powerSet = powerSets.map(ps => ps.name).join(", ");
-    await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
+    // Handle power drops onto iconic items
+    if (droppedItem.type === "power" && this.item.type === "iconicItem") {
+      const powers = [...this.item.system.powers];
+      if (powers.some(p => p.name === droppedItem.name)) return;
+      powers.push({
+        id: droppedItem.id,
+        name: droppedItem.name,
+        img: droppedItem.img,
+      });
+      return await this.item.update({ "system.powers": powers });
+    }
+
+    return super._onDrop(event);
   }
 }
 
@@ -3888,6 +4026,65 @@ class MarvelMultiverseItem extends MarvelMultiverseItemBase {
     });
 
     return schema;
+  }
+}
+
+class MarvelMultiverseIconicItem extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const requiredInteger = { required: true, nullable: false, integer: true };
+    const schema = super.defineSchema();
+
+    schema.origin = new fields.StringField({ required: true, blank: true });
+
+    schema.ownershipMode = new fields.StringField({
+      required: true,
+      initial: "owned",
+    });
+
+    schema.restrictions = new fields.ArrayField(new fields.ObjectField());
+
+    schema.powers = new fields.ArrayField(new fields.ObjectField());
+
+    schema.isIntelligent = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+    schema.intelligenceDescription = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.specialEffectType = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.notes = new fields.StringField({ required: true, blank: true });
+
+    schema.weaponData = new fields.SchemaField({
+      isWeapon: new fields.BooleanField({ required: true, initial: false }),
+      meleeRange: new fields.StringField({ required: true, blank: true }),
+      rangedRange: new fields.StringField({ required: true, blank: true }),
+      meleeDamageMultiplierBonus: new fields.NumberField({
+        ...requiredInteger,
+        initial: 0,
+        min: 0,
+      }),
+      rangedDamageMultiplierBonus: new fields.NumberField({
+        ...requiredInteger,
+        initial: 0,
+        min: 0,
+      }),
+    });
+
+    return schema;
+  }
+
+  get powerValue() {
+    const powersCount = this.powers?.length ?? 0;
+    const restrictionsCount = this.restrictions?.length ?? 0;
+    return Math.max(1, powersCount - restrictionsCount);
   }
 }
 
@@ -4678,6 +4875,7 @@ Hooks.once("init", () => {
   CONFIG.Item.documentClass = MarvelMultiverseItem$1;
   CONFIG.Item.dataModels = {
     item: MarvelMultiverseItem,
+    iconicItem: MarvelMultiverseIconicItem,
     weapon: MarvelMultiverseWeapon,
     trait: MarvelMultiverseTrait,
     origin: MarvelMultiverseOrigin,

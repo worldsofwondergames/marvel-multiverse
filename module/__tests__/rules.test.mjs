@@ -576,6 +576,23 @@ describe('Config: Power Sets', () => {
     });
 });
 
+describe('Config: Iconic Item Config', () => {
+    test('restrictionKinds has all five kinds', () => {
+        const kinds = Object.keys(CONFIG.MARVEL_MULTIVERSE.restrictionKinds);
+        expect(kinds).toEqual(["access", "challenging", "obvious", "unattached", "use"]);
+    });
+
+    test('ownershipModes has owned and borrowed', () => {
+        const modes = Object.keys(CONFIG.MARVEL_MULTIVERSE.ownershipModes);
+        expect(modes).toEqual(["owned", "borrowed"]);
+    });
+
+    test('specialEffectTypes has blunt, sharp, and elemental', () => {
+        const types = Object.keys(CONFIG.MARVEL_MULTIVERSE.specialEffectTypes);
+        expect(types).toEqual(["blunt", "sharp", "elemental"]);
+    });
+});
+
 describe('Rulebook: Run Speed Includes Agility Bonus (KNOWN GAP)', () => {
     // Rules: "A character's base Run Speed is 5 spaces per round.
     //         To that, add +1 for every 5 points they have in Agility."

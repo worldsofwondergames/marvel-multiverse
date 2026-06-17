@@ -106,6 +106,7 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
   _prepareItems(context) {
     // Initialize containers.
     const gear = [];
+    const iconicItems = [];
     const origins = [];
     const occupations = [];
     const weapons = [];
@@ -126,6 +127,8 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
       // Append to origin tags traits and powers as well as origins.
       if (i.type === "occupation") {
         occupations.push(i);
+      } else if (i.type === "iconicItem") {
+        iconicItems.push(i);
       } else if (i.type === "item") {
         gear.push(i);
       } else if (i.type === "weapon") {
@@ -141,6 +144,7 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
 
       // Assign and return
       context.gear = gear;
+      context.iconicItems = iconicItems;
       context.origins = origins;
       context.occupations = occupations;
       context.weapons = weapons;

@@ -1,5 +1,41 @@
 <ol class="mm-item-list">
   <li class="flexrow item mm-item-header">
+    <span>Iconic Items</span>
+    <hr />
+    <div class="item-controls">
+      <a
+        class="item-control item-create"
+        title="{{localize 'DOCUMENT.Create' type="Item"}}"
+        data-type="iconicItem"
+      >
+        <i class="fas fa-plus"></i>
+      </a>
+    </div>
+  </li>
+  {{#each iconicItems as |item id|}}
+    <li class="flexrow item mm-item" data-item-id='{{item._id}}'>
+      <div class="item-name mm-item-name">
+        <span>{{item.name}}</span>
+      </div>
+      <div class="item-controls">
+        <a
+          class="item-control item-edit"
+          title="{{localize 'DOCUMENT.Update' type="Item"}}"
+        >
+          <i class="fas fa-edit"></i>
+        </a>
+        <a
+          class="item-control item-delete"
+          title="{{localize 'DOCUMENT.Delete' type="Item"}}"
+        >
+          <i class="fas fa-trash"></i>
+        </a>
+      </div>
+    </li>
+  {{/each}}
+</ol>
+<ol class="mm-item-list">
+  <li class="flexrow item mm-item-header">
     <span>{{localize "Items"}}</span>
     <hr />
     <div class="item-controls">

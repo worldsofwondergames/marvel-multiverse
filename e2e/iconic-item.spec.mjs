@@ -151,11 +151,11 @@ test.describe('Iconic Item Type', () => {
     expect(pv).toBe(2);
   });
 
-  test('power value minimum is 1', async ({ foundryPage }) => {
+  test('power value is em dash when restrictions exceed powers', async ({ foundryPage }) => {
     const page = foundryPage;
     await createIconicItemViaAPI(page, ICONIC_ITEM_NAME);
 
-    // 1 power, 3 restrictions: PV = max(1, 1-3) = 1
+    // 1 power, 3 restrictions: PV = 1-3 < 0 → "—"
     await page.evaluate(async (name) => {
       const item = game.items.find(i => i.name === name);
       await item.update({
@@ -173,7 +173,7 @@ test.describe('Iconic Item Type', () => {
       const item = game.items.find(i => i.name === name);
       return item.system.powerValue;
     }, ICONIC_ITEM_NAME);
-    expect(pv).toBe(1);
+    expect(pv).toBe("—");
   });
 
   test('dropping a power onto iconic item sheet adds it', async ({ foundryPage }) => {

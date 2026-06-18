@@ -17,7 +17,7 @@
         <div class="mm-styled-field -flex-relative">
           <label class="mm-styled-label -align-left"><span>Power Value</span></label>
           <div class="mm-styled-input">
-            <div class="plain-text">{{powerValue}}</div>
+            <div class="plain-text" style="text-align:center">{{powerValue}}</div>
           </div>
         </div>
       </div>
@@ -59,20 +59,20 @@
           <span>Powers</span>
           <hr />
         </li>
-        {{#each system.powers as |power idx|}}
-          <li class="flexrow item mm-item" data-index="{{idx}}">
+        {{#each sortedPowers as |power idx|}}
+          <li class="flexrow item mm-item" data-index="{{power._origIndex}}">
             <div class="item-name mm-item-name">
               {{#if power.img}}<img src="{{power.img}}" width="24" height="24" />{{/if}}
               <span>{{power.name}}</span>
             </div>
             <div class="item-controls">
-              <a class="item-control iconic-power-remove" data-index="{{idx}}" title="Remove">
+              <a class="item-control iconic-power-remove" data-index="{{power._origIndex}}" title="Remove">
                 <i class="fas fa-trash"></i>
               </a>
             </div>
           </li>
         {{/each}}
-        {{#unless system.powers.length}}
+        {{#unless sortedPowers.length}}
           <li class="flexrow item mm-item">
             <div class="item-name mm-item-name">
               <span class="mm-powerset-placeholder">Drag powers here</span>
@@ -94,22 +94,22 @@
             </a>
           </div>
         </li>
-        {{#each system.restrictions as |restriction idx|}}
-          <li class="flexrow item mm-item" data-index="{{idx}}">
+        {{#each sortedRestrictions as |restriction idx|}}
+          <li class="flexrow item mm-item" data-index="{{restriction._origIndex}}">
             <div class="item-name mm-item-name">
               <span>{{restriction.name}}</span>
             </div>
             <div class="item-controls">
-              <a class="item-control iconic-restriction-edit" data-index="{{idx}}" title="Edit">
+              <a class="item-control iconic-restriction-edit" data-index="{{restriction._origIndex}}" title="Edit">
                 <i class="fas fa-edit"></i>
               </a>
-              <a class="item-control iconic-restriction-remove" data-index="{{idx}}" title="Remove">
+              <a class="item-control iconic-restriction-remove" data-index="{{restriction._origIndex}}" title="Remove">
                 <i class="fas fa-trash"></i>
               </a>
             </div>
           </li>
         {{/each}}
-        {{#unless system.restrictions.length}}
+        {{#unless sortedRestrictions.length}}
           <li class="flexrow item mm-item">
             <div class="item-name mm-item-name">
               <span class="mm-powerset-placeholder">Drag restrictions here or use +</span>

@@ -56,7 +56,7 @@ describe('MarvelMultiverseIconicItem — powerValue', () => {
     expect(item.powerValue).toBe(2);
   });
 
-  test('minimum power value is 1 when any powers or restrictions exist', () => {
+  test('returns em dash when restrictions exceed powers', () => {
     const item = makeIconicItem(
       [{ id: '1', name: 'A', img: '' }],
       [
@@ -65,12 +65,20 @@ describe('MarvelMultiverseIconicItem — powerValue', () => {
         { kind: 'use', name: 'R3', description: '' },
       ]
     );
-    expect(item.powerValue).toBe(1);
+    expect(item.powerValue).toBe("—");
   });
 
-  test('returns 1 when only restrictions exist (no powers)', () => {
+  test('returns em dash when only restrictions exist (no powers)', () => {
     const item = makeIconicItem(
       [],
+      [{ kind: 'access', name: 'R1', description: '' }]
+    );
+    expect(item.powerValue).toBe("—");
+  });
+
+  test('returns 1 when powers equal restrictions', () => {
+    const item = makeIconicItem(
+      [{ id: '1', name: 'A', img: '' }],
       [{ kind: 'access', name: 'R1', description: '' }]
     );
     expect(item.powerValue).toBe(1);

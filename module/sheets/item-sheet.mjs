@@ -113,6 +113,22 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
         ])
       );
     }
+    if (itemData.type === "battleSuit") {
+      context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
+      const powersCount = context.system.powers?.length ?? 0;
+      const restrictionsCount = context.system.restrictions?.length ?? 0;
+      const rawPV = powersCount - restrictionsCount;
+      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : rawPV < 0 ? "—" : Math.max(1, rawPV);
+      context.sortedPowers = (context.system.powers ?? [])
+        .map((p, idx) => ({ ...p, _origIndex: idx }))
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+      context.sortedRestrictions = (context.system.restrictions ?? [])
+        .map((r, idx) => ({ ...r, _origIndex: idx }))
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+      context.sortedIntegratedIconicItems = (context.system.integratedIconicItems ?? [])
+        .map((ii, idx) => ({ ...ii, _origIndex: idx }))
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    }
     if (itemData.type === "iconicItem") {
       context.ownershipModes = Object.fromEntries(
         Object.keys(CONFIG.MARVEL_MULTIVERSE.ownershipModes).map((k) => [
@@ -247,6 +263,114 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
     dropZones.on("dragleave", (ev) => {
       ev.currentTarget.classList.remove("drag-over");
     });
+
+    // Battle suit: restriction management
+    html.on("click", ".battlesuit-restriction-add", async (ev) => {
+      ev.preventDefault();
+      const restrictions = [...this.item.system.restrictions];
+      restrictions.push({ kind: "access", name: "", description: "" });
+      await this.item.update({ "system.restrictions": restrictions });
+    });
+
+    html.on("click", ".battlesuit-restriction-remove", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const restrictions = [...this.item.system.restrictions];
+      restrictions.splice(index, 1);
+      await this.item.update({ "system.restrictions": restrictions });
+    });
+
+    html.on("click", ".battlesuit-restriction-edit", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const restrictions = [...this.item.system.restrictions];
+      const restriction = restrictions[index];
+      const kindOptions = Object.entries(CONFIG.MARVEL_MULTIVERSE.restrictionKinds)
+        .map(([k, v]) => `<option value="${k}" ${k === restriction.kind ? "selected" : ""}>${v.label}</option>`)
+        .join("");
+      const content = `
+        <form>
+          <div class="form-group">
+            <label>Kind</label>
+            <select name="kind">${kindOptions}</select>
+          </div>
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" name="name" value="${restriction.name ?? ""}" />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea name="description">${restriction.description ?? ""}</textarea>
+          </div>
+        </form>`;
+      new Dialog({
+        title: "Edit Restriction",
+        content,
+        buttons: {
+          save: {
+            label: "Save",
+            callback: async (html) => {
+              restrictions[index] = {
+                kind: html.find('[name="kind"]').val(),
+                name: html.find('[name="name"]').val(),
+                description: html.find('[name="description"]').val(),
+              };
+              await this.item.update({ "system.restrictions": restrictions });
+            },
+          },
+          cancel: { label: "Cancel" },
+        },
+        default: "save",
+      }).render(true);
+    });
+
+    // Battle suit: power removal
+    html.on("click", ".battlesuit-power-remove", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const powers = [...this.item.system.powers];
+      powers.splice(index, 1);
+      await this.item.update({ "system.powers": powers });
+    });
+
+    // Battle suit: integrated iconic item removal
+    html.on("click", ".battlesuit-iconic-remove", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const items = [...this.item.system.integratedIconicItems];
+      items.splice(index, 1);
+      await this.item.update({ "system.integratedIconicItems": items });
+    });
+
+    // Battle suit: additional trait management
+    html.on("click", ".battlesuit-trait-add", async (ev) => {
+      ev.preventDefault();
+      const input = html.find(".battlesuit-trait-input");
+      const value = input.val()?.trim();
+      if (!value) return;
+      const traits = [...(this.item.system.additionalTraits ?? [])];
+      traits.push(value);
+      await this.item.update({ "system.additionalTraits": traits });
+      input.val("");
+    });
+
+    html.on("click", ".battlesuit-trait-remove", async (ev) => {
+      ev.preventDefault();
+      const index = Number(ev.currentTarget.dataset.index);
+      const traits = [...(this.item.system.additionalTraits ?? [])];
+      traits.splice(index, 1);
+      await this.item.update({ "system.additionalTraits": traits });
+    });
+
+    // Battle suit: drop zone visual feedback
+    const battlesuitDropZones = html.find(".mm-battlesuit-powers-drop-zone, .mm-battlesuit-restrictions-drop-zone, .mm-battlesuit-iconic-drop-zone");
+    battlesuitDropZones.on("dragover", (ev) => {
+      ev.preventDefault();
+      ev.currentTarget.classList.add("drag-over");
+    });
+    battlesuitDropZones.on("dragleave", (ev) => {
+      ev.currentTarget.classList.remove("drag-over");
+    });
   }
 
   async _onDrop(event) {
@@ -271,6 +395,42 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
       });
       const powerSet = powerSets.map(ps => ps.name).join(", ");
       return await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
+    }
+
+    // Handle restriction drops onto battle suits
+    if (droppedItem.type === "restriction" && this.item.type === "battleSuit") {
+      const restrictions = [...this.item.system.restrictions];
+      if (restrictions.some(r => r.name === droppedItem.name)) return;
+      restrictions.push({
+        kind: droppedItem.system.kind,
+        name: droppedItem.name,
+        description: droppedItem.system.description,
+      });
+      return await this.item.update({ "system.restrictions": restrictions });
+    }
+
+    // Handle power drops onto battle suits
+    if (droppedItem.type === "power" && this.item.type === "battleSuit") {
+      const powers = [...this.item.system.powers];
+      if (powers.some(p => p.name === droppedItem.name)) return;
+      powers.push({
+        id: droppedItem.id,
+        name: droppedItem.name,
+        img: droppedItem.img,
+      });
+      return await this.item.update({ "system.powers": powers });
+    }
+
+    // Handle iconic item drops onto battle suits
+    if (droppedItem.type === "iconicItem" && this.item.type === "battleSuit") {
+      const items = [...this.item.system.integratedIconicItems];
+      if (items.some(ii => ii.name === droppedItem.name)) return;
+      items.push({
+        id: droppedItem.id,
+        name: droppedItem.name,
+        img: droppedItem.img,
+      });
+      return await this.item.update({ "system.integratedIconicItems": items });
     }
 
     // Handle restriction drops onto iconic items

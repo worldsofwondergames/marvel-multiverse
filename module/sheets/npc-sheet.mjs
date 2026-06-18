@@ -108,6 +108,7 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
     // Initialize containers.
     const gear = [];
     const iconicItems = [];
+    const battleSuits = [];
     const traits = [];
     const origins = [];
     const occupations = [];
@@ -141,6 +142,8 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
         powers[powersets[0].trim()].push(i);
       } else if (i.type === "iconicItem") {
         iconicItems.push(i);
+      } else if (i.type === "battleSuit") {
+        battleSuits.push(i);
       } else if (i.type === "item") {
         gear.push(i);
       } else if (i.type === "weapon") {
@@ -150,6 +153,7 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
       // Assign and return
       context.gear = gear;
       context.iconicItems = iconicItems;
+      context.battleSuits = battleSuits;
       context.traits = traits;
       context.tags = tags;
       context.powers = powers;

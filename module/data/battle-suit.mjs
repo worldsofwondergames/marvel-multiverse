@@ -40,6 +40,11 @@ export default class MarvelMultiverseBattleSuit extends MarvelMultiverseItemBase
       new fields.ObjectField()
     );
 
+    schema.equipped = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+
     return schema;
   }
 

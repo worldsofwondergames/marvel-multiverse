@@ -56,6 +56,8 @@ export default class MarvelMultiverseIconicItem extends MarvelMultiverseItemBase
     const powersCount = this.powers?.length ?? 0;
     const restrictionsCount = this.restrictions?.length ?? 0;
     if (powersCount === 0 && restrictionsCount === 0) return 0;
-    return Math.max(1, powersCount - restrictionsCount);
+    const raw = powersCount - restrictionsCount;
+    if (raw < 0) return "—";
+    return Math.max(1, raw);
   }
 }

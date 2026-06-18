@@ -3270,7 +3270,14 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
       const powersCount = context.system.powers?.length ?? 0;
       const restrictionsCount = context.system.restrictions?.length ?? 0;
-      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
+      const rawPV = powersCount - restrictionsCount;
+      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : rawPV < 0 ? "—" : Math.max(1, rawPV);
+      context.sortedPowers = (context.system.powers ?? [])
+        .map((p, idx) => ({ ...p, _origIndex: idx }))
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+      context.sortedRestrictions = (context.system.restrictions ?? [])
+        .map((r, idx) => ({ ...r, _origIndex: idx }))
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
     }
     if (itemData.type === "restriction") {
       context.restrictionKinds = Object.fromEntries(
@@ -4132,7 +4139,9 @@ class MarvelMultiverseIconicItem extends MarvelMultiverseItemBase {
     const powersCount = this.powers?.length ?? 0;
     const restrictionsCount = this.restrictions?.length ?? 0;
     if (powersCount === 0 && restrictionsCount === 0) return 0;
-    return Math.max(1, powersCount - restrictionsCount);
+    const raw = powersCount - restrictionsCount;
+    if (raw < 0) return "—";
+    return Math.max(1, raw);
   }
 }
 

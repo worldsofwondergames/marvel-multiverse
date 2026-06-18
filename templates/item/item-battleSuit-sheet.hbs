@@ -1,0 +1,239 @@
+<form class="{{cssClass}}" autocomplete="off">
+  <header class="sheet-header">
+    <div class="flexcol -gap-sm">
+      <div class="mm-styled-field -lg -img -fill">
+        <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+        <div class="mm-styled-input">
+          <input name="name" type="text" value="{{item.name}}" placeholder="Name"/>
+        </div>
+      </div>
+      <div class="flexrow -gap-sm">
+        <div class="mm-styled-field -flex-relative">
+          <label class="mm-styled-label -align-left"><span>Origin</span></label>
+          <div class="mm-styled-input">
+            <input type="text" name="system.origin" value="{{system.origin}}" data-dtype="String" placeholder="e.g. High-Tech: Battle Suit"/>
+          </div>
+        </div>
+        <div class="mm-styled-field -flex-relative">
+          <label class="mm-styled-label -align-left"><span>Power Value</span></label>
+          <div class="mm-styled-input">
+            <div class="plain-text" style="text-align:center">{{powerValue}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  {{!-- Sheet Tab Navigation --}}
+  <nav class="sheet-tabs tabs mm-tabs -five" data-group="primary">
+    <a class="item" data-tab="description">Description</a>
+    <a class="item" data-tab="powers">Powers</a>
+    <a class="item" data-tab="restrictions">Restrictions</a>
+    <a class="item" data-tab="modifiers">Modifiers</a>
+    <a class="item" data-tab="details">Details</a>
+  </nav>
+
+  {{!-- Sheet Body --}}
+  <section class="sheet-body">
+
+    {{!-- Description Tab --}}
+    <div class="tab" data-group="primary" data-tab="description">
+      {{> "systems/marvel-multiverse/templates/item/parts/item-source.hbs"}}
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left" for="system.description"><span>Description</span></label>
+        <div class="mm-styled-input">
+          {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false editable=editable}}
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left" for="system.notes"><span>Notes</span></label>
+        <div class="mm-styled-input">
+          {{editor system.notes target="system.notes" button=false engine="prosemirror" collaborate=false editable=editable}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- Powers Tab --}}
+    <div class="tab" data-group="primary" data-tab="powers">
+      <ol class="mm-item-list mm-battlesuit-powers-drop-zone" data-drop-type="power">
+        <li class="flexrow item mm-item-header">
+          <span>Powers</span>
+          <hr />
+        </li>
+        {{#each sortedPowers as |power idx|}}
+          <li class="flexrow item mm-item" data-index="{{power._origIndex}}">
+            <div class="item-name mm-item-name">
+              {{#if power.img}}<img src="{{power.img}}" width="24" height="24" />{{/if}}
+              <span>{{power.name}}</span>
+            </div>
+            <div class="item-controls">
+              <a class="item-control battlesuit-power-remove" data-index="{{power._origIndex}}" title="Remove">
+                <i class="fas fa-trash"></i>
+              </a>
+            </div>
+          </li>
+        {{/each}}
+        {{#unless sortedPowers.length}}
+          <li class="flexrow item mm-item">
+            <div class="item-name mm-item-name">
+              <span class="mm-powerset-placeholder">Drag powers here</span>
+            </div>
+          </li>
+        {{/unless}}
+      </ol>
+
+      {{!-- Integrated Iconic Items --}}
+      <ol class="mm-item-list mm-battlesuit-iconic-drop-zone" data-drop-type="iconicItem">
+        <li class="flexrow item mm-item-header">
+          <span>Integrated Iconic Items</span>
+          <hr />
+        </li>
+        {{#each sortedIntegratedIconicItems as |iconic idx|}}
+          <li class="flexrow item mm-item" data-index="{{iconic._origIndex}}">
+            <div class="item-name mm-item-name">
+              {{#if iconic.img}}<img src="{{iconic.img}}" width="24" height="24" />{{/if}}
+              <span>{{iconic.name}}</span>
+            </div>
+            <div class="item-controls">
+              <a class="item-control battlesuit-iconic-remove" data-index="{{iconic._origIndex}}" title="Remove">
+                <i class="fas fa-trash"></i>
+              </a>
+            </div>
+          </li>
+        {{/each}}
+        {{#unless sortedIntegratedIconicItems.length}}
+          <li class="flexrow item mm-item">
+            <div class="item-name mm-item-name">
+              <span class="mm-powerset-placeholder">Drag iconic items here</span>
+            </div>
+          </li>
+        {{/unless}}
+      </ol>
+    </div>
+
+    {{!-- Restrictions Tab --}}
+    <div class="tab" data-group="primary" data-tab="restrictions">
+      <ol class="mm-item-list mm-battlesuit-restrictions-drop-zone" data-drop-type="restriction">
+        <li class="flexrow item mm-item-header">
+          <span>Restrictions</span>
+          <hr />
+          <div class="item-controls">
+            <a class="item-control battlesuit-restriction-add" title="Add Restriction">
+              <i class="fas fa-plus"></i>
+            </a>
+          </div>
+        </li>
+        {{#each sortedRestrictions as |restriction idx|}}
+          <li class="flexrow item mm-item" data-index="{{restriction._origIndex}}">
+            <div class="item-name mm-item-name">
+              <span>{{restriction.name}}</span>
+            </div>
+            <div class="item-controls">
+              <a class="item-control battlesuit-restriction-edit" data-index="{{restriction._origIndex}}" title="Edit">
+                <i class="fas fa-edit"></i>
+              </a>
+              <a class="item-control battlesuit-restriction-remove" data-index="{{restriction._origIndex}}" title="Remove">
+                <i class="fas fa-trash"></i>
+              </a>
+            </div>
+          </li>
+        {{/each}}
+        {{#unless sortedRestrictions.length}}
+          <li class="flexrow item mm-item">
+            <div class="item-name mm-item-name">
+              <span class="mm-powerset-placeholder">Drag restrictions here or use +</span>
+            </div>
+          </li>
+        {{/unless}}
+      </ol>
+    </div>
+
+    {{!-- Modifiers Tab --}}
+    <div class="tab" data-group="primary" data-tab="modifiers">
+      <div class="flexcol -gap-sm">
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Rank Increase</span></label>
+          <div class="mm-styled-input">
+            <input type="number" name="system.rankIncrease" value="{{system.rankIncrease}}" data-dtype="Number" min="0"/>
+          </div>
+        </div>
+
+        <h3>Ability Modifiers (when worn)</h3>
+        <div class="flexrow -gap-sm">
+          <div class="mm-styled-field -flex-relative">
+            <label class="mm-styled-label -align-left"><span>Melee</span></label>
+            <div class="mm-styled-input">
+              <input type="number" name="system.abilityModifiers.melee" value="{{system.abilityModifiers.melee}}" data-dtype="Number"/>
+            </div>
+          </div>
+          <div class="mm-styled-field -flex-relative">
+            <label class="mm-styled-label -align-left"><span>Agility</span></label>
+            <div class="mm-styled-input">
+              <input type="number" name="system.abilityModifiers.agility" value="{{system.abilityModifiers.agility}}" data-dtype="Number"/>
+            </div>
+          </div>
+          <div class="mm-styled-field -flex-relative">
+            <label class="mm-styled-label -align-left"><span>Resilience</span></label>
+            <div class="mm-styled-input">
+              <input type="number" name="system.abilityModifiers.resilience" value="{{system.abilityModifiers.resilience}}" data-dtype="Number"/>
+            </div>
+          </div>
+        </div>
+        <div class="flexrow -gap-sm">
+          <div class="mm-styled-field -flex-relative">
+            <label class="mm-styled-label -align-left"><span>Vigilance</span></label>
+            <div class="mm-styled-input">
+              <input type="number" name="system.abilityModifiers.vigilance" value="{{system.abilityModifiers.vigilance}}" data-dtype="Number"/>
+            </div>
+          </div>
+          <div class="mm-styled-field -flex-relative">
+            <label class="mm-styled-label -align-left"><span>Ego</span></label>
+            <div class="mm-styled-input">
+              <input type="number" name="system.abilityModifiers.ego" value="{{system.abilityModifiers.ego}}" data-dtype="Number"/>
+            </div>
+          </div>
+          <div class="mm-styled-field -flex-relative">
+            <label class="mm-styled-label -align-left"><span>Logic</span></label>
+            <div class="mm-styled-input">
+              <input type="number" name="system.abilityModifiers.logic" value="{{system.abilityModifiers.logic}}" data-dtype="Number"/>
+            </div>
+          </div>
+        </div>
+
+        <h3>Additional Traits</h3>
+        <ol class="mm-item-list">
+          {{#each system.additionalTraits as |trait idx|}}
+            <li class="flexrow item mm-item" data-index="{{@index}}">
+              <div class="item-name mm-item-name">
+                <span>{{trait}}</span>
+              </div>
+              <div class="item-controls">
+                <a class="item-control battlesuit-trait-remove" data-index="{{@index}}" title="Remove">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </div>
+            </li>
+          {{/each}}
+        </ol>
+        <div class="flexrow -gap-sm">
+          <div class="mm-styled-field -flex-relative">
+            <div class="mm-styled-input">
+              <input type="text" class="battlesuit-trait-input" placeholder="e.g. Big, Presence, Fearless"/>
+            </div>
+          </div>
+          <a class="item-control battlesuit-trait-add" title="Add Trait">
+            <i class="fas fa-plus"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    {{!-- Details Tab --}}
+    <div class="tab" data-group="primary" data-tab="details">
+      <div class="flexcol -gap-sm">
+        <p class="notes">Battle suits always grant the <strong>Tech Reliance</strong> trait and <strong>Worn</strong> restriction. Characters can generally only switch suits at HQ or during downtime.</p>
+      </div>
+    </div>
+
+  </section>
+</form>

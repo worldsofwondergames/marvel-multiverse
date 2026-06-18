@@ -78,23 +78,23 @@ async function goToGearTab(sheet) {
 }
 
 test.describe('Iconic Items on Actor Sheet', () => {
-  test.beforeEach(async ({ page }) => {
-    await cleanup(page);
-    await createActorViaAPI(page, ACTOR_NAME, 'character');
+  test.beforeEach(async ({ foundryPage }) => {
+    await cleanup(foundryPage);
+    await createActorViaAPI(foundryPage, ACTOR_NAME, 'character');
   });
 
-  test.afterEach(async ({ page }) => {
-    await cleanup(page);
+  test.afterEach(async ({ foundryPage }) => {
+    await cleanup(foundryPage);
   });
 
-  test('iconic item shows on gear tab with power value', async ({ page }) => {
-    await createIconicItemOnActor(page, ACTOR_NAME, ICONIC_ITEM_NAME, {
+  test('iconic item shows on gear tab with power value', async ({ foundryPage }) => {
+    await createIconicItemOnActor(foundryPage, ACTOR_NAME, ICONIC_ITEM_NAME, {
       powers: [
         { name: 'Shield Throw', description: 'Throw shield' },
         { name: 'Deflect', description: 'Deflect attacks' },
       ],
     });
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
     const itemRow = sheet.locator('.mm-actor-iconic-item');
@@ -103,14 +103,14 @@ test.describe('Iconic Items on Actor Sheet', () => {
     await expect(itemRow.locator('.mm-pv-badge')).toContainText('PV 2');
   });
 
-  test('iconic item shows powers list', async ({ page }) => {
-    await createIconicItemOnActor(page, ACTOR_NAME, ICONIC_ITEM_NAME, {
+  test('iconic item shows powers list', async ({ foundryPage }) => {
+    await createIconicItemOnActor(foundryPage, ACTOR_NAME, ICONIC_ITEM_NAME, {
       powers: [
         { name: 'Shield Throw', description: '' },
         { name: 'Deflect', description: '' },
       ],
     });
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
     const subtext = sheet.locator('.mm-actor-iconic-item .mm-item-subtext');
@@ -118,25 +118,25 @@ test.describe('Iconic Items on Actor Sheet', () => {
     await expect(subtext).toContainText('Deflect');
   });
 
-  test('ownership toggle defaults to owned', async ({ page }) => {
-    await createIconicItemOnActor(page, ACTOR_NAME, ICONIC_ITEM_NAME);
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+  test('ownership toggle defaults to owned', async ({ foundryPage }) => {
+    await createIconicItemOnActor(foundryPage, ACTOR_NAME, ICONIC_ITEM_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
     const select = sheet.locator('.iconic-ownership-toggle');
     await expect(select).toHaveValue('owned');
   });
 
-  test('ownership toggle can be changed to borrowed', async ({ page }) => {
-    await createIconicItemOnActor(page, ACTOR_NAME, ICONIC_ITEM_NAME);
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+  test('ownership toggle can be changed to borrowed', async ({ foundryPage }) => {
+    await createIconicItemOnActor(foundryPage, ACTOR_NAME, ICONIC_ITEM_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
     const select = sheet.locator('.iconic-ownership-toggle');
     await select.selectOption('borrowed');
-    await page.waitForTimeout(1000);
+    await foundryPage.waitForTimeout(1000);
 
-    const mode = await page.evaluate((actorName) => {
+    const mode = await foundryPage.evaluate((actorName) => {
       const actor = game.actors.find(a => a.name === actorName);
       const item = actor.items.find(i => i.type === 'iconicItem');
       return item.system.ownershipMode;
@@ -146,22 +146,22 @@ test.describe('Iconic Items on Actor Sheet', () => {
 });
 
 test.describe('Battle Suits on Actor Sheet', () => {
-  test.beforeEach(async ({ page }) => {
-    await cleanup(page);
-    await createActorViaAPI(page, ACTOR_NAME, 'character');
+  test.beforeEach(async ({ foundryPage }) => {
+    await cleanup(foundryPage);
+    await createActorViaAPI(foundryPage, ACTOR_NAME, 'character');
   });
 
-  test.afterEach(async ({ page }) => {
-    await cleanup(page);
+  test.afterEach(async ({ foundryPage }) => {
+    await cleanup(foundryPage);
   });
 
-  test('battle suit shows on gear tab with power value and modifiers', async ({ page }) => {
-    await createBattleSuitOnActor(page, ACTOR_NAME, BATTLE_SUIT_NAME, {
+  test('battle suit shows on gear tab with power value and modifiers', async ({ foundryPage }) => {
+    await createBattleSuitOnActor(foundryPage, ACTOR_NAME, BATTLE_SUIT_NAME, {
       abilityModifiers: { melee: 2, agility: 0, resilience: 3, vigilance: 0, ego: 0, logic: 0 },
       rankIncrease: 1,
       powers: [{ name: 'Flight', description: '' }, { name: 'Repulsors', description: '' }],
     });
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
     const suitRow = sheet.locator('.mm-actor-battlesuit');
@@ -173,76 +173,76 @@ test.describe('Battle Suits on Actor Sheet', () => {
     await expect(suitRow.locator('.mm-item-subtext')).toContainText('Rank +1');
   });
 
-  test('equip toggle applies active effects', async ({ page }) => {
-    await createBattleSuitOnActor(page, ACTOR_NAME, BATTLE_SUIT_NAME, {
+  test('equip toggle applies active effects', async ({ foundryPage }) => {
+    await createBattleSuitOnActor(foundryPage, ACTOR_NAME, BATTLE_SUIT_NAME, {
       abilityModifiers: { melee: 2, agility: 0, resilience: 0, vigilance: 0, ego: 0, logic: 0 },
       rankIncrease: 1,
     });
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
-    const dataBefore = await getActorSystemData(page, ACTOR_NAME);
+    const dataBefore = await getActorSystemData(foundryPage, ACTOR_NAME);
     const baseMelee = dataBefore.abilities.mle.value;
     const baseRank = dataBefore.attributes.rank.value;
 
     await sheet.locator('.battlesuit-equip-toggle').click();
-    await page.waitForTimeout(1500);
+    await foundryPage.waitForTimeout(1500);
 
-    const dataAfter = await getActorSystemData(page, ACTOR_NAME);
+    const dataAfter = await getActorSystemData(foundryPage, ACTOR_NAME);
     expect(dataAfter.abilities.mle.value).toBe(baseMelee + 2);
     expect(dataAfter.attributes.rank.value).toBe(baseRank + 1);
 
-    const effects = await getActiveEffectNames(page, ACTOR_NAME);
+    const effects = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effects).toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
   });
 
-  test('unequip toggle removes active effects', async ({ page }) => {
-    await createBattleSuitOnActor(page, ACTOR_NAME, BATTLE_SUIT_NAME, {
+  test('unequip toggle removes active effects', async ({ foundryPage }) => {
+    await createBattleSuitOnActor(foundryPage, ACTOR_NAME, BATTLE_SUIT_NAME, {
       abilityModifiers: { melee: 2, agility: 0, resilience: 0, vigilance: 0, ego: 0, logic: 0 },
     });
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
     await sheet.locator('.battlesuit-equip-toggle').click();
-    await page.waitForTimeout(1500);
+    await foundryPage.waitForTimeout(1500);
 
-    const effectsBefore = await getActiveEffectNames(page, ACTOR_NAME);
+    const effectsBefore = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effectsBefore).toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
 
     await sheet.locator('.battlesuit-equip-toggle').click();
-    await page.waitForTimeout(1500);
+    await foundryPage.waitForTimeout(1500);
 
-    const effectsAfter = await getActiveEffectNames(page, ACTOR_NAME);
+    const effectsAfter = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effectsAfter).not.toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
   });
 
-  test('only one battle suit can be equipped at a time', async ({ page }) => {
-    await createBattleSuitOnActor(page, ACTOR_NAME, BATTLE_SUIT_NAME, {
+  test('only one battle suit can be equipped at a time', async ({ foundryPage }) => {
+    await createBattleSuitOnActor(foundryPage, ACTOR_NAME, BATTLE_SUIT_NAME, {
       abilityModifiers: { melee: 2, agility: 0, resilience: 0, vigilance: 0, ego: 0, logic: 0 },
     });
-    await createBattleSuitOnActor(page, ACTOR_NAME, BATTLE_SUIT_2_NAME, {
+    await createBattleSuitOnActor(foundryPage, ACTOR_NAME, BATTLE_SUIT_2_NAME, {
       abilityModifiers: { melee: 0, agility: 3, resilience: 0, vigilance: 0, ego: 0, logic: 0 },
     });
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
     const suitRows = sheet.locator('.mm-actor-battlesuit');
     await expect(suitRows).toHaveCount(2);
 
     await suitRows.first().locator('.battlesuit-equip-toggle').click();
-    await page.waitForTimeout(1500);
+    await foundryPage.waitForTimeout(1500);
 
-    let effects = await getActiveEffectNames(page, ACTOR_NAME);
+    let effects = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effects).toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
 
     await suitRows.last().locator('.battlesuit-equip-toggle').click();
-    await page.waitForTimeout(1500);
+    await foundryPage.waitForTimeout(1500);
 
-    effects = await getActiveEffectNames(page, ACTOR_NAME);
+    effects = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effects).not.toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
     expect(effects).toContain(`Battle Suit: ${BATTLE_SUIT_2_NAME}`);
 
-    const equipped = await page.evaluate((actorName) => {
+    const equipped = await foundryPage.evaluate((actorName) => {
       const actor = game.actors.find(a => a.name === actorName);
       return actor.items.filter(i => i.type === 'battleSuit' && i.system.equipped).map(i => i.name);
     }, ACTOR_NAME);
@@ -250,12 +250,12 @@ test.describe('Battle Suits on Actor Sheet', () => {
     expect(equipped[0]).toBe(BATTLE_SUIT_2_NAME);
   });
 
-  test('equipped suit has visual indicator', async ({ page }) => {
-    await createBattleSuitOnActor(page, ACTOR_NAME, BATTLE_SUIT_NAME, {
+  test('equipped suit has visual indicator', async ({ foundryPage }) => {
+    await createBattleSuitOnActor(foundryPage, ACTOR_NAME, BATTLE_SUIT_NAME, {
       equipped: true,
       abilityModifiers: { melee: 0, agility: 0, resilience: 0, vigilance: 0, ego: 0, logic: 0 },
     });
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
     const suitRow = sheet.locator('.mm-actor-battlesuit');
@@ -263,23 +263,23 @@ test.describe('Battle Suits on Actor Sheet', () => {
     await expect(suitRow.locator('.battlesuit-equip-toggle i')).toHaveClass(/fa-toggle-on/);
   });
 
-  test('deleting an equipped suit removes its active effects', async ({ page }) => {
-    await createBattleSuitOnActor(page, ACTOR_NAME, BATTLE_SUIT_NAME, {
+  test('deleting an equipped suit removes its active effects', async ({ foundryPage }) => {
+    await createBattleSuitOnActor(foundryPage, ACTOR_NAME, BATTLE_SUIT_NAME, {
       abilityModifiers: { melee: 2, agility: 0, resilience: 0, vigilance: 0, ego: 0, logic: 0 },
     });
-    const sheet = await openActorSheet(page, ACTOR_NAME);
+    const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
     await sheet.locator('.battlesuit-equip-toggle').click();
-    await page.waitForTimeout(1500);
+    await foundryPage.waitForTimeout(1500);
 
-    let effects = await getActiveEffectNames(page, ACTOR_NAME);
+    let effects = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effects).toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
 
     await sheet.locator('.mm-actor-battlesuit .item-delete').click();
-    await page.waitForTimeout(1500);
+    await foundryPage.waitForTimeout(1500);
 
-    effects = await getActiveEffectNames(page, ACTOR_NAME);
+    effects = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effects).not.toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
   });
 });

@@ -283,3 +283,35 @@ test.describe('Battle Suits on Actor Sheet', () => {
     expect(effects).not.toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
   });
 });
+
+test.describe('Create Item Dialog Labels', () => {
+  test('dropdown shows Iconic Item, Restriction, and Battlesuit types', async ({ foundryPage }) => {
+    await dismissNotifications(foundryPage);
+
+    await foundryPage.evaluate(() => {
+      Object.values(ui.windows).forEach(w => w.close());
+    });
+    await foundryPage.waitForTimeout(500);
+
+    const itemsTab = foundryPage.locator('#sidebar-tabs button[data-tab="items"]');
+    await itemsTab.click({ timeout: 10_000 });
+    await foundryPage.waitForTimeout(1000);
+
+    await dismissNotifications(foundryPage);
+    const createBtn = foundryPage.locator('#items button.create-entry[data-action="createEntry"]');
+    await createBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await createBtn.click();
+    await foundryPage.waitForTimeout(2000);
+
+    const typeSelect = foundryPage.locator('dialog select[name="type"]');
+    await typeSelect.waitFor({ state: 'attached', timeout: 10_000 });
+
+    const options = await typeSelect.locator('option').allTextContents();
+    expect(options).toContain('Iconic Item');
+    expect(options).toContain('Restriction');
+    expect(options).toContain('Battlesuit');
+
+    await foundryPage.keyboard.press('Escape');
+    await foundryPage.waitForTimeout(500);
+  });
+});

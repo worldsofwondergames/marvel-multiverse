@@ -129,8 +129,22 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
       if (i.type === "occupation") {
         occupations.push(i);
       } else if (i.type === "iconicItem") {
+        const pc = i.system.powers?.length ?? 0;
+        const rc = i.system.restrictions?.length ?? 0;
+        i.powerValue = (pc === 0 && rc === 0) ? 0 : (pc - rc < 0) ? "—" : Math.max(1, pc - rc);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
+        const pc = i.system.powers?.length ?? 0;
+        const rc = i.system.restrictions?.length ?? 0;
+        i.powerValue = (pc === 0 && rc === 0) ? 0 : (pc - rc < 0) ? "—" : Math.max(1, pc - rc);
+        const parts = [];
+        const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
+        for (const [key, label] of Object.entries(abilityLabels)) {
+          const mod = i.system.abilityModifiers?.[key] ?? 0;
+          if (mod !== 0) parts.push(`${label} ${mod > 0 ? "+" : ""}${mod}`);
+        }
+        if (i.system.rankIncrease > 0) parts.push(`Rank +${i.system.rankIncrease}`);
+        i.modifiersSummary = parts.length ? parts.join(", ") : "";
         battleSuits.push(i);
       } else if (i.type === "item") {
         gear.push(i);
@@ -203,12 +217,26 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
     html.on("click", ".item-create", this._onItemCreate.bind(this));
 
     // Delete Inventory Item
-    html.on("click", ".item-delete", (ev) => {
+    html.on("click", ".item-delete", async (ev) => {
       const li = $(ev.currentTarget).parents(".item");
-      const item = this.actor.items.get(li.data("itemId"));
-      this.actor.deleteEmbeddedDocuments("Item", [li.data("itemId")]);
+      const itemId = li.data("itemId");
+      const item = this.actor.items.get(itemId);
+      if (item?.type === "battleSuit" && item.system.equipped) {
+        await this._removeBattleSuitEffects(itemId);
+      }
+      this.actor.deleteEmbeddedDocuments("Item", [itemId]);
       li.slideUp(200, () => this.render(false));
     });
+
+    // Iconic item ownership toggle
+    html.on("change", ".iconic-ownership-toggle", async (ev) => {
+      const itemId = ev.currentTarget.dataset.itemId;
+      const item = this.actor.items.get(itemId);
+      if (item) await item.update({ "system.ownershipMode": ev.currentTarget.value });
+    });
+
+    // Battle suit equip toggle
+    html.on("click", ".battlesuit-equip-toggle", this._onToggleBattleSuitEquip.bind(this));
 
     // Active Effect management
     html.on("click", ".effect-control", (ev) => {
@@ -379,6 +407,54 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
       } else {
         return super._onDropItemCreate(itemData);
       }
+    }
+  }
+
+  async _onToggleBattleSuitEquip(event) {
+    event.preventDefault();
+    const itemId = event.currentTarget.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    if (item.system.equipped) {
+      await this._removeBattleSuitEffects(itemId);
+      await item.update({ "system.equipped": false });
+    } else {
+      for (const other of this.actor.items.filter(i => i.type === "battleSuit" && i.system.equipped)) {
+        await this._removeBattleSuitEffects(other.id);
+        await other.update({ "system.equipped": false });
+      }
+      await item.update({ "system.equipped": true });
+      await this._applyBattleSuitEffects(item);
+    }
+  }
+
+  async _removeBattleSuitEffects(itemId) {
+    const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.battleSuitId === itemId);
+    if (effects.length) {
+      await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
+    }
+  }
+
+  async _applyBattleSuitEffects(item) {
+    const abilityMap = { melee: "mle", agility: "agl", resilience: "res", vigilance: "vig", ego: "ego", logic: "log" };
+    const changes = [];
+    for (const [suitKey, actorKey] of Object.entries(abilityMap)) {
+      const mod = item.system.abilityModifiers[suitKey];
+      if (mod !== 0) {
+        changes.push({ key: `system.abilities.${actorKey}.value`, mode: 2, value: mod.toString() });
+      }
+    }
+    if (item.system.rankIncrease > 0) {
+      changes.push({ key: "system.attributes.rank.value", mode: 2, value: item.system.rankIncrease.toString() });
+    }
+    if (changes.length) {
+      await ActiveEffect.create({
+        name: `Battle Suit: ${item.name}`,
+        icon: item.img,
+        changes: changes,
+        flags: { "marvel-multiverse": { battleSuitId: item.id } }
+      }, { parent: this.actor });
     }
   }
 

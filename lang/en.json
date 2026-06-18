@@ -135,6 +135,9 @@
       "occupation": "Occupation",
       "power": "Power",
       "powerSet": "Power Set",
+      "iconicItem": "Iconic Item",
+      "restriction": "Restriction",
+      "battleSuit": "Battlesuit",
       "vehicleWeapon": "Vehicle Weapon"
     }
   }

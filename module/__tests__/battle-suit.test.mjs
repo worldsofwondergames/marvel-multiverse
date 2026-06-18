@@ -39,6 +39,10 @@ describe('MarvelMultiverseBattleSuit — defineSchema', () => {
   test('schema includes integratedIconicItems field', () => {
     expect(schema.integratedIconicItems).toBeDefined();
   });
+
+  test('schema includes equipped field', () => {
+    expect(schema.equipped).toBeDefined();
+  });
 });
 
 describe('MarvelMultiverseBattleSuit — powerValue', () => {

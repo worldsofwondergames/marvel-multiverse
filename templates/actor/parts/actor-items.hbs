@@ -13,9 +13,23 @@
     </div>
   </li>
   {{#each iconicItems as |item id|}}
-    <li class="flexrow item mm-item" data-item-id='{{item._id}}'>
+    <li class="flexrow item mm-item mm-actor-iconic-item" data-item-id='{{item._id}}'>
       <div class="item-name mm-item-name">
-        <span>{{item.name}}</span>
+        <a>
+          <span>{{item.name}}</span>
+          {{#if item.system.powers.length}}
+            <span class="mm-item-subtext">Powers: {{#each item.system.powers}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}</span>
+          {{/if}}
+        </a>
+      </div>
+      <div class="mm-item-detail">
+        <span class="mm-pv-badge" title="Power Value">PV {{item.powerValue}}</span>
+      </div>
+      <div class="mm-item-detail">
+        <select class="iconic-ownership-toggle" data-item-id="{{item._id}}">
+          <option value="owned" {{#if (eq item.system.ownershipMode "owned")}}selected{{/if}}>Owned</option>
+          <option value="borrowed" {{#if (eq item.system.ownershipMode "borrowed")}}selected{{/if}}>Borrowed</option>
+        </select>
       </div>
       <div class="item-controls">
         <a
@@ -49,9 +63,22 @@
     </div>
   </li>
   {{#each battleSuits as |item id|}}
-    <li class="flexrow item mm-item" data-item-id='{{item._id}}'>
+    <li class="flexrow item mm-item mm-actor-battlesuit {{#if item.system.equipped}}mm-equipped{{/if}}" data-item-id='{{item._id}}'>
       <div class="item-name mm-item-name">
-        <span>{{item.name}}</span>
+        <a>
+          <span>{{item.name}}</span>
+          {{#if item.modifiersSummary}}
+            <span class="mm-item-subtext">{{item.modifiersSummary}}</span>
+          {{/if}}
+        </a>
+      </div>
+      <div class="mm-item-detail">
+        <span class="mm-pv-badge" title="Power Value">PV {{item.powerValue}}</span>
+      </div>
+      <div class="mm-item-detail">
+        <a class="item-control battlesuit-equip-toggle" data-item-id="{{item._id}}" title="{{#if item.system.equipped}}Unequip{{else}}Equip{{/if}}">
+          <i class="fas {{#if item.system.equipped}}fa-toggle-on mm-equipped-icon{{else}}fa-toggle-off{{/if}}"></i>
+        </a>
       </div>
       <div class="item-controls">
         <a

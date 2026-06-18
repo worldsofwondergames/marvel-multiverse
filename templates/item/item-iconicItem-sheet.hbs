@@ -1,0 +1,200 @@
+<form class="{{cssClass}}" autocomplete="off">
+  <header class="sheet-header">
+    <div class="flexcol -gap-sm">
+      <div class="mm-styled-field -lg -img -fill">
+        <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+        <div class="mm-styled-input">
+          <input name="name" type="text" value="{{item.name}}" placeholder="Name"/>
+        </div>
+      </div>
+      <div class="flexrow -gap-sm">
+        <div class="mm-styled-field -flex-relative">
+          <label class="mm-styled-label -align-left"><span>Origin</span></label>
+          <div class="mm-styled-input">
+            <input type="text" name="system.origin" value="{{system.origin}}" data-dtype="String" placeholder="e.g. Magic, High-Tech, Mythic"/>
+          </div>
+        </div>
+        <div class="mm-styled-field -flex-relative">
+          <label class="mm-styled-label -align-left"><span>Power Value</span></label>
+          <div class="mm-styled-input">
+            <div class="plain-text">{{powerValue}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  {{!-- Sheet Tab Navigation --}}
+  <nav class="sheet-tabs tabs mm-tabs -four" data-group="primary">
+    <a class="item" data-tab="description">Description</a>
+    <a class="item" data-tab="powers">Powers</a>
+    <a class="item" data-tab="restrictions">Restrictions</a>
+    <a class="item" data-tab="details">Details</a>
+  </nav>
+
+  {{!-- Sheet Body --}}
+  <section class="sheet-body">
+
+    {{!-- Description Tab --}}
+    <div class="tab" data-group="primary" data-tab="description">
+      {{> "systems/marvel-multiverse/templates/item/parts/item-source.hbs"}}
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left" for="system.description"><span>Description</span></label>
+        <div class="mm-styled-input">
+          {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false editable=editable}}
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left" for="system.notes"><span>Notes</span></label>
+        <div class="mm-styled-input">
+          {{editor system.notes target="system.notes" button=false engine="prosemirror" collaborate=false editable=editable}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- Powers Tab --}}
+    <div class="tab" data-group="primary" data-tab="powers">
+      <ol class="mm-item-list mm-iconic-powers-drop-zone" data-drop-type="power">
+        <li class="flexrow item mm-item-header">
+          <span>Powers</span>
+          <hr />
+        </li>
+        {{#each system.powers as |power idx|}}
+          <li class="flexrow item mm-item" data-index="{{idx}}">
+            <div class="item-name mm-item-name">
+              {{#if power.img}}<img src="{{power.img}}" width="24" height="24" />{{/if}}
+              <span>{{power.name}}</span>
+            </div>
+            <div class="item-controls">
+              <a class="item-control iconic-power-remove" data-index="{{idx}}" title="Remove">
+                <i class="fas fa-trash"></i>
+              </a>
+            </div>
+          </li>
+        {{/each}}
+        {{#unless system.powers.length}}
+          <li class="flexrow item mm-item">
+            <div class="item-name mm-item-name">
+              <span class="mm-powerset-placeholder">Drag powers here</span>
+            </div>
+          </li>
+        {{/unless}}
+      </ol>
+    </div>
+
+    {{!-- Restrictions Tab --}}
+    <div class="tab" data-group="primary" data-tab="restrictions">
+      <ol class="mm-item-list mm-iconic-restrictions-drop-zone" data-drop-type="restriction">
+        <li class="flexrow item mm-item-header">
+          <span>Restrictions</span>
+          <hr />
+          <div class="item-controls">
+            <a class="item-control iconic-restriction-add" title="Add Restriction">
+              <i class="fas fa-plus"></i>
+            </a>
+          </div>
+        </li>
+        {{#each system.restrictions as |restriction idx|}}
+          <li class="flexrow item mm-item" data-index="{{idx}}">
+            <div class="item-name mm-item-name">
+              <span class="mm-restriction-kind">{{restriction.kind}}</span>
+              <span>{{restriction.name}}</span>
+            </div>
+            <div class="item-controls">
+              <a class="item-control iconic-restriction-edit" data-index="{{idx}}" title="Edit">
+                <i class="fas fa-edit"></i>
+              </a>
+              <a class="item-control iconic-restriction-remove" data-index="{{idx}}" title="Remove">
+                <i class="fas fa-trash"></i>
+              </a>
+            </div>
+          </li>
+        {{/each}}
+        {{#unless system.restrictions.length}}
+          <li class="flexrow item mm-item">
+            <div class="item-name mm-item-name">
+              <span class="mm-powerset-placeholder">Drag restrictions here or use +</span>
+            </div>
+          </li>
+        {{/unless}}
+      </ol>
+    </div>
+
+    {{!-- Details Tab --}}
+    <div class="tab" data-group="primary" data-tab="details">
+      <div class="flexcol -gap-sm">
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Ownership</span></label>
+          <div class="mm-styled-input">
+            <select name="system.ownershipMode">
+              {{selectOptions ownershipModes selected=system.ownershipMode labelAttr="label"}}
+            </select>
+          </div>
+        </div>
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Special Effect Type</span></label>
+          <div class="mm-styled-input">
+            <select name="system.specialEffectType">
+              {{selectOptions specialEffectTypes selected=system.specialEffectType labelAttr="label" blank=""}}
+            </select>
+          </div>
+        </div>
+
+        {{!-- Weapon Data --}}
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Functions as Weapon</span></label>
+          <div class="mm-styled-input">
+            <input type="checkbox" name="system.weaponData.isWeapon" {{ checked system.weaponData.isWeapon }}>
+          </div>
+        </div>
+        {{#if system.weaponData.isWeapon}}
+          <div class="flexrow -gap-sm">
+            <div class="mm-styled-field -flex-relative">
+              <label class="mm-styled-label -align-left"><span>Melee Range</span></label>
+              <div class="mm-styled-input">
+                <input type="text" name="system.weaponData.meleeRange" value="{{system.weaponData.meleeRange}}" data-dtype="String" placeholder="e.g. Reach"/>
+              </div>
+            </div>
+            <div class="mm-styled-field -flex-relative">
+              <label class="mm-styled-label -align-left"><span>Ranged Range</span></label>
+              <div class="mm-styled-input">
+                <input type="text" name="system.weaponData.rangedRange" value="{{system.weaponData.rangedRange}}" data-dtype="String" placeholder="e.g. 10"/>
+              </div>
+            </div>
+          </div>
+          <div class="flexrow -gap-sm">
+            <div class="mm-styled-field -flex-relative">
+              <label class="mm-styled-label -align-left"><span>Melee DM Bonus</span></label>
+              <div class="mm-styled-input">
+                <input type="number" name="system.weaponData.meleeDamageMultiplierBonus" value="{{system.weaponData.meleeDamageMultiplierBonus}}" data-dtype="Number"/>
+              </div>
+            </div>
+            <div class="mm-styled-field -flex-relative">
+              <label class="mm-styled-label -align-left"><span>Ranged DM Bonus</span></label>
+              <div class="mm-styled-input">
+                <input type="number" name="system.weaponData.rangedDamageMultiplierBonus" value="{{system.weaponData.rangedDamageMultiplierBonus}}" data-dtype="Number"/>
+              </div>
+            </div>
+          </div>
+        {{/if}}
+
+        {{!-- Intelligent Item --}}
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Intelligent Item</span></label>
+          <div class="mm-styled-input">
+            <input type="checkbox" name="system.isIntelligent" {{ checked system.isIntelligent }}>
+          </div>
+        </div>
+        {{#if system.isIntelligent}}
+          <div class="mm-styled-field -fill">
+            <label class="mm-styled-label -align-left" for="system.intelligenceDescription"><span>Intelligence Description</span></label>
+            <div class="mm-styled-input">
+              {{editor system.intelligenceDescription target="system.intelligenceDescription" button=false engine="prosemirror" collaborate=false editable=editable}}
+            </div>
+          </div>
+        {{/if}}
+      </div>
+    </div>
+
+  </section>
+</form>

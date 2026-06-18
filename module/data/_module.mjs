@@ -7,9 +7,11 @@ export {default as MarvelMultiverseVehicle} from "./vehicle.mjs";
 // Export Items
 export {default as MarvelMultiverseItemBase} from "./item-base.mjs";
 export {default as MarvelMultiverseItem} from "./item.mjs";
+export {default as MarvelMultiverseIconicItem} from "./iconic-item.mjs";
 export {default as MarvelMultiverseWeapon} from "./weapon.mjs";
 export {default as MarvelMultiverseOccupation} from "./occupation.mjs";
 export {default as MarvelMultiverseOrigin} from "./origin.mjs";
 export {default as MarvelMultiverseTag} from "./tag.mjs";
 export {default as MarvelMultiverseTrait} from "./trait.mjs";
 export {default as MarvelMultiversePower} from "./power.mjs";
+export {default as MarvelMultiverseRestriction} from "./restriction.mjs";

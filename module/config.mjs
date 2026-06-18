@@ -137,6 +137,25 @@ MARVEL_MULTIVERSE.reverseSetList = Object.fromEntries(
   ])
 );
 
+MARVEL_MULTIVERSE.restrictionKinds = {
+  access: { label: "Access" },
+  challenging: { label: "Challenging" },
+  obvious: { label: "Obvious" },
+  unattached: { label: "Unattached" },
+  use: { label: "Use" },
+};
+
+MARVEL_MULTIVERSE.ownershipModes = {
+  owned: { label: "Owned" },
+  borrowed: { label: "Borrowed" },
+};
+
+MARVEL_MULTIVERSE.specialEffectTypes = {
+  blunt: { label: "Blunt" },
+  sharp: { label: "Sharp" },
+  elemental: { label: "Elemental" },
+};
+
 MARVEL_MULTIVERSE.movementTypes = {
   run: { label: "MARVEL_MULTIVERSE.Movement.Run", active: true },
   climb: { label: "MARVEL_MULTIVERSE.Movement.Climb", active: true },

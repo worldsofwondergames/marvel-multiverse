@@ -70,11 +70,12 @@
 }
 
 .mm-item {
-  align-items: center;
+  align-items: flex-start;
   background: $mm-primary-red;
   clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0% 100%);
   color: $mm-text-color;
   display: flex;
+  flex-wrap: nowrap;
   font-size: 12px;
   gap: $mm-spacing-md;
   line-height: 1;
@@ -106,6 +107,7 @@
 .mm-item-name {
   flex: 1 1 auto;
   font-weight: 600;
+  min-width: 0;
   padding: $mm-spacing-md;
   padding-inline-start: $mm-spacing-lg;
   position: relative;

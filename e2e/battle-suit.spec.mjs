@@ -1,10 +1,11 @@
 import { test, expect } from './fixtures.mjs';
-import { dismissNotifications } from './helpers.mjs';
+import { dismissNotifications, createActorViaAPI, deleteActor } from './helpers.mjs';
 
 const BATTLE_SUIT_NAME = 'E2E Test Battle Suit';
 const POWER_NAME = 'E2E Test Suit Power';
 const RESTRICTION_NAME = 'E2E Test Suit Restriction';
 const ICONIC_ITEM_NAME = 'E2E Test Integrated Weapon';
+const ACTOR_NAME = 'E2E Battle Suit Actor';
 
 async function deleteItem(page, name) {
   await page.evaluate(async (name) => {
@@ -88,6 +89,7 @@ test.describe('Battle Suit Item Type', () => {
     await deleteItem(foundryPage, POWER_NAME);
     await deleteItem(foundryPage, RESTRICTION_NAME);
     await deleteItem(foundryPage, ICONIC_ITEM_NAME);
+    await deleteActor(foundryPage, ACTOR_NAME);
   });
 
   test('can create a battle suit via API with correct defaults', async ({ foundryPage }) => {
@@ -337,5 +339,146 @@ test.describe('Battle Suit Item Type', () => {
 
     const data = await getBattleSuitData(page, BATTLE_SUIT_NAME);
     expect(data.powers).toHaveLength(1);
+  });
+
+  test('sheet tabs render correct content', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createBattleSuitViaAPI(page, BATTLE_SUIT_NAME);
+
+    // Pre-populate data so we can verify it renders
+    await page.evaluate(async (name) => {
+      const item = game.items.find(i => i.name === name);
+      await item.update({
+        'system.powers': [{ id: '1', name: 'Repulsors', img: '' }],
+        'system.restrictions': [{ kind: 'access', name: 'Worn', description: 'Must be worn' }],
+        'system.abilityModifiers.melee': 3,
+        'system.rankIncrease': 2,
+        'system.additionalTraits': ['Big', 'Fearless'],
+        'system.integratedIconicItems': [{ id: 'x', name: 'Unibeam', img: '' }],
+      });
+    }, BATTLE_SUIT_NAME);
+    await page.waitForTimeout(500);
+
+    const sheet = await openItemSheet(page, BATTLE_SUIT_NAME);
+
+    // Header: origin input and power value
+    await expect(sheet.locator('input[name="system.origin"]')).toHaveValue('High-Tech: Battle Suit');
+    await expect(sheet.locator('.plain-text')).toContainText('1');
+
+    // Powers tab
+    await sheet.locator('.sheet-tabs a[data-tab="powers"]').click();
+    await page.waitForTimeout(500);
+    await expect(sheet.locator('.mm-battlesuit-powers-drop-zone')).toBeVisible();
+    await expect(sheet.locator('.mm-battlesuit-powers-drop-zone')).toContainText('Repulsors');
+    await expect(sheet.locator('.mm-battlesuit-iconic-drop-zone')).toBeVisible();
+    await expect(sheet.locator('.mm-battlesuit-iconic-drop-zone')).toContainText('Unibeam');
+
+    // Restrictions tab
+    await sheet.locator('.sheet-tabs a[data-tab="restrictions"]').click();
+    await page.waitForTimeout(500);
+    await expect(sheet.locator('.mm-battlesuit-restrictions-drop-zone')).toBeVisible();
+    await expect(sheet.locator('.mm-battlesuit-restrictions-drop-zone')).toContainText('Worn');
+    await expect(sheet.locator('.battlesuit-restriction-add')).toBeVisible();
+
+    // Modifiers tab
+    await sheet.locator('.sheet-tabs a[data-tab="modifiers"]').click();
+    await page.waitForTimeout(500);
+    await expect(sheet.locator('input[name="system.rankIncrease"]')).toHaveValue('2');
+    await expect(sheet.locator('input[name="system.abilityModifiers.melee"]')).toHaveValue('3');
+    await expect(sheet.locator('input[name="system.abilityModifiers.agility"]')).toHaveValue('0');
+    await expect(sheet.locator('.battlesuit-trait-input')).toBeVisible();
+    const modifiersTab = sheet.locator('.tab[data-tab="modifiers"]');
+    await expect(modifiersTab).toContainText('Big');
+    await expect(modifiersTab).toContainText('Fearless');
+
+    // Details tab
+    await sheet.locator('.sheet-tabs a[data-tab="details"]').click();
+    await page.waitForTimeout(500);
+    const detailsTab = sheet.locator('.tab[data-tab="details"]');
+    await expect(detailsTab).toContainText('Tech Reliance');
+    await expect(detailsTab).toContainText('Worn');
+  });
+
+  test('dropped items render in sheet UI', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createBattleSuitViaAPI(page, BATTLE_SUIT_NAME);
+    await createPowerViaAPI(page, POWER_NAME);
+    await createRestrictionViaAPI(page, RESTRICTION_NAME, 'obvious');
+    await createIconicItemViaAPI(page, ICONIC_ITEM_NAME);
+
+    const sheet = await openItemSheet(page, BATTLE_SUIT_NAME);
+
+    // Drop all three item types
+    await page.evaluate(async ({ suitName, powerName, restrictionName, iconicName }) => {
+      const suit = game.items.find(i => i.name === suitName);
+      const power = game.items.find(i => i.name === powerName);
+      const restriction = game.items.find(i => i.name === restrictionName);
+      const iconic = game.items.find(i => i.name === iconicName);
+      const itemSheet = suit.sheet;
+
+      for (const item of [power, restriction, iconic]) {
+        const dt = new DataTransfer();
+        dt.setData('text/plain', JSON.stringify({ type: 'Item', uuid: item.uuid }));
+        const event = new DragEvent('drop', { dataTransfer: dt, bubbles: true });
+        await itemSheet._onDrop(event);
+      }
+    }, { suitName: BATTLE_SUIT_NAME, powerName: POWER_NAME, restrictionName: RESTRICTION_NAME, iconicName: ICONIC_ITEM_NAME });
+    await page.waitForTimeout(1000);
+
+    // Re-open sheet to see rendered content
+    await page.evaluate(async (name) => {
+      const item = game.items.find(i => i.name === name);
+      item.sheet.render(true);
+    }, BATTLE_SUIT_NAME);
+    await page.waitForTimeout(2000);
+    const refreshedSheet = page.locator('.sheet.item').last();
+
+    // Verify power appears in Powers tab
+    await refreshedSheet.locator('.sheet-tabs a[data-tab="powers"]').click();
+    await page.waitForTimeout(500);
+    await expect(refreshedSheet.locator('.mm-battlesuit-powers-drop-zone')).toContainText(POWER_NAME);
+    await expect(refreshedSheet.locator('.mm-battlesuit-iconic-drop-zone')).toContainText(ICONIC_ITEM_NAME);
+
+    // Verify restriction appears in Restrictions tab
+    await refreshedSheet.locator('.sheet-tabs a[data-tab="restrictions"]').click();
+    await page.waitForTimeout(500);
+    await expect(refreshedSheet.locator('.mm-battlesuit-restrictions-drop-zone')).toContainText(RESTRICTION_NAME);
+  });
+
+  test('battle suit appears on character sheet items tab', async ({ foundryPage }) => {
+    const page = foundryPage;
+
+    // Create a character and add a battle suit as an owned item
+    await createActorViaAPI(page, ACTOR_NAME, 'character');
+
+    await page.evaluate(async ({ actorName, suitName }) => {
+      const actor = game.actors.find(a => a.name === actorName);
+      if (!actor) throw new Error(`Actor "${actorName}" not found`);
+      await actor.createEmbeddedDocuments('Item', [{
+        name: suitName,
+        type: 'battleSuit',
+      }]);
+    }, { actorName: ACTOR_NAME, suitName: BATTLE_SUIT_NAME });
+    await page.waitForTimeout(500);
+
+    // Open the actor sheet
+    await page.evaluate(async (name) => {
+      const actor = game.actors.find(a => a.name === name);
+      actor.sheet.render(true);
+    }, ACTOR_NAME);
+    await page.waitForTimeout(2000);
+    await dismissNotifications(page);
+
+    const actorSheet = page.locator('.sheet.actor').last();
+    await actorSheet.waitFor({ state: 'visible', timeout: 10_000 });
+
+    // Navigate to Gear & Weapons tab
+    await actorSheet.locator('.sheet-tabs a[data-tab="gear"]').click();
+    await page.waitForTimeout(500);
+
+    // Verify the battle suit name appears under the Battle Suits header
+    const itemsTab = actorSheet.locator('.tab[data-tab="gear"]');
+    await expect(itemsTab).toContainText('Battle Suits');
+    await expect(itemsTab).toContainText(BATTLE_SUIT_NAME);
   });
 });

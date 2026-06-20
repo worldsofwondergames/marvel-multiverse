@@ -761,6 +761,7 @@
   display: flex;
   flex: 0 0 auto;
   gap: 2px;
+  padding-block-start: 5px;
   padding-inline-end: 16px;
   padding-inline-start: 4px;
   z-index: 1;
@@ -840,9 +841,24 @@
   text-shadow: none;
 }
 
+.mm-iconic-powers-drop-zone .mm-item,
+.mm-battlesuit-powers-drop-zone .mm-item,
+.mm-battlesuit-iconic-drop-zone .mm-item {
+  align-items: center;
+}
+
+.mm-iconic-powers-drop-zone .item-controls,
+.mm-battlesuit-powers-drop-zone .item-controls,
+.mm-battlesuit-iconic-drop-zone .item-controls {
+  padding-block-start: 0;
+}
+
 .mm-item-name {
+  align-items: center;
+  display: flex;
   flex: 1 1 auto;
   font-weight: 600;
+  gap: 4px;
   min-width: 0;
   padding: 8px;
   padding-inline-start: 16px;

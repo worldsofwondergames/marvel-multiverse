@@ -1,6 +1,6 @@
 {
   "name": "marvel-multiverse",
-  "version": "2.2.0",
+  "version": "2.4.0",
   "description": "compiler for the MarvelMultiverse system",
   "babel": {
     "presets": [

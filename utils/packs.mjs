@@ -148,6 +148,10 @@ function cleanString(str) {
  * - `npm run build:clean -- classes Barbarian` - Only clean a single item from the specified compendium.
  */
 async function cleanPacks(packName, entryName) {
+  if (!fs.existsSync(PACK_SRC)) {
+    logger.info("No packs/_source directory found, skipping clean.");
+    return;
+  }
   entryName = entryName?.toLowerCase();
   const folders = fs
     .readdirSync(PACK_SRC, { withFileTypes: true })
@@ -199,6 +203,10 @@ async function cleanPacks(packName, entryName) {
  * - `npm run build:db -- classes` - Only compile the specified pack.
  */
 async function compilePacks(packName) {
+  if (!fs.existsSync(PACK_SRC)) {
+    logger.info("No packs/_source directory found, skipping compile.");
+    return;
+  }
   // Determine which source folders to process
   const folders = fs
     .readdirSync(PACK_SRC, { withFileTypes: true })

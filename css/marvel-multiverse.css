@@ -433,6 +433,7 @@
 }
 .mm-styled-container.-no-header {
   clip-path: initial;
+  padding-top: 0;
 }
 .mm-styled-container h3 {
   background: #8b0502;
@@ -1760,6 +1761,13 @@
   height: 100%;
 }
 
+.marvel-multiverse.sheet.actor .vehicle .mm-stat-corner-block .mm-input input {
+  font-size: 20px;
+  height: 24px;
+  max-width: 40px;
+  text-align: center;
+}
+
 .mm-vehicle-portrait-row {
   gap: 8px;
 }
@@ -1877,6 +1885,7 @@
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
+  justify-content: space-around;
   gap: 2px;
   padding: 4px;
 }
@@ -1896,6 +1905,7 @@
   flex: 1 1 auto;
   font-size: 12px;
   font-weight: 600;
+  height: 21px;
   padding: 2px 4px;
 }
 
@@ -1905,21 +1915,23 @@
 }
 
 .mm-vehicle-info-label {
-  flex: 0 0 auto;
+  flex: 0 0 65px;
   font-size: 10px;
   font-weight: 700;
-  min-width: 55px;
   text-transform: uppercase;
 }
 
 .mm-vehicle-info-value {
   background: #fff2ec;
   border-radius: 2px;
+  box-sizing: border-box;
   color: #000101;
   flex: 1 1 auto;
   font-size: 12px;
   font-weight: 600;
-  padding: 2px 4px;
+  height: 21px;
+  line-height: 21px;
+  padding: 0 4px;
 }
 
 .mm-vehicle-tab-scroll {
@@ -1931,24 +1943,22 @@
   padding: 4px;
 }
 
-.mm-vehicle-crash-row {
+.mm-vehicle-crash-input {
   align-items: center;
   display: flex;
   gap: 4px;
-  position: relative;
-  z-index: 1;
+}
+
+.mm-vehicle-crash-input > input[type=number] {
+  flex: 0 0 60px;
+  width: 60px;
 }
 
 .mm-vehicle-crash-dm-prefix {
   font-size: 16px;
   font-weight: 700;
+  margin-left: 3px;
   position: relative;
-  z-index: 1;
-}
-
-.mm-vehicle-crash-dm {
-  position: relative;
-  width: 60px;
   z-index: 1;
 }
 
@@ -1958,6 +1968,7 @@
   display: inline-flex;
   font-size: 12px;
   gap: 4px;
+  margin-left: auto;
   position: relative;
   z-index: 1;
 }

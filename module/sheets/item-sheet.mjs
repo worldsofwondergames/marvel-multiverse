@@ -173,6 +173,27 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
       onManageActiveEffect(ev, this.item)
     );
 
+    // Power: power set removal
+    html.on("click", ".mm-powerset-remove", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const index = Number(ev.currentTarget.dataset.index);
+      const powerSets = [...this.item.system.powerSets];
+      powerSets.splice(index, 1);
+      const powerSet = powerSets.map((ps) => ps.name).join(", ");
+      await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
+    });
+
+    // Power: drop zone visual feedback
+    const powerSetDropZones = html.find(".mm-powerset-drop-zone");
+    powerSetDropZones.on("dragover", (ev) => {
+      ev.preventDefault();
+      ev.currentTarget.classList.add("drag-over");
+    });
+    powerSetDropZones.on("dragleave", (ev) => {
+      ev.currentTarget.classList.remove("drag-over");
+    });
+
     // Iconic item: restriction management
     html.on("click", ".iconic-restriction-add", async (ev) => {
       ev.preventDefault();

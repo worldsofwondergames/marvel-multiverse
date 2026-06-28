@@ -1,3 +1,7 @@
+@use "sass:color";
+@use "../utils/variables" as *;
+@use "../utils/colors" as *;
+
 .marvel-multiverse.sheet.item {
   .window-content {
     > form {
@@ -5,4 +9,66 @@
       flex-direction: column;
     }
   }
+}
+
+.mm-powerset-drop-zone {
+  border: 2px dashed color.adjust($mm-subtext-color, $lightness: 30%);
+  border-radius: $mm-border-radius-sm;
+  min-height: 32px;
+  padding: $mm-spacing-sm;
+  position: relative;
+  z-index: 1;
+  transition: border-color $mm-transition-time-fast $mm-transition-type-link,
+              background-color $mm-transition-time-fast $mm-transition-type-link;
+
+  &.drag-over {
+    border-color: $mm-primary-red;
+    background-color: rgba($mm-primary-red, 0.05);
+  }
+}
+
+.mm-powerset-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $mm-spacing-sm;
+  align-items: center;
+}
+
+.mm-powerset-tag {
+  align-items: center;
+  background: $mm-primary-red;
+  border-radius: 12px;
+  color: white;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  gap: $mm-spacing-xs;
+  line-height: 1;
+  padding: $mm-spacing-xs $mm-spacing-md;
+  text-transform: uppercase;
+
+  img {
+    border: none;
+    border-radius: 50%;
+    height: 16px;
+    width: 16px;
+  }
+
+  .mm-powerset-remove {
+    color: white;
+    cursor: pointer;
+    margin-inline-start: $mm-spacing-xs;
+    opacity: 0.7;
+    transition: opacity $mm-transition-time-fast $mm-transition-type-link;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}
+
+.mm-powerset-placeholder {
+  color: $mm-subtext-color;
+  font-size: 11px;
+  font-style: italic;
 }

@@ -3487,7 +3487,7 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       ev.preventDefault();
       ev.stopPropagation();
       const index = Number(ev.currentTarget.dataset.index);
-      const powerSets = [...this.item.system.powerSets];
+      const powerSets = [...(this.item.system.powerSets ?? [])];
       powerSets.splice(index, 1);
       const powerSet = powerSets.map(ps => ps.name).join(", ");
       await this.item.update({ "system.powerSets": powerSets, "system.powerSet": powerSet });
@@ -3716,7 +3716,7 @@ class MarvelMultiverseItemSheet extends ItemSheet {
 
     // Handle powerSet drops onto power items
     if (droppedItem.type === "powerSet" && this.item.type === "power") {
-      const powerSets = [...this.item.system.powerSets];
+      const powerSets = [...(this.item.system.powerSets ?? [])];
       if (powerSets.some(ps => ps.name === droppedItem.name)) return;
       powerSets.push({
         id: droppedItem.id,

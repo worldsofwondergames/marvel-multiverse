@@ -11,6 +11,7 @@ export default class MarvelMultiversePower extends MarvelMultiverseItemBase {
       required: true,
       initial: "Basic",
     });
+    schema.powerSets = new fields.ArrayField(new fields.ObjectField());
     schema.prerequisites = new fields.StringField({ blank: true });
     schema.action = new fields.StringField({ blank: true });
     schema.trigger = new fields.StringField({ blank: true });
@@ -52,6 +53,14 @@ export default class MarvelMultiversePower extends MarvelMultiverseItemBase {
     if (source.attackAbility) {
       source.ability = source.attackAbility;
       source.attackAbility = undefined;
+    }
+    // Migrate legacy powerSet string to powerSets array.
+    if (source.powerSet && (!source.powerSets || source.powerSets.length === 0)) {
+      source.powerSets = source.powerSet
+        .split(",")
+        .map((name) => name.trim())
+        .filter((name) => name.length > 0)
+        .map((name) => ({ id: null, name, img: null }));
     }
     return super.migrateData(source);
   }

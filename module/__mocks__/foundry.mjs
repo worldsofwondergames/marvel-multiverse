@@ -417,6 +417,10 @@ class TypeDataModel {
     constructor(data = {}, options = {}) {
         Object.assign(this, data);
     }
+
+    static migrateData(source) {
+        return source;
+    }
 }
 
 class SchemaField {

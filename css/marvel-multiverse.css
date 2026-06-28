@@ -433,6 +433,7 @@
 }
 .mm-styled-container.-no-header {
   clip-path: initial;
+  padding-top: 0;
 }
 .mm-styled-container h3 {
   background: #8b0502;
@@ -1739,6 +1740,462 @@
 
 .marvel-multiverse.sheet.actor .mm-styled-container.mm-gear-block {
   height: 100%;
+}
+
+.marvel-multiverse.sheet.actor .vehicle {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.marvel-multiverse.sheet.actor .vehicle .sheet-header {
+  flex: 0 0 auto;
+}
+
+.marvel-multiverse.sheet.actor .vehicle .sheet-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.marvel-multiverse.sheet.actor .vehicle .sheet-body .tab[data-tab] {
+  height: 100%;
+}
+
+.marvel-multiverse.sheet.actor .vehicle .mm-stat-corner-block .mm-input input {
+  font-size: 20px;
+  height: 24px;
+  max-width: 40px;
+  text-align: center;
+}
+
+.mm-vehicle-portrait-row {
+  gap: 8px;
+}
+
+.mm-vehicle-portrait-block {
+  flex: 0 0 120px;
+}
+
+.mm-vehicle-portrait-block .mm-hero-portrait {
+  width: 120px;
+  height: 120px;
+}
+
+.mm-vehicle-header-stats {
+  flex: 1 1 auto;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.mm-vehicle-stat-block {
+  background: #e41d18;
+  border-radius: 2px;
+  color: white;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px;
+  gap: 2px;
+}
+
+.mm-vehicle-stat-label {
+  color: white;
+  font-family: "Roboto", serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mm-vehicle-stat-input {
+  align-items: center;
+  background: #fff2ec;
+  border-radius: 2px;
+  color: #000101;
+  display: flex;
+  font-size: 18px;
+  font-weight: 700;
+  gap: 2px;
+  justify-content: center;
+  padding: 2px 4px;
+  width: 100%;
+}
+
+.mm-vehicle-stat-input input {
+  background: none;
+  border: none;
+  color: #000101;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  width: 50px;
+}
+
+.mm-vehicle-stat-input input:focus {
+  box-shadow: 0 0 0 1px #e41d18;
+}
+
+.mm-vehicle-stat-input span {
+  color: #575757;
+}
+
+.mm-vehicle-health-good {
+  background: #e41d18;
+}
+
+.mm-vehicle-health-half {
+  background: rgb(181.8571428571, 23.130952381, 19.1428571429);
+}
+
+.mm-vehicle-health-disabled {
+  background: #575757;
+}
+
+.mm-vehicle-health-destroyed {
+  background: #000101;
+}
+
+.mm-vehicle-status-badge {
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  text-transform: uppercase;
+}
+
+.mm-vehicle-status-badge.-warning {
+  background: #f5a623;
+  color: white;
+}
+
+.mm-vehicle-status-badge.-danger {
+  background: #8b0502;
+  color: white;
+}
+
+.mm-vehicle-status-badge.-destroyed {
+  background: #000101;
+  color: white;
+}
+
+.mm-vehicle-info-block {
+  background: #e41d18;
+  border-radius: 2px;
+  color: white;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 2px;
+  padding: 4px;
+}
+
+.mm-vehicle-info-field {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.mm-vehicle-info-field select,
+.mm-vehicle-info-field input {
+  background: #fff2ec;
+  border: none;
+  border-radius: 2px;
+  color: #000101;
+  flex: 1 1 auto;
+  font-size: 12px;
+  font-weight: 600;
+  height: 21px;
+  padding: 2px 4px;
+}
+
+.mm-vehicle-info-field select:focus,
+.mm-vehicle-info-field input:focus {
+  box-shadow: 0 0 0 1px #e41d18;
+}
+
+.mm-vehicle-info-label {
+  flex: 0 0 65px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mm-vehicle-info-value {
+  background: #fff2ec;
+  border-radius: 2px;
+  box-sizing: border-box;
+  color: #000101;
+  flex: 1 1 auto;
+  font-size: 12px;
+  font-weight: 600;
+  height: 21px;
+  line-height: 21px;
+  padding: 0 4px;
+}
+
+.mm-vehicle-tab-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.mm-vehicle-crash-input {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.mm-vehicle-crash-input > input[type=number] {
+  flex: 0 0 60px;
+  width: 60px;
+}
+
+.mm-vehicle-crash-dm-prefix {
+  font-size: 16px;
+  font-weight: 700;
+  margin-left: 3px;
+  position: relative;
+  z-index: 1;
+}
+
+.mm-vehicle-harness-label {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  gap: 4px;
+  margin-left: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.mm-vehicle-harness-label input[type=checkbox] {
+  width: auto;
+}
+
+.mm-vehicle-speed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mm-vehicle-speed-header {
+  display: grid;
+  font-size: 10px;
+  font-weight: 700;
+  grid-template-columns: 1fr 60px 50px;
+  gap: 4px;
+  padding: 2px 4px;
+  text-transform: uppercase;
+  color: #fff2ec;
+}
+
+.mm-vehicle-speed-row {
+  align-items: center;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr 60px 50px;
+  padding: 2px 4px;
+}
+
+.mm-vehicle-speed-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.mm-vehicle-speed-row input[type=number] {
+  background: #fff2ec;
+  border: none;
+  border-radius: 2px;
+  color: #000101;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.mm-vehicle-speed-row input[type=number]:focus {
+  box-shadow: 0 0 0 1px #e41d18;
+}
+
+.mm-vehicle-speed-row input[type=checkbox] {
+  justify-self: center;
+  width: auto;
+}
+
+.mm-vehicle-speed-name {
+  color: #fff2ec;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mm-vehicle-occupants-drop-zone {
+  min-height: 60px;
+}
+
+.mm-vehicle-occupants-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mm-vehicle-occupant {
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+}
+
+.mm-vehicle-occupant:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.mm-vehicle-occupant-img {
+  flex: 0 0 auto;
+}
+
+.mm-vehicle-occupant-img img {
+  border: 1px solid #e41d18;
+  border-radius: 2px;
+}
+
+.mm-vehicle-occupant-name {
+  color: #fff2ec;
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mm-vehicle-occupant-role {
+  flex: 0 0 auto;
+}
+
+.mm-vehicle-occupant-role select {
+  background: #fff2ec;
+  border: none;
+  border-radius: 2px;
+  color: #000101;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.mm-vehicle-occupant-defense {
+  color: #fff2ec;
+  font-size: 11px;
+}
+
+.mm-vehicle-occupant-controls {
+  flex: 0 0 auto;
+}
+
+.mm-vehicle-occupant-controls a {
+  color: #fff2ec;
+  opacity: 0.7;
+}
+
+.mm-vehicle-occupant-controls a:hover {
+  opacity: 1;
+}
+
+.mm-vehicle-occupant-empty {
+  color: #fff2ec;
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px;
+  text-align: center;
+}
+
+.mm-vehicle-weapons-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mm-vehicle-weapon-header {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 4px;
+  text-transform: uppercase;
+  color: #fff2ec;
+}
+
+.mm-vehicle-weapon {
+  align-items: center;
+  padding: 2px 4px;
+}
+
+.mm-vehicle-weapon:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.mm-vehicle-weapon-name {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 4px;
+}
+
+.mm-vehicle-weapon-name .item-image img {
+  border: none;
+  border-radius: 2px;
+}
+
+.mm-vehicle-weapon-name .item-edit {
+  color: #fff2ec;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mm-vehicle-weapon-name .item-edit:hover {
+  color: white;
+}
+
+.mm-vehicle-weapon-stat {
+  color: #fff2ec;
+  flex: 0 0 50px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.mm-vehicle-weapon-controls {
+  flex: 0 0 24px;
+  text-align: right;
+}
+
+.mm-vehicle-weapon-controls a {
+  color: #fff2ec;
+  opacity: 0.7;
+}
+
+.mm-vehicle-weapon-controls a:hover {
+  opacity: 1;
+}
+
+.mm-vehicle-weapon-notes {
+  color: #fff2ec;
+  font-size: 11px;
+  padding: 0 4px 2px 44px;
+}
+
+.mm-vehicle-add-weapon {
+  padding: 4px;
+  text-align: center;
+}
+
+.mm-vehicle-add-weapon a {
+  color: #fff2ec;
+  font-size: 12px;
+}
+
+.mm-vehicle-add-weapon a:hover {
+  color: white;
 }
 
 .marvel-multiverse.sheet.item .window-content > form {

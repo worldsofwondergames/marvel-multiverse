@@ -16,6 +16,8 @@
   border-radius: $mm-border-radius-sm;
   min-height: 32px;
   padding: $mm-spacing-sm;
+  position: relative;
+  z-index: 1;
   transition: border-color $mm-transition-time-fast $mm-transition-type-link,
               background-color $mm-transition-time-fast $mm-transition-type-link;
 

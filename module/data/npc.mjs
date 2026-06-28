@@ -2,13 +2,13 @@ import MarvelMultiverseActorBase from "./actor-base.mjs";
 
 export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
   prepareDerivedData() {
-    if (this.parent?.effects) {
+    if (this.parent?.allApplicableEffects) {
       const maxDmgBonus = {};
       for (const key in this.abilities) maxDmgBonus[key] = 0;
       let maxHealthDR = 0;
       let maxFocusDR = 0;
 
-      for (const effect of this.parent.effects) {
+      for (const effect of this.parent.allApplicableEffects()) {
         if (effect.disabled) continue;
         for (const change of effect.changes) {
           if (Number(change.mode) !== 2) continue;

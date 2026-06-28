@@ -34,7 +34,7 @@ function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {}, 
         instance.abilities[abil].damageMultiplier = bonus;
     }
     if (effects) {
-        instance.parent = { items: [], effects };
+        instance.parent = { items: [], effects, allApplicableEffects: function* () { yield* effects; } };
     }
     instance.prepareDerivedData();
     return instance;

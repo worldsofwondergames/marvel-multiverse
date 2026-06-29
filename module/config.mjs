@@ -699,8 +699,8 @@ MARVEL_MULTIVERSE.sizeEffects = {
       },
       {
         key: "system.abilities.mle.damageMultiplier",
-        mode: "2",
-        value: "8",
+        mode: 2,
+        value: 8,
       },
       {
         key: "prototypeToken.width",

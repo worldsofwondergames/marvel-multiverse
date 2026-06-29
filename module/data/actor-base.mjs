@@ -66,6 +66,12 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
         nullable: false,
         initial: 0,
       }),
+      bonus: new fields.NumberField({
+        required: true,
+        nullable: false,
+        integer: true,
+        initial: 0,
+      }),
     });
 
     schema.healthDamageReduction = new fields.NumberField({
@@ -82,6 +88,12 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       max: new fields.NumberField({
         required: true,
         nullable: false,
+        initial: 0,
+      }),
+      bonus: new fields.NumberField({
+        required: true,
+        nullable: false,
+        integer: true,
         initial: 0,
       }),
     });
@@ -234,6 +246,8 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       this.focusDamageReduction = maxFocusDR;
     }
 
+    this.conditionDamageReduction = this.healthDamageReduction * 5;
+
     // Loop through ability scores, and add their modifiers to our sheet output.
     for (const key in this.abilities) {
       // Caclulate the defense score using mmrpg rules.
@@ -246,6 +260,14 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       this.abilities[key].label =
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[key]) ?? key;
     }
+
+    const hasBrawling = this.parent?.items?.some(i => i.type === "power" && i.name === "Brawling");
+    if (hasBrawling && this.abilities.mle.defense > this.abilities.agl.defense) {
+      this.abilities.agl.defense = this.abilities.mle.defense;
+    }
+
+    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
+    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
     const baseRunSpeed = this.movement.run.value;
 

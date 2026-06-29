@@ -2,7 +2,7 @@
 import { jest } from '@jest/globals';
 import MarvelMultiverseNPC from '../data/npc.mjs';
 
-function makeNPC({ rank = 1, abilities = {}, run = 5, movementOverrides = {} } = {}) {
+function makeNPC({ rank = 1, abilities = {}, run = 5, movementOverrides = {}, healthDR = 0, items = [] } = {}) {
     const ability = (value = 0) => ({ value, defense: 0, noncom: 0, damageMultiplier: 0, edge: false, label: '' });
     const movement = (value = 0, calc = '', noncomMultiplier = 1) => ({ value, noncom: value, active: true, calc, noncomMultiplier, label: '' });
     const instance = new MarvelMultiverseNPC({
@@ -15,6 +15,10 @@ function makeNPC({ rank = 1, abilities = {}, run = 5, movementOverrides = {} } =
             ego: ability(abilities.ego ?? 0),
             log: ability(abilities.log ?? 0),
         },
+        health: { value: 0, max: 0, bonus: 0 },
+        focus: { value: 0, max: 0, bonus: 0 },
+        healthDamageReduction: healthDR,
+        focusDamageReduction: 0,
         movement: {
             run: movement(run),
             climb: movement(0),
@@ -27,6 +31,9 @@ function makeNPC({ rank = 1, abilities = {}, run = 5, movementOverrides = {} } =
             ...movementOverrides,
         },
     });
+    if (items.length > 0) {
+        instance.parent = { items, effects: [], allApplicableEffects: function* () {} };
+    }
     instance.prepareDerivedData();
     return instance;
 }
@@ -222,5 +229,54 @@ describe('MarvelMultiverseNPC — Label Localization Fallback', () => {
         const npc = makeNPC({ run: 5 });
         expect(npc.movement.run.label).toBe('run');
         expect(npc.movement.swim.label).toBe('swim');
+    });
+});
+
+describe('MarvelMultiverseNPC — Health/Focus Max', () => {
+    test('health max = resilience × 30', () => {
+        const npc = makeNPC({ abilities: { res: 3 } });
+        expect(npc.health.max).toBe(90);
+    });
+
+    test('health max minimum is 10 when resilience is 0', () => {
+        const npc = makeNPC({ abilities: { res: 0 } });
+        expect(npc.health.max).toBe(10);
+    });
+
+    test('focus max = vigilance × 30', () => {
+        const npc = makeNPC({ abilities: { vig: 4 } });
+        expect(npc.focus.max).toBe(120);
+    });
+
+    test('focus max is 0 when vigilance is 0', () => {
+        const npc = makeNPC({ abilities: { vig: 0 } });
+        expect(npc.focus.max).toBe(0);
+    });
+});
+
+describe('MarvelMultiverseNPC — Condition Damage Reduction', () => {
+    test('condition DR = health DR × 5', () => {
+        const npc = makeNPC({ healthDR: 3 });
+        expect(npc.conditionDamageReduction).toBe(15);
+    });
+
+    test('condition DR is 0 when no health DR', () => {
+        const npc = makeNPC();
+        expect(npc.conditionDamageReduction).toBe(0);
+    });
+});
+
+describe('MarvelMultiverseNPC — Brawling Defense', () => {
+    test('with Brawling, agility defense equals melee when melee is higher', () => {
+        const npc = makeNPC({
+            abilities: { mle: 6, agl: 2 },
+            items: [{ type: 'power', name: 'Brawling' }],
+        });
+        expect(npc.abilities.agl.defense).toBe(16);
+    });
+
+    test('without Brawling, agility defense is independent', () => {
+        const npc = makeNPC({ abilities: { mle: 6, agl: 2 } });
+        expect(npc.abilities.agl.defense).toBe(12);
     });
 });

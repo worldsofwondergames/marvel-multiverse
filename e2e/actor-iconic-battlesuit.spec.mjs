@@ -77,6 +77,15 @@ async function goToGearTab(sheet) {
   await sheet.page().waitForTimeout(500);
 }
 
+async function clickEquipToggle(page, sheet, selector = '.battlesuit-equip-toggle') {
+  const toggle = sheet.locator(selector);
+  const itemId = await toggle.getAttribute('data-item-id');
+  await page.evaluate((id) => {
+    document.querySelector(`.battlesuit-equip-toggle[data-item-id="${id}"]`).click();
+  }, itemId);
+  await page.waitForTimeout(1500);
+}
+
 test.describe('Iconic Items on Actor Sheet', () => {
   test.beforeEach(async ({ foundryPage }) => {
     await cleanup(foundryPage);
@@ -185,8 +194,7 @@ test.describe('Battle Suits on Actor Sheet', () => {
     const baseMelee = dataBefore.abilities.mle.value;
     const baseRank = dataBefore.attributes.rank.value;
 
-    await sheet.locator('.battlesuit-equip-toggle').click();
-    await foundryPage.waitForTimeout(1500);
+    await clickEquipToggle(foundryPage, sheet);
 
     const dataAfter = await getActorSystemData(foundryPage, ACTOR_NAME);
     expect(dataAfter.abilities.mle.value).toBe(baseMelee + 2);
@@ -203,14 +211,12 @@ test.describe('Battle Suits on Actor Sheet', () => {
     const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
-    await sheet.locator('.battlesuit-equip-toggle').click();
-    await foundryPage.waitForTimeout(1500);
+    await clickEquipToggle(foundryPage, sheet);
 
     const effectsBefore = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effectsBefore).toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
 
-    await sheet.locator('.battlesuit-equip-toggle').click();
-    await foundryPage.waitForTimeout(1500);
+    await clickEquipToggle(foundryPage, sheet);
 
     const effectsAfter = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effectsAfter).not.toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
@@ -229,13 +235,21 @@ test.describe('Battle Suits on Actor Sheet', () => {
     const suitRows = sheet.locator('.mm-actor-battlesuit');
     await expect(suitRows).toHaveCount(2);
 
-    await suitRows.first().locator('.battlesuit-equip-toggle').click();
+    const firstToggle = suitRows.first().locator('.battlesuit-equip-toggle');
+    const firstItemId = await firstToggle.getAttribute('data-item-id');
+    await foundryPage.evaluate((id) => {
+      document.querySelector(`.battlesuit-equip-toggle[data-item-id="${id}"]`).click();
+    }, firstItemId);
     await foundryPage.waitForTimeout(1500);
 
     let effects = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effects).toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
 
-    await suitRows.last().locator('.battlesuit-equip-toggle').click();
+    const lastToggle = suitRows.last().locator('.battlesuit-equip-toggle');
+    const lastItemId = await lastToggle.getAttribute('data-item-id');
+    await foundryPage.evaluate((id) => {
+      document.querySelector(`.battlesuit-equip-toggle[data-item-id="${id}"]`).click();
+    }, lastItemId);
     await foundryPage.waitForTimeout(1500);
 
     effects = await getActiveEffectNames(foundryPage, ACTOR_NAME);
@@ -270,13 +284,16 @@ test.describe('Battle Suits on Actor Sheet', () => {
     const sheet = await openActorSheet(foundryPage, ACTOR_NAME);
     await goToGearTab(sheet);
 
-    await sheet.locator('.battlesuit-equip-toggle').click();
-    await foundryPage.waitForTimeout(1500);
+    await clickEquipToggle(foundryPage, sheet);
 
     let effects = await getActiveEffectNames(foundryPage, ACTOR_NAME);
     expect(effects).toContain(`Battle Suit: ${BATTLE_SUIT_NAME}`);
 
-    await sheet.locator('.mm-actor-battlesuit .item-delete').click();
+    const deleteBtn = sheet.locator('.mm-actor-battlesuit .item-delete');
+    const deleteItemId = await sheet.locator('.mm-actor-battlesuit').getAttribute('data-item-id');
+    await foundryPage.evaluate((id) => {
+      document.querySelector(`.mm-actor-battlesuit[data-item-id="${id}"] .item-delete`).click();
+    }, deleteItemId);
     await foundryPage.waitForTimeout(1500);
 
     effects = await getActiveEffectNames(foundryPage, ACTOR_NAME);

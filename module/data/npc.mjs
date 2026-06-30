@@ -33,6 +33,8 @@ export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       this.focusDamageReduction = maxFocusDR;
     }
 
+    this.conditionDamageReduction = this.healthDamageReduction * 5;
+
     // Loop through ability scores, and add their modifiers to our sheet output.
     for (const key in this.abilities) {
       // Caclulate the defense score using mmrpg rules.
@@ -45,6 +47,14 @@ export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       this.abilities[key].label =
         game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[key]) ?? key;
     }
+
+    const hasBrawling = this.parent?.items?.some(i => i.type === "power" && i.name === "Brawling");
+    if (hasBrawling && this.abilities.mle.defense > this.abilities.agl.defense) {
+      this.abilities.agl.defense = this.abilities.mle.defense;
+    }
+
+    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
+    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
     const baseRunSpeed = this.movement.run.value;
 

@@ -2,7 +2,7 @@
 import { jest } from '@jest/globals';
 import MarvelMultiverseActorBase from '../data/actor-base.mjs';
 
-function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {}, effects = null, dmgBonuses = {}, healthDR = 0, focusDR = 0 } = {}) {
+function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {}, effects = null, dmgBonuses = {}, healthDR = 0, focusDR = 0, healthBonus = 0, focusBonus = 0, items = [] } = {}) {
     const ability = (value = 0) => ({ value, defense: 0, noncom: 0, damageMultiplier: 0, edge: false, label: '' });
     const movement = (value = 0, calc = '', noncomMultiplier = 1) => ({ value, noncom: value, active: true, calc, noncomMultiplier, label: '' });
     const instance = new MarvelMultiverseActorBase({
@@ -15,6 +15,8 @@ function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {}, 
             ego: ability(abilities.ego ?? 0),
             log: ability(abilities.log ?? 0),
         },
+        health: { value: 0, max: 0, bonus: healthBonus },
+        focus: { value: 0, max: 0, bonus: focusBonus },
         healthDamageReduction: healthDR,
         focusDamageReduction: focusDR,
         movement: {
@@ -33,8 +35,8 @@ function makeActor({ rank = 1, abilities = {}, run = 5, movementOverrides = {}, 
     for (const [abil, bonus] of Object.entries(dmgBonuses)) {
         instance.abilities[abil].damageMultiplier = bonus;
     }
-    if (effects) {
-        instance.parent = { items: [], effects, allApplicableEffects: function* () { yield* effects; } };
+    if (effects || items.length > 0) {
+        instance.parent = { items, effects: effects ?? [], allApplicableEffects: function* () { if (effects) yield* effects; } };
     }
     instance.prepareDerivedData();
     return instance;
@@ -611,5 +613,120 @@ describe('Rulebook: Run Speed Includes Agility Bonus (KNOWN GAP)', () => {
     test.failing('agility 7 (Spider-Man): run speed should be 6', () => {
         const actor = makeActor({ abilities: { agl: 7 } });
         expect(actor.movement.run.value).toBe(6);
+    });
+});
+
+describe('Rulebook: Health Max Derived Calculation', () => {
+    test('health max = resilience × 30 (res 3 → 90)', () => {
+        const actor = makeActor({ abilities: { res: 3 } });
+        expect(actor.health.max).toBe(90);
+    });
+
+    test('health max = resilience × 30 (res 7 → 210)', () => {
+        const actor = makeActor({ abilities: { res: 7 } });
+        expect(actor.health.max).toBe(210);
+    });
+
+    test('health max minimum is 10 when resilience is 0', () => {
+        const actor = makeActor({ abilities: { res: 0 } });
+        expect(actor.health.max).toBe(10);
+    });
+
+    test('health bonus adds to health max', () => {
+        const actor = makeActor({ abilities: { res: 2 }, healthBonus: 15 });
+        expect(actor.health.max).toBe(75);
+    });
+
+    test('health max minimum 10 still applies with bonus', () => {
+        const actor = makeActor({ abilities: { res: 0 }, healthBonus: 0 });
+        expect(actor.health.max).toBe(10);
+    });
+});
+
+describe('Rulebook: Focus Max Derived Calculation', () => {
+    test('focus max = vigilance × 30 (vig 4 → 120)', () => {
+        const actor = makeActor({ abilities: { vig: 4 } });
+        expect(actor.focus.max).toBe(120);
+    });
+
+    test('focus max = vigilance × 30 (vig 8 → 240)', () => {
+        const actor = makeActor({ abilities: { vig: 8 } });
+        expect(actor.focus.max).toBe(240);
+    });
+
+    test('focus max is 0 when vigilance is 0', () => {
+        const actor = makeActor({ abilities: { vig: 0 } });
+        expect(actor.focus.max).toBe(0);
+    });
+
+    test('focus bonus adds to focus max', () => {
+        const actor = makeActor({ abilities: { vig: 3 }, focusBonus: 10 });
+        expect(actor.focus.max).toBe(100);
+    });
+});
+
+describe('Rulebook: Condition Damage Reduction', () => {
+    test('condition DR = health DR × 5 (DR 3 → 15)', () => {
+        const actor = makeActor({ healthDR: 3 });
+        expect(actor.conditionDamageReduction).toBe(15);
+    });
+
+    test('condition DR = health DR × 5 (DR 2 → 10)', () => {
+        const actor = makeActor({ healthDR: 2 });
+        expect(actor.conditionDamageReduction).toBe(10);
+    });
+
+    test('condition DR is 0 when no health DR', () => {
+        const actor = makeActor();
+        expect(actor.conditionDamageReduction).toBe(0);
+    });
+
+    test('condition DR uses non-stacking health DR from effects', () => {
+        function makeEffect(key, value, mode = 2) {
+            return { disabled: false, changes: [{ key, value: String(value), mode }] };
+        }
+        const actor = makeActor({
+            effects: [
+                makeEffect('system.healthDamageReduction', 4),
+                makeEffect('system.healthDamageReduction', 2),
+            ],
+        });
+        expect(actor.healthDamageReduction).toBe(4);
+        expect(actor.conditionDamageReduction).toBe(20);
+    });
+});
+
+describe('Rulebook: Brawling Defense Promotion', () => {
+    test('without Brawling, agility defense is independent of melee', () => {
+        const actor = makeActor({ abilities: { mle: 6, agl: 2 } });
+        expect(actor.abilities.mle.defense).toBe(16);
+        expect(actor.abilities.agl.defense).toBe(12);
+    });
+
+    test('with Brawling, agility defense equals melee defense when melee is higher', () => {
+        const actor = makeActor({
+            abilities: { mle: 6, agl: 2 },
+            items: [{ type: 'power', name: 'Brawling' }],
+        });
+        expect(actor.abilities.mle.defense).toBe(16);
+        expect(actor.abilities.agl.defense).toBe(16);
+    });
+
+    test('with Brawling, agility defense unchanged when already higher than melee', () => {
+        const actor = makeActor({
+            abilities: { mle: 2, agl: 6 },
+            items: [{ type: 'power', name: 'Brawling' }],
+        });
+        expect(actor.abilities.mle.defense).toBe(12);
+        expect(actor.abilities.agl.defense).toBe(16);
+    });
+
+    test('with Brawling, equal defenses remain unchanged', () => {
+        const actor = makeActor({
+            abilities: { mle: 4, agl: 4 },
+            items: [{ type: 'power', name: 'Brawling' }],
+        });
+        expect(actor.abilities.mle.defense).toBe(14);
+        expect(actor.abilities.agl.defense).toBe(14);
     });
 });

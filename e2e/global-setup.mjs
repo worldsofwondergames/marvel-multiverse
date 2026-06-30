@@ -1,22 +1,11 @@
-import { chromium } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
 const BASE_URL = 'http://localhost:30000';
-const WORLD_ID = 'marvel-616';
 
 export default async function globalSetup() {
   cleanPreviousResults();
-
-  const browser = await chromium.launch();
-  const context = await browser.newContext({
-    ignoreHTTPSErrors: true,
-    viewport: { width: 1920, height: 1080 },
-  });
-  const page = await context.newPage();
-
-  await launchWorld(page, browser);
-  await browser.close();
+  await verifyFoundryRunning();
 }
 
 function cleanPreviousResults() {
@@ -30,54 +19,25 @@ function cleanPreviousResults() {
   }
 }
 
-async function dismissTourOverlay(page) {
-  const overlay = page.locator('.tour-overlay');
-  if (await overlay.count() > 0) {
-    console.log('Tour overlay detected — removing it.');
-    await page.evaluate(() => {
-      document.querySelectorAll('.tour-overlay, .tour-step, .tour-fadeout, .tour-center-step')
-        .forEach(el => el.remove());
-    });
-    await page.waitForTimeout(500);
-  }
-}
-
-async function launchWorld(page, browser) {
-  await page.goto(`${BASE_URL}/setup`, { waitUntil: 'networkidle' });
-
-  const currentUrl = page.url();
-  if (currentUrl.includes('/join') || currentUrl.includes('/game')) {
-    console.log('World already running, skipping launch.');
-    return;
-  }
-
-  const worldItem = page.locator(`li.package.world[data-package-id="${WORLD_ID}"]`);
-  const worldExists = await worldItem.count();
-  if (worldExists === 0) {
-    await browser.close();
-    throw new Error(
-      `World "${WORLD_ID}" not found on the setup page. ` +
-      `Available worlds must include "${WORLD_ID}" to run the e2e test suite.`
-    );
-  }
-
-  console.log(`Launching world: ${WORLD_ID}`);
-  await dismissTourOverlay(page);
-
-  await worldItem.hover();
-  const launchButton = worldItem.locator('a[data-action="worldLaunch"]');
-  await launchButton.click({ timeout: 10_000 });
-
-  // FoundryVTT may show a compatibility warning dialog — dismiss it
+async function verifyFoundryRunning() {
   try {
-    const yesButton = page.locator('button[data-action="yes"]');
-    await yesButton.waitFor({ state: 'visible', timeout: 5000 });
-    await yesButton.click();
-  } catch {
-    // No warning dialog appeared
+    const res = await fetch(BASE_URL, { redirect: 'manual' });
+    const location = res.headers.get('location') || '';
+    if (res.status === 302 && (location.includes('/join') || location.includes('/game'))) {
+      console.log('Foundry is running with a world active.');
+      return;
+    }
+    if (res.ok || res.status === 302) {
+      console.log('Foundry is running (world may need to be launched manually).');
+      return;
+    }
+    throw new Error(`Foundry responded with unexpected status ${res.status}`);
+  } catch (err) {
+    if (err.cause?.code === 'ECONNREFUSED') {
+      throw new Error(
+        `Foundry is not running at ${BASE_URL}. Start Foundry and launch the marvel-616 world before running E2E tests.`
+      );
+    }
+    throw err;
   }
-
-  await page.waitForURL('**/join', { timeout: 60_000 });
-  await page.waitForLoadState('networkidle');
-  console.log('World launched successfully.');
 }

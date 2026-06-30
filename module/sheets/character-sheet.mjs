@@ -131,12 +131,12 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
       } else if (i.type === "iconicItem") {
         const pc = i.system.powers?.length ?? 0;
         const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : (pc - rc < 0) ? "—" : Math.max(1, pc - rc);
+        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
         const pc = i.system.powers?.length ?? 0;
         const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : (pc - rc < 0) ? "—" : Math.max(1, pc - rc);
+        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
         const parts = [];
         const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
         for (const [key, label] of Object.entries(abilityLabels)) {

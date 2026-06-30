@@ -1,10 +1,29 @@
 import { test as base, expect } from '@playwright/test';
 
 export const test = base.extend({
-  foundryPage: async ({ page }, use) => {
+  foundryPage: [async ({ browser }, use) => {
+    const context = await browser.newContext({
+      viewport: { width: 1920, height: 1080 },
+      baseURL: 'http://localhost:30000',
+    });
+    const page = await context.newPage();
     await joinAsGamemaster(page);
     await use(page);
-  },
+    await context.close();
+  }, { scope: 'worker' }],
+
+  _autoCleanup: [async ({ foundryPage }, use, testInfo) => {
+    await ensureSession(foundryPage);
+    await use();
+    if (testInfo.status !== testInfo.expectedStatus) {
+      const screenshot = await foundryPage.screenshot();
+      await testInfo.attach('failure-screenshot', {
+        body: screenshot,
+        contentType: 'image/png',
+      });
+    }
+    await cleanupUIState(foundryPage);
+  }, { auto: true }],
 });
 
 async function joinAsGamemaster(page) {
@@ -48,10 +67,33 @@ async function joinAsGamemaster(page) {
 }
 
 async function waitForGameReady(page) {
-  // Wait for FoundryVTT's game object to be fully initialized
   await page.waitForFunction(() => {
     return window.game?.ready === true;
   }, { timeout: 60_000 });
+}
+
+async function ensureSession(page) {
+  try {
+    const isReady = await page.evaluate(() => window.game?.ready === true);
+    if (isReady && page.url().includes('/game')) return;
+  } catch {
+    // page in bad state
+  }
+  await joinAsGamemaster(page);
+}
+
+async function cleanupUIState(page) {
+  await page.evaluate(async () => {
+    Object.values(ui.windows).forEach(w => w.close());
+    document.querySelectorAll('#notifications li.notification').forEach(n => n.remove());
+    document.querySelectorAll('dialog[open]').forEach(d => d.close());
+    if (game.combat) await game.combat.delete();
+    game.user.targets.forEach(t => t.setTarget(false));
+    const ids = game.messages.contents.map(m => m.id);
+    if (ids.length) await ChatMessage.deleteDocuments(ids);
+    ui.sidebar?.activateTab?.('chat');
+  });
+  await page.waitForTimeout(300);
 }
 
 export { expect };

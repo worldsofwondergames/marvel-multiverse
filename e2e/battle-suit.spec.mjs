@@ -235,7 +235,7 @@ test.describe('Battle Suit Item Type', () => {
     expect(data.powerValue).toBe(2);
   });
 
-  test('power value is em dash when restrictions exceed powers', async ({ foundryPage }) => {
+  test('power value minimum is 1 when restrictions exceed powers', async ({ foundryPage }) => {
     const page = foundryPage;
     await createBattleSuitViaAPI(page, BATTLE_SUIT_NAME);
 
@@ -253,7 +253,7 @@ test.describe('Battle Suit Item Type', () => {
     await page.waitForTimeout(500);
 
     const data = await getBattleSuitData(page, BATTLE_SUIT_NAME);
-    expect(data.powerValue).toBe("—");
+    expect(data.powerValue).toBe(1);
   });
 
   test('can set ability modifiers and rank increase', async ({ foundryPage }) => {

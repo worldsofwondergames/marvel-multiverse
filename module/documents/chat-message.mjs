@@ -330,23 +330,13 @@ export class ChatMessageMarvel extends ChatMessage {
         );
         if (elementConfig.statusId) {
           for (const target of targets) {
-            await target.toggleStatusEffect(elementConfig.statusId, {
-              active: true,
-            });
-          }
-        }
-      }
-    }
-
-    if (fantastic && elementMatch) {
-      const elementConfig = MARVEL_MULTIVERSE.elements[elementMatch];
-      if (elementConfig) {
-        damageContent.push(
-          `<p><b>Fantastic Elemental Effect (${elementConfig.label}):</b> ${elementConfig.fantasticEffect}</p>`
-        );
-        if (elementConfig.statusId) {
-          for (const target of targets) {
             await target.toggleStatusEffect(elementConfig.statusId, { active: true });
+            const cdr = target.system.conditionDamageReduction ?? 0;
+            if (cdr > 0) {
+              damageContent.push(
+                `<p style="font-size:11px;color:#555;"><b>${target.name}</b> has Condition DR ${cdr}/turn</p>`
+              );
+            }
           }
         }
       }

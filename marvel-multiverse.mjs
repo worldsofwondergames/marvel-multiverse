@@ -2107,12 +2107,12 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       } else if (i.type === "iconicItem") {
         const pc = i.system.powers?.length ?? 0;
         const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : (pc - rc < 0) ? "—" : Math.max(1, pc - rc);
+        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
         const pc = i.system.powers?.length ?? 0;
         const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : (pc - rc < 0) ? "—" : Math.max(1, pc - rc);
+        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
         const parts = [];
         const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
         for (const [key, label] of Object.entries(abilityLabels)) {
@@ -2905,12 +2905,12 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       } else if (i.type === "iconicItem") {
         const pc = i.system.powers?.length ?? 0;
         const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : (pc - rc < 0) ? "—" : Math.max(1, pc - rc);
+        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
         const pc = i.system.powers?.length ?? 0;
         const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : (pc - rc < 0) ? "—" : Math.max(1, pc - rc);
+        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
         const parts = [];
         const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
         for (const [key, label] of Object.entries(abilityLabels)) {
@@ -3418,8 +3418,7 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
       const powersCount = context.system.powers?.length ?? 0;
       const restrictionsCount = context.system.restrictions?.length ?? 0;
-      const rawPV = powersCount - restrictionsCount;
-      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : rawPV < 0 ? "—" : Math.max(1, rawPV);
+      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
       context.sortedPowers = (context.system.powers ?? [])
         .map((p, idx) => ({ ...p, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
@@ -3446,8 +3445,7 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
       const powersCount = context.system.powers?.length ?? 0;
       const restrictionsCount = context.system.restrictions?.length ?? 0;
-      const rawPV = powersCount - restrictionsCount;
-      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : rawPV < 0 ? "—" : Math.max(1, rawPV);
+      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
       context.sortedPowers = (context.system.powers ?? [])
         .map((p, idx) => ({ ...p, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
@@ -4459,9 +4457,7 @@ class MarvelMultiverseIconicItem extends MarvelMultiverseItemBase {
     const powersCount = this.powers?.length ?? 0;
     const restrictionsCount = this.restrictions?.length ?? 0;
     if (powersCount === 0 && restrictionsCount === 0) return 0;
-    const raw = powersCount - restrictionsCount;
-    if (raw < 0) return "—";
-    return Math.max(1, raw);
+    return Math.max(1, powersCount - restrictionsCount);
   }
 }
 
@@ -4654,9 +4650,7 @@ class MarvelMultiverseBattleSuit extends MarvelMultiverseItemBase {
     const powersCount = this.powers?.length ?? 0;
     const restrictionsCount = this.restrictions?.length ?? 0;
     if (powersCount === 0 && restrictionsCount === 0) return 0;
-    const raw = powersCount - restrictionsCount;
-    if (raw < 0) return "—";
-    return Math.max(1, raw);
+    return Math.max(1, powersCount - restrictionsCount);
   }
 }
 

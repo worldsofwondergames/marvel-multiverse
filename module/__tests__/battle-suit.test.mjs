@@ -71,7 +71,7 @@ describe('MarvelMultiverseBattleSuit — powerValue', () => {
     expect(suit.powerValue).toBe(2);
   });
 
-  test('returns em dash when restrictions exceed powers', () => {
+  test('returns 1 when restrictions exceed powers (minimum PV is 1)', () => {
     const suit = makeBattleSuit(
       [{ id: '1', name: 'A', img: '' }],
       [
@@ -80,7 +80,7 @@ describe('MarvelMultiverseBattleSuit — powerValue', () => {
         { kind: 'use', name: 'R3', description: '' },
       ]
     );
-    expect(suit.powerValue).toBe("—");
+    expect(suit.powerValue).toBe(1);
   });
 
   test('returns 1 when powers equal restrictions', () => {

@@ -779,7 +779,7 @@ MARVEL_MULTIVERSE.vehicleSpeedLabels = {
 MARVEL_MULTIVERSE.elements = {
   air: { label: "Air", fantasticEffect: "Target is knocked prone for one round.", statusId: "prone" },
   chemical: { label: "Chemical", fantasticEffect: "The target is corroding.", statusId: "corroding" },
-  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round.", statusId: "exhaustion" },
+  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round.", statusId: "exhausted" },
   electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round.", statusId: "stunned" },
   energy: { label: "Energy", fantasticEffect: "Blinds target for one round.", statusId: "blinded" },
   fire: { label: "Fire", fantasticEffect: "Sets target ablaze.", statusId: "ablaze" },
@@ -873,6 +873,8 @@ MARVEL_MULTIVERSE.teamManeuvers = [
     ],
   },
 ];
+
+MARVEL_MULTIVERSE.namedTeamManeuvers = [];
 
 MARVEL_MULTIVERSE.sizeEffects = {
   microscopic: {
@@ -1268,24 +1270,60 @@ MARVEL_MULTIVERSE.sizeEffects = {
 };
 
 MARVEL_MULTIVERSE.conditionEffects = {
+  ablaze: {
+    name: "Ablaze",
+    disabled: false,
+    changes: [],
+    description:
+      "Loses 5 Health at end of each turn until death or condition ends. Smother by rolling on ground: Agility vs TN 10 (costs an action).",
+    transfer: true,
+    statuses: ["ablaze"],
+    flags: {},
+    turnDamage: 5,
+    timing: "end",
+  },
+  asleep: {
+    name: "Asleep",
+    disabled: false,
+    changes: [],
+    description:
+      "Cannot take any actions. All defenses reduced to 10. Melee attacks automatically hit. Wake up: Challenging check using resisted ability (Resilience for drugs, Vigilance for magic). Someone helping gives edge on the check.",
+    transfer: true,
+    statuses: ["asleep"],
+    flags: {},
+  },
+  bleeding: {
+    name: "Bleeding",
+    disabled: false,
+    changes: [],
+    description:
+      "Loses 5 Health at end of each turn until death or condition ends. Stop with Logic vs TN 10 (costs an action). Also ends when victim recovers 1+ Health.",
+    transfer: true,
+    statuses: ["bleeding"],
+    flags: {},
+    turnDamage: 5,
+    timing: "end",
+  },
   corroding: {
     name: "Corroding",
     disabled: false,
     changes: [],
     description:
-      "Character loses 5 Health at end of each of their turns. Ends on death or removal of corrosive chemical. Washed off with copious water.",
+      "Loses 5 Health at end of each turn until death or condition ends. Wash with copious water to remove.",
     transfer: true,
     statuses: ["corroding"],
     flags: {},
+    turnDamage: 5,
+    timing: "end",
   },
-  poisoned: {
-    name: "Poisoned",
+  exhausted: {
+    name: "Exhausted",
     disabled: false,
     changes: [],
     description:
-      "Resilience vs. TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+      "+5 to Focus cost of any powers with a Focus cost. Stacks +5 per additional 24 hours awake or exhausting influence. Penalty ignores Focus spending cap. Trouble on all actions. Ends after a good night's sleep.",
     transfer: true,
-    statuses: ["poisoned"],
+    statuses: ["exhausted"],
     flags: {},
   },
   infected: {
@@ -1297,6 +1335,18 @@ MARVEL_MULTIVERSE.conditionEffects = {
     transfer: true,
     statuses: ["infected"],
     flags: {},
+  },
+  poisoned: {
+    name: "Poisoned",
+    disabled: false,
+    changes: [],
+    description:
+      "Resilience vs TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+    transfer: true,
+    statuses: ["poisoned"],
+    flags: {},
+    turnCheck: { ability: "res", tn: 18 },
+    timing: "start",
   },
 };
 
@@ -2040,15 +2090,32 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       ])
     );
 
-    context.teamManeuverTypes = Object.fromEntries(
-      CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map((teamMan) => [
-        teamMan.maneuverType.toLowerCase(),
-        teamMan.maneuverType,
-      ])
-    );
+    const named = CONFIG.MARVEL_MULTIVERSE.namedTeamManeuvers;
+    const sources = [...new Set(named.map(m => m.source))];
+
+    context.teamManeuverOptions = {
+      generic: CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map(tm => ({
+        value: `generic:${tm.maneuverType.toLowerCase()}`,
+        label: tm.maneuverType,
+      })),
+      groups: sources.map(source => ({
+        label: named.find(m => m.source === source)?.sourceLabel || source,
+        options: named.filter(m => m.source === source)
+          .map(m => ({ value: `named:${m.key}`, label: `${m.team}: ${m.name}` })),
+      })),
+    };
+
+    const tm = context.system.teamManeuver;
+    context.teamManeuverSelected = tm.named
+      ? `named:${tm.named}`
+      : tm.maneuverType
+        ? `generic:${tm.maneuverType}`
+        : "";
+
     context.teamManeuverLevels = Object.fromEntries(
       [1, 2, 3].map((tml) => [tml, tml.toString()])
     );
+    context.showLevelPicker = !tm.named && !!tm.maneuverType;
 
     context.elements = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.elements).map((k) => [
@@ -2454,6 +2521,26 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     }
   }
 
+  async _updateObject(event, formData) {
+    const selection = formData["system.teamManeuver._selection"];
+    if (selection !== undefined) {
+      delete formData["system.teamManeuver._selection"];
+      if (selection.startsWith("generic:")) {
+        formData["system.teamManeuver.maneuverType"] = selection.slice(8);
+        formData["system.teamManeuver.named"] = "";
+      } else if (selection.startsWith("named:")) {
+        formData["system.teamManeuver.named"] = selection.slice(6);
+        formData["system.teamManeuver.maneuverType"] = "";
+        formData["system.teamManeuver.level"] = null;
+      } else {
+        formData["system.teamManeuver.maneuverType"] = "";
+        formData["system.teamManeuver.named"] = "";
+        formData["system.teamManeuver.level"] = null;
+      }
+    }
+    return super._updateObject(event, formData);
+  }
+
   /**
    * Handle clickable rolls.
    * @param {Event} event   The originating click event
@@ -2824,15 +2911,32 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       ])
     );
 
-    context.teamManeuverTypes = Object.fromEntries(
-      CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map((teamMan) => [
-        teamMan.maneuverType.toLowerCase(),
-        teamMan.maneuverType,
-      ])
-    );
+    const named = CONFIG.MARVEL_MULTIVERSE.namedTeamManeuvers;
+    const sources = [...new Set(named.map(m => m.source))];
+
+    context.teamManeuverOptions = {
+      generic: CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map(tm => ({
+        value: `generic:${tm.maneuverType.toLowerCase()}`,
+        label: tm.maneuverType,
+      })),
+      groups: sources.map(source => ({
+        label: named.find(m => m.source === source)?.sourceLabel || source,
+        options: named.filter(m => m.source === source)
+          .map(m => ({ value: `named:${m.key}`, label: `${m.team}: ${m.name}` })),
+      })),
+    };
+
+    const tm = context.system.teamManeuver;
+    context.teamManeuverSelected = tm.named
+      ? `named:${tm.named}`
+      : tm.maneuverType
+        ? `generic:${tm.maneuverType}`
+        : "";
+
     context.teamManeuverLevels = Object.fromEntries(
       [1, 2, 3].map((tml) => [tml, tml.toString()])
     );
+    context.showLevelPicker = !tm.named && !!tm.maneuverType;
 
     context.elements = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.elements).map((k) => [
@@ -4100,6 +4204,12 @@ class MarvelMultiverseActorBase extends foundry.abstract
       this.abilities.agl.defense = this.abilities.mle.defense;
     }
 
+    if (this.parent?.statuses?.has("asleep")) {
+      for (const key in this.abilities) {
+        this.abilities[key].defense = 10;
+      }
+    }
+
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
     this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
@@ -4162,7 +4272,8 @@ class MarvelMultiverseCharacter extends MarvelMultiverseActorBase {
 
     schema.teamManeuver = new fields.SchemaField({
       maneuverType: new fields.StringField({ required: true, blank: true }),
-      level: new fields.NumberField({ min: 1, max: 3, integer: true }),
+      level: new fields.NumberField({ min: 1, max: 3, integer: true, nullable: true }),
+      named: new fields.StringField({ required: false, blank: true }),
     });
 
     return schema;
@@ -4221,6 +4332,12 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
     const hasBrawling = this.parent?.items?.some(i => i.type === "power" && i.name === "Brawling");
     if (hasBrawling && this.abilities.mle.defense > this.abilities.agl.defense) {
       this.abilities.agl.defense = this.abilities.mle.defense;
+    }
+
+    if (this.parent?.statuses?.has("asleep")) {
+      for (const key in this.abilities) {
+        this.abilities[key].defense = 10;
+      }
     }
 
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
@@ -5380,12 +5497,13 @@ Hooks.once("init", () => {
   // Replace Foundry defaults with only MMRPG-valid status effects
   const mmrpgStatuses = [
     { id: "ablaze", name: "Ablaze", img: "icons/svg/fire.svg" },
+    { id: "asleep", name: "Asleep", img: "icons/svg/sleep.svg" },
     { id: "bleeding", name: "Bleeding", img: "systems/marvel-multiverse/icons/statuses/bleeding.svg" },
     { id: "blinded", name: "Blinded", img: "systems/marvel-multiverse/icons/statuses/blinded.svg" },
     { id: "corroding", name: "Corroding", img: "icons/svg/acid.svg" },
     { id: "deafened", name: "Deafened", img: "systems/marvel-multiverse/icons/statuses/deafened.svg" },
     { id: "encumbered", name: "Encumbered", img: "systems/marvel-multiverse/icons/statuses/encumbered.svg" },
-    { id: "exhaustion", name: "Exhaustion", img: "systems/marvel-multiverse/icons/statuses/exhaustion.svg" },
+    { id: "exhausted", name: "Exhausted", img: "systems/marvel-multiverse/icons/statuses/exhaustion.svg" },
     { id: "flying", name: "Flying", img: "systems/marvel-multiverse/icons/statuses/flying.svg" },
     { id: "frightened", name: "Frightened", img: "systems/marvel-multiverse/icons/statuses/frightened.svg" },
     { id: "grappled", name: "Grappled", img: "systems/marvel-multiverse/icons/statuses/grappled.svg" },
@@ -5437,6 +5555,116 @@ Hooks.once("init", () => {
 
   // Preload Handlebars templates.
   return preloadHandlebarsTemplates();
+});
+
+/* -------------------------------------------- */
+/*  Condition Automation Hooks                  */
+/* -------------------------------------------- */
+
+function _getConditionDamage(actor) {
+  const conditions = MARVEL_MULTIVERSE.conditionEffects;
+  let totalDamage = 0;
+  const active = [];
+  for (const [id, cfg] of Object.entries(conditions)) {
+    if (cfg.timing !== "end" || !cfg.turnDamage) continue;
+    if (!actor.statuses?.has(id)) continue;
+    active.push({ id, name: cfg.name, damage: cfg.turnDamage });
+    totalDamage += cfg.turnDamage;
+  }
+  return { active, totalDamage };
+}
+
+function _getWhisperRecipients(actor) {
+  const ids = new Set();
+  for (const user of game.users) {
+    if (user.isGM) ids.add(user.id);
+    if (actor.testUserPermission(user, "OWNER")) ids.add(user.id);
+  }
+  return Array.from(ids);
+}
+
+async function _processEndOfTurn(combatant) {
+  const actor = combatant?.actor;
+  if (!actor) return;
+  const { active, totalDamage } = _getConditionDamage(actor);
+  if (active.length === 0) return;
+  const conditionDR = actor.system.conditionDamageReduction ?? 0;
+  const damageAfterDR = Math.max(0, totalDamage - conditionDR);
+  const oldHealth = actor.system.health.value;
+  if (damageAfterDR > 0) {
+    await actor.update({ "system.health.value": oldHealth - damageAfterDR });
+  }
+  const lines = active.map(c => `<b>${c.name}:</b> ${c.damage} damage`);
+  let summary = lines.join("<br>");
+  if (conditionDR > 0) {
+    summary += `<br><b>Total:</b> ${totalDamage} | <b>Condition DR:</b> ${conditionDR} | <b>Damage taken:</b> ${damageAfterDR}`;
+  }
+  summary += `<br><b>Health:</b> ${oldHealth} → ${oldHealth - damageAfterDR}`;
+  await ChatMessage.create({
+    content: `<div class="marvel-multiverse condition-alert"><h4>Condition Damage: ${actor.name}</h4><p>${summary}</p></div>`,
+    whisper: _getWhisperRecipients(actor),
+    speaker: ChatMessage.getSpeaker({ actor }),
+  });
+}
+
+async function _processStartOfTurn(combatant) {
+  const actor = combatant?.actor;
+  if (!actor) return;
+  if (!actor.statuses?.has("poisoned")) return;
+  const cfg = MARVEL_MULTIVERSE.conditionEffects.poisoned;
+  const { ability, tn } = cfg.turnCheck;
+  const abilityValue = actor.system.abilities[ability]?.value ?? 0;
+  const roll = new CONFIG.Dice.MarvelMultiverseRoll(
+    `{1d6,1dm,1d6}+${abilityValue}`,
+    actor.getRollData(),
+  );
+  await roll.evaluate();
+  const total = roll.total;
+  const isFantastic = roll.isFantastic;
+  const success = isFantastic || total >= tn;
+  const abilityLabel = game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[ability]) ?? ability;
+  let resultText;
+  if (isFantastic) {
+    resultText = "<b>Fantastic!</b> Poison cleared!";
+    await actor.toggleStatusEffect("poisoned", { active: false });
+  } else if (success) {
+    resultText = "<b>Success</b> — fine this turn.";
+  } else {
+    resultText = "<b>Failed</b> — loses 1 Health.";
+    await actor.update({ "system.health.value": actor.system.health.value - 1 });
+  }
+  await roll.toMessage({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    flavor: `Poison Check: ${abilityLabel} vs TN ${tn}`,
+  }, { rollMode: "publicroll" });
+  await ChatMessage.create({
+    content: `<div class="marvel-multiverse condition-alert"><h4>Poison Check: ${actor.name}</h4><p>${abilityLabel} vs TN ${tn}: <b>${total}</b></p><p>${resultText}</p></div>`,
+    whisper: _getWhisperRecipients(actor),
+    speaker: ChatMessage.getSpeaker({ actor }),
+  });
+}
+
+function _getPreviousCombatant(combat) {
+  const combatants = combat.turns;
+  if (!combatants?.length) return null;
+  const prevIndex = (combat.turn === 0) ? combatants.length - 1 : combat.turn - 1;
+  return combatants[prevIndex] ?? null;
+}
+
+Hooks.on("combatTurn", (combat) => {
+  const previous = _getPreviousCombatant(combat);
+  if (previous) _processEndOfTurn(previous);
+  const current = combat.combatant;
+  if (current) _processStartOfTurn(current);
+});
+
+Hooks.on("combatRound", (combat) => {
+  const combatants = combat.turns;
+  if (!combatants?.length) return;
+  const lastCombatant = combatants[combatants.length - 1];
+  if (lastCombatant) _processEndOfTurn(lastCombatant);
+  const current = combat.combatant;
+  if (current) _processStartOfTurn(current);
 });
 
 /* -------------------------------------------- */

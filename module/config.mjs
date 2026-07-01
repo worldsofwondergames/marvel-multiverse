@@ -183,7 +183,7 @@ MARVEL_MULTIVERSE.elements = {
   earth: {
     label: "Earth",
     fantasticEffect: "Target moves at half speed for one round.",
-    statusId: "exhaustion",
+    statusId: "exhausted",
   },
   electricity: {
     label: "Electricity",
@@ -723,24 +723,60 @@ MARVEL_MULTIVERSE.sizeEffects = {
 };
 
 MARVEL_MULTIVERSE.conditionEffects = {
+  ablaze: {
+    name: "Ablaze",
+    disabled: false,
+    changes: [],
+    description:
+      "Loses 5 Health at end of each turn until death or condition ends. Smother by rolling on ground: Agility vs TN 10 (costs an action).",
+    transfer: true,
+    statuses: ["ablaze"],
+    flags: {},
+    turnDamage: 5,
+    timing: "end",
+  },
+  asleep: {
+    name: "Asleep",
+    disabled: false,
+    changes: [],
+    description:
+      "Cannot take any actions. All defenses reduced to 10. Melee attacks automatically hit. Wake up: Challenging check using resisted ability (Resilience for drugs, Vigilance for magic). Someone helping gives edge on the check.",
+    transfer: true,
+    statuses: ["asleep"],
+    flags: {},
+  },
+  bleeding: {
+    name: "Bleeding",
+    disabled: false,
+    changes: [],
+    description:
+      "Loses 5 Health at end of each turn until death or condition ends. Stop with Logic vs TN 10 (costs an action). Also ends when victim recovers 1+ Health.",
+    transfer: true,
+    statuses: ["bleeding"],
+    flags: {},
+    turnDamage: 5,
+    timing: "end",
+  },
   corroding: {
     name: "Corroding",
     disabled: false,
     changes: [],
     description:
-      "Character loses 5 Health at end of each of their turns. Ends on death or removal of corrosive chemical. Washed off with copious water.",
+      "Loses 5 Health at end of each turn until death or condition ends. Wash with copious water to remove.",
     transfer: true,
     statuses: ["corroding"],
     flags: {},
+    turnDamage: 5,
+    timing: "end",
   },
-  poisoned: {
-    name: "Poisoned",
+  exhausted: {
+    name: "Exhausted",
     disabled: false,
     changes: [],
     description:
-      "Resilience vs. TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+      "+5 to Focus cost of any powers with a Focus cost. Stacks +5 per additional 24 hours awake or exhausting influence. Penalty ignores Focus spending cap. Trouble on all actions. Ends after a good night's sleep.",
     transfer: true,
-    statuses: ["poisoned"],
+    statuses: ["exhausted"],
     flags: {},
   },
   infected: {
@@ -752,6 +788,18 @@ MARVEL_MULTIVERSE.conditionEffects = {
     transfer: true,
     statuses: ["infected"],
     flags: {},
+  },
+  poisoned: {
+    name: "Poisoned",
+    disabled: false,
+    changes: [],
+    description:
+      "Resilience vs TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+    transfer: true,
+    statuses: ["poisoned"],
+    flags: {},
+    turnCheck: { ability: "res", tn: 18 },
+    timing: "start",
   },
 };
 

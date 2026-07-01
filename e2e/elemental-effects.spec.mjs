@@ -130,7 +130,7 @@ test.describe('Elemental Fantastic Effects', () => {
     const expectedMappings = {
       air: 'prone',
       chemical: 'corroding',
-      earth: 'exhaustion',
+      earth: 'exhausted',
       electricity: 'stunned',
       energy: 'blinded',
       fire: 'ablaze',

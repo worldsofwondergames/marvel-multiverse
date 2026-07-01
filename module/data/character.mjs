@@ -7,7 +7,8 @@ export default class MarvelMultiverseCharacter extends MarvelMultiverseActorBase
 
     schema.teamManeuver = new fields.SchemaField({
       maneuverType: new fields.StringField({ required: true, blank: true }),
-      level: new fields.NumberField({ min: 1, max: 3, integer: true }),
+      level: new fields.NumberField({ min: 1, max: 3, integer: true, nullable: true }),
+      named: new fields.StringField({ required: false, blank: true }),
     });
 
     return schema;

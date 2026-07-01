@@ -70,15 +70,32 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
       ])
     );
 
-    context.teamManeuverTypes = Object.fromEntries(
-      CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map((teamMan) => [
-        teamMan.maneuverType.toLowerCase(),
-        teamMan.maneuverType,
-      ])
-    );
+    const named = CONFIG.MARVEL_MULTIVERSE.namedTeamManeuvers;
+    const sources = [...new Set(named.map(m => m.source))];
+
+    context.teamManeuverOptions = {
+      generic: CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map(tm => ({
+        value: `generic:${tm.maneuverType.toLowerCase()}`,
+        label: tm.maneuverType,
+      })),
+      groups: sources.map(source => ({
+        label: named.find(m => m.source === source)?.sourceLabel || source,
+        options: named.filter(m => m.source === source)
+          .map(m => ({ value: `named:${m.key}`, label: `${m.team}: ${m.name}` })),
+      })),
+    };
+
+    const tm = context.system.teamManeuver;
+    context.teamManeuverSelected = tm.named
+      ? `named:${tm.named}`
+      : tm.maneuverType
+        ? `generic:${tm.maneuverType}`
+        : "";
+
     context.teamManeuverLevels = Object.fromEntries(
       [1, 2, 3].map((tml) => [tml, tml.toString()])
     );
+    context.showLevelPicker = !tm.named && !!tm.maneuverType;
 
     context.elements = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.elements).map((k) => [

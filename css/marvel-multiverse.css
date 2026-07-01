@@ -1683,7 +1683,7 @@
   width: calc(100% - 3.5em);
 }
 
-.marvel-multiverse.sheet.actor .sheet-header .team-maneuver select:last-child {
+.marvel-multiverse.sheet.actor .sheet-header .team-maneuver select:last-child:not(:first-child) {
   width: 3em;
   float: right;
 }

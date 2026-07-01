@@ -44,7 +44,7 @@
       select:first-child:not(:last-child) {
         width: calc(100% - 3.5em);
       }
-      select:last-child {
+      select:last-child:not(:first-child) {
         width: 3em;
         float: right;
       }

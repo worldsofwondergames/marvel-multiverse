@@ -39,11 +39,13 @@
 
     .team-maneuver {
       select:first-child {
-        width: 9em;
-        float: left;
+        width: 100%;
+      }
+      select:first-child:not(:last-child) {
+        width: calc(100% - 3.5em);
       }
       select:last-child {
-        width: 1em;
+        width: 3em;
         float: right;
       }
     }

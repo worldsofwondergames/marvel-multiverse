@@ -128,16 +128,16 @@ test.describe('Condition Automation', () => {
 
     await page.evaluate(async () => {
       await game.combat.rollAll();
+      await game.combat.startCombat();
     });
     await page.waitForTimeout(2000);
 
-    await page.evaluate(async () => {
-      const firstCombatant = game.combat.combatant;
-      const actorA = game.actors.find(a => a.name === 'E2E Condition Actor A');
-      if (firstCombatant.actorId !== actorA.id) {
+    await page.evaluate(async (name) => {
+      const actorA = game.actors.find(a => a.name === name);
+      if (game.combat.combatant?.actorId !== actorA.id) {
         await game.combat.nextTurn();
       }
-    });
+    }, ACTOR_A);
     await page.waitForTimeout(1000);
     await clearChatMessages(page);
 
@@ -187,16 +187,16 @@ test.describe('Condition Automation', () => {
 
     await page.evaluate(async () => {
       await game.combat.rollAll();
+      await game.combat.startCombat();
     });
     await page.waitForTimeout(2000);
 
-    await page.evaluate(async () => {
-      const firstCombatant = game.combat.combatant;
-      const actorA = game.actors.find(a => a.name === 'E2E Condition Actor A');
-      if (firstCombatant.actorId !== actorA.id) {
+    await page.evaluate(async (name) => {
+      const actorA = game.actors.find(a => a.name === name);
+      if (game.combat.combatant?.actorId !== actorA.id) {
         await game.combat.nextTurn();
       }
-    });
+    }, ACTOR_A);
     await page.waitForTimeout(1000);
     await clearChatMessages(page);
 
@@ -249,16 +249,16 @@ test.describe('Condition Automation', () => {
 
     await page.evaluate(async () => {
       await game.combat.rollAll();
+      await game.combat.startCombat();
     });
     await page.waitForTimeout(2000);
 
-    await page.evaluate(async () => {
-      const firstCombatant = game.combat.combatant;
-      const actorA = game.actors.find(a => a.name === 'E2E Condition Actor A');
-      if (firstCombatant.actorId !== actorA.id) {
+    await page.evaluate(async (name) => {
+      const actorA = game.actors.find(a => a.name === name);
+      if (game.combat.combatant?.actorId !== actorA.id) {
         await game.combat.nextTurn();
       }
-    });
+    }, ACTOR_A);
     await page.waitForTimeout(1000);
     await clearChatMessages(page);
 
@@ -304,16 +304,16 @@ test.describe('Condition Automation', () => {
 
     await page.evaluate(async () => {
       await game.combat.rollAll();
+      await game.combat.startCombat();
     });
     await page.waitForTimeout(2000);
 
-    await page.evaluate(async () => {
-      const actorA = game.actors.find(a => a.name === 'E2E Condition Actor A');
-      const firstCombatant = game.combat.combatant;
-      if (firstCombatant.actorId !== actorA.id) {
+    await page.evaluate(async (name) => {
+      const actorA = game.actors.find(a => a.name === name);
+      if (game.combat.combatant?.actorId !== actorA.id) {
         await game.combat.nextTurn();
       }
-    });
+    }, ACTOR_A);
     await page.waitForTimeout(3000);
 
     // Check that a poison check chat message was posted

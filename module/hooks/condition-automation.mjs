@@ -108,31 +108,17 @@ async function processStartOfTurn(combatant) {
   });
 }
 
-function getPreviousCombatant(combat) {
-  const combatants = combat.turns;
-  if (!combatants?.length) return null;
-  const prevIndex = (combat.turn === 0)
-    ? combatants.length - 1
-    : combat.turn - 1;
-  return combatants[prevIndex] ?? null;
-}
-
 export function registerConditionAutomation() {
-  Hooks.on("combatTurn", (combat, updateData, updateOptions) => {
-    const previous = getPreviousCombatant(combat);
-    if (previous) processEndOfTurn(previous);
-
-    const current = combat.combatant;
-    if (current) processStartOfTurn(current);
-  });
-
-  Hooks.on("combatRound", (combat, updateData, updateOptions) => {
-    const combatants = combat.turns;
-    if (!combatants?.length) return;
-
-    const lastCombatant = combatants[combatants.length - 1];
-    if (lastCombatant) processEndOfTurn(lastCombatant);
-
+  Hooks.on("updateCombat", (combat, changed, options, userId) => {
+    if (!game.user.isGM) return;
+    if (!("turn" in changed) && !("round" in changed)) return;
+    if (combat.previous.round === 0) {
+      const current = combat.combatant;
+      if (current) processStartOfTurn(current);
+      return;
+    }
+    const prevCombatant = combat.turns[combat.previous.turn];
+    if (prevCombatant) processEndOfTurn(prevCombatant);
     const current = combat.combatant;
     if (current) processStartOfTurn(current);
   });

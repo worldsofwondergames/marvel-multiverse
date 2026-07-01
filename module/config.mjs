@@ -325,6 +325,90 @@ MARVEL_MULTIVERSE.teamManeuvers = [
       },
     ],
   },
+  {
+    maneuverType: "Alpha Flight",
+    levels: [
+      {
+        level: 2,
+        cost: "—",
+        rankAvg: [2, 6],
+        description:
+          "Need a Hand, Bub? (Offensive): Wolverine (Logan) makes a surprise appearance and joins the team for the rest of this fight. He's passing through on a separate mission and has to leave immediately afterward. (Once per adventure.)",
+      },
+    ],
+  },
+  {
+    maneuverType: "Exiles",
+    levels: [
+      {
+        level: 2,
+        cost: "—",
+        rankAvg: [2, 6],
+        description:
+          "Outta Here! (Defensive): If the team has a Tallus, it realizes that the team members are overmatched and spontaneously transports them back to the Crystal Palace.",
+      },
+    ],
+  },
+  {
+    maneuverType: "Marauders",
+    levels: [
+      {
+        level: 1,
+        cost: "—",
+        rankAvg: [1, 6],
+        description:
+          "Boarding Action (Offensive): Each team member gets an additional movement action for free this round.",
+      },
+    ],
+  },
+  {
+    maneuverType: "New Mutants",
+    levels: [
+      {
+        level: 2,
+        cost: "—",
+        rankAvg: [2, 6],
+        description:
+          "Lessons Learned (Rally): Each team member can check an additional box on the Schooling Advancement Chart at the end of this adventure. A character can only benefit from this once until they gain a rank.",
+      },
+    ],
+  },
+  {
+    maneuverType: "X-Factor",
+    levels: [
+      {
+        level: 1,
+        cost: "—",
+        rankAvg: [1, 6],
+        description:
+          "Get a Clue (Rally): Each team member has an edge on checks made while looking for clues or asking people questions. This lasts for one hour or until they leave the vicinity.",
+      },
+    ],
+  },
+  {
+    maneuverType: "X-Force",
+    levels: [
+      {
+        level: 2,
+        cost: "—",
+        rankAvg: [2, 6],
+        description:
+          "Gloves Off (Offensive): Any damaging attack the team members make this round automatically causes bleeding, no matter what kind of attack it is.",
+      },
+    ],
+  },
+  {
+    maneuverType: "X-Men",
+    levels: [
+      {
+        level: 3,
+        cost: "—",
+        rankAvg: [3, 6],
+        description:
+          "Instant Comeback (Rally): A single member of the team who has been killed in this battle is immediately resurrected at the end of this round with full Health and Focus and with all of their memories intact. If they have a means of returning to the team, they can do so right away.",
+      },
+    ],
+  },
 ];
 
 MARVEL_MULTIVERSE.sizeEffects = {

@@ -5864,8 +5864,20 @@ Hooks.once("ready", () => {
     const btn = e.target.closest(".chat-message [data-context-menu]");
     if (!btn) return;
     e.preventDefault();
+    e.stopImmediatePropagation();
     const msgEl = btn.closest(".message[data-message-id]");
-    if (msgEl) msgEl.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: e.clientX, clientY: e.clientY, view: window }));
+    if (!msgEl) return;
+    if (msgEl.querySelector("nav#context-menu")) {
+      ui.context?.close();
+      msgEl.classList.remove("context");
+      return;
+    }
+    ui.context?.close();
+    const CM = foundry.applications.ux.ContextMenu.implementation ?? ContextMenu;
+    const menuItems = ui.chat._getEntryContextOptions();
+    const ctx = new CM(msgEl.closest(".chat-log"), ".message[data-message-id]", menuItems, { jQuery: false });
+    ui.context = ctx;
+    ctx.render(msgEl, { event: e });
   });
 });
 /* -------------------------------------------- */

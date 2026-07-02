@@ -1,0 +1,56 @@
+<ol class="mm-item-list">
+  <li class="flexrow item mm-item-header">
+    <span>Equipment</span>
+    <hr />
+    <div class="item-controls">
+      <a
+        class="item-control item-create"
+        title="{{localize 'DOCUMENT.Create' type="Item"}}"
+        data-type="equipment"
+      >
+        <i class="fas fa-plus"></i>
+      </a>
+    </div>
+  </li>
+  {{#each equipment as |item id|}}
+    <li class="flexrow item mm-item {{#if item.system.equipped}}mm-equipped{{/if}} {{#if item.system.ruined}}mm-ruined{{/if}}" data-item-id='{{item._id}}'>
+      <div class="item-name mm-item-name">
+        <a>
+          <span>{{item.name}}</span>
+          <span class="mm-item-subtext">
+            {{item.equipmentTypeLabel}}
+            {{#if (eq item.system.equipmentType "protection")}}
+              {{#if item.system.damageReduction}}— DR {{item.system.damageReduction}}{{/if}}
+              {{#if item.system.ruined}} (Ruined){{/if}}
+            {{/if}}
+            {{#if (eq item.system.equipmentType "grenade")}}
+              {{#if item.system.grenadeType}}— {{item.grenadeTypeLabel}}{{/if}}
+            {{/if}}
+            {{#if (eq item.system.equipmentType "gadget")}}
+              — HP {{item.system.gadgetHP}}/{{item.system.gadgetMaxHP}}
+            {{/if}}
+          </span>
+        </a>
+      </div>
+      <div class="mm-item-detail">
+        <a class="item-control equipment-equip-toggle" data-item-id="{{item._id}}" title="{{#if item.system.equipped}}Unequip{{else}}Equip{{/if}}">
+          <i class="fas {{#if item.system.equipped}}fa-toggle-on mm-equipped-icon{{else}}fa-toggle-off{{/if}}"></i>
+        </a>
+      </div>
+      <div class="item-controls">
+        <a
+          class="item-control item-edit"
+          title="{{localize 'DOCUMENT.Update' type="Item"}}"
+        >
+          <i class="fas fa-edit"></i>
+        </a>
+        <a
+          class="item-control item-delete"
+          title="{{localize 'DOCUMENT.Delete' type="Item"}}"
+        >
+          <i class="fas fa-trash"></i>
+        </a>
+      </div>
+    </li>
+  {{/each}}
+</ol>

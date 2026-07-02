@@ -152,6 +152,20 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
         .map((r, idx) => ({ ...r, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
     }
+    if (itemData.type === "equipment") {
+      context.equipmentTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.equipmentTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.equipmentTypes[k]),
+        ])
+      );
+      context.grenadeTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.grenadeTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.grenadeTypes[k]),
+        ])
+      );
+    }
     return context;
   }
 

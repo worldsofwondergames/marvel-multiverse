@@ -4711,6 +4711,63 @@ class MarvelMultiverseBattleSuit extends MarvelMultiverseItemBase {
   }
 }
 
+class MarvelMultiverseEquipment extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const requiredInteger = { required: true, nullable: false, integer: true };
+    const schema = super.defineSchema();
+
+    schema.equipmentType = new fields.StringField({
+      required: true,
+      initial: "protection",
+    });
+    schema.equipped = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+    schema.ruined = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+
+    schema.damageReduction = new fields.NumberField({
+      ...requiredInteger,
+      initial: 0,
+      min: 0,
+    });
+    schema.protectionNotes = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.grenadeType = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+    schema.grenadeEffect = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.gadgetHP = new fields.NumberField({
+      ...requiredInteger,
+      initial: 10,
+      min: 0,
+    });
+    schema.gadgetMaxHP = new fields.NumberField({
+      ...requiredInteger,
+      initial: 10,
+      min: 0,
+    });
+    schema.gadgetEffect = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    return schema;
+  }
+}
+
 class MarvelMultiversePowerSet extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
@@ -5385,6 +5442,7 @@ Hooks.once("init", () => {
     powerSet: MarvelMultiversePowerSet,
     restriction: MarvelMultiverseRestriction,
     battleSuit: MarvelMultiverseBattleSuit,
+    equipment: MarvelMultiverseEquipment,
     vehicleWeapon: MarvelMultiverseVehicleWeapon,
   };
 

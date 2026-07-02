@@ -16,3 +16,4 @@ export {default as MarvelMultiverseTrait} from "./trait.mjs";
 export {default as MarvelMultiversePower} from "./power.mjs";
 export {default as MarvelMultiverseRestriction} from "./restriction.mjs";
 export {default as MarvelMultiverseBattleSuit} from "./battle-suit.mjs";
+export {default as MarvelMultiverseEquipment} from "./equipment.mjs";

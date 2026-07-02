@@ -771,6 +771,19 @@ MARVEL_MULTIVERSE.mutantReputationLevels = {
   hated: { label: "Hated", effect: "Double Trouble" },
 };
 
+MARVEL_MULTIVERSE.equipmentTypes = {
+  protection: "MARVEL_MULTIVERSE.Equipment.Protection",
+  grenade: "MARVEL_MULTIVERSE.Equipment.Grenade.label",
+  gadget: "MARVEL_MULTIVERSE.Equipment.Gadget",
+};
+
+MARVEL_MULTIVERSE.grenadeTypes = {
+  explosive: "MARVEL_MULTIVERSE.Equipment.Grenade.Explosive",
+  flashbang: "MARVEL_MULTIVERSE.Equipment.Grenade.Flashbang",
+  gas: "MARVEL_MULTIVERSE.Equipment.Grenade.Gas",
+  smoke: "MARVEL_MULTIVERSE.Equipment.Grenade.Smoke",
+};
+
 // ASCII Artwork
 MARVEL_MULTIVERSE.ASCII = `
 =ccccc,      ,cccc       ccccc      ,cccc,  ?$$$$$$$,  ,ccc,   -ccc

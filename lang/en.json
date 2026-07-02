@@ -119,6 +119,17 @@
       "VehicleFull": "Vehicle is at passenger capacity"
     }
   },
+  "Equipment": {
+    "Protection": "Protection",
+    "Grenade": {
+      "label": "Grenade",
+      "Explosive": "Explosive",
+      "Flashbang": "Flashbang",
+      "Gas": "Gas",
+      "Smoke": "Smoke"
+    },
+    "Gadget": "Gadget"
+  },
   "InitiativeRoll": "Initiative Roll",
   "TYPES": {
     "Actor": {
@@ -138,6 +149,7 @@
       "iconicItem": "Iconic Item",
       "restriction": "Restriction",
       "battleSuit": "Battlesuit",
+      "equipment": "Equipment",
       "vehicleWeapon": "Vehicle Weapon"
     }
   }

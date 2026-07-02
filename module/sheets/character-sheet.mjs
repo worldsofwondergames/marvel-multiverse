@@ -529,7 +529,8 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
         label += `<br/>element: ${item.system.element}`;
       }
 
-      const speaker = ChatMessage.getSpeaker({ actor: this.actor });
+      const tokenDoc = this.actor.token ?? canvas.tokens?.controlled?.find(t => t.actor?.id === this.actor.id)?.document ?? this.actor.getActiveTokens()?.[0]?.document;
+      const speaker = ChatMessage.getSpeaker({ actor: this.actor, token: tokenDoc });
       const rollMode = game.settings.get("core", "rollMode");
 
       if (item?.system?.description) {

@@ -19,9 +19,18 @@ function _toTitleCase(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+function _getTokenDoc(actor) {
+  if (actor?.token) return actor.token;
+  const controlled = canvas.tokens?.controlled?.find(t => t.actor?.id === actor?.id);
+  if (controlled) return controlled.document;
+  const active = actor?.getActiveTokens?.()?.[0];
+  if (active) return active.document;
+  return null;
+}
+
 function _getTokenImg(actor) {
-  const activeToken = actor?.getActiveTokens?.()?.[0];
-  if (activeToken?.document?.texture?.src) return activeToken.document.texture.src;
+  const tokenDoc = _getTokenDoc(actor);
+  if (tokenDoc?.texture?.src) return tokenDoc.texture.src;
   const protoSrc = actor?.prototypeToken?.texture?.src;
   if (protoSrc && !protoSrc.includes("*")) return protoSrc;
   return actor?.img || "";
@@ -511,7 +520,7 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
    */
   async roll() {
     // Initialize chat data.
-    const speaker = ChatMessage.getSpeaker({ actor: this.actor });
+    const speaker = ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) });
     const rollMode = game.settings.get("core", "rollMode");
     const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
     const tokenImg = _getTokenImg(this.actor);
@@ -2576,7 +2585,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         element: elementKey,
       });
 
-      const speaker = ChatMessage.getSpeaker({ actor: this.actor });
+      const speaker = ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) });
       const rollMode = game.settings.get("core", "rollMode");
 
       if (item?.system?.description) {
@@ -3397,7 +3406,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       }
 
       const messageData = {
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        speaker: ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) }),
         flavor: npcFlavor,
         rollMode: game.settings.get("core", "rollMode"),
         title: title,
@@ -5828,9 +5837,6 @@ Hooks.on("renderChatMessage", (message, html) => {
 
   const metadata = header.querySelector(".message-metadata");
   if (metadata) metadata.style.cssText = "white-space:nowrap;flex-shrink:0;margin-left:auto;";
-
-  const allControls = header.querySelectorAll(".chat-control, [data-context-menu]");
-  allControls.forEach(el => el.style.cssText = "color:#fff;");
 
   const flavorInHeader = header.querySelector(".flavor-text");
   if (flavorInHeader) {

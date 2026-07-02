@@ -5849,6 +5849,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     img.style.cssText = "position:absolute;left:-7px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
     header.insertBefore(img, header.firstChild);
   }
+
 });
 
 /* -------------------------------------------- */
@@ -5858,6 +5859,15 @@ Hooks.on("renderChatMessage", (message, html) => {
 Hooks.once("ready", () => {
   // Wait to register hotbar drop hook on ready so that modules could register earlier if they want to
   Hooks.on("hotbarDrop", (bar, data, slot) => createItemMacro(data, slot));
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".chat-message [data-context-menu]");
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const msgEl = btn.closest(".message[data-message-id]");
+    if (msgEl) msgEl.dispatchEvent(new PointerEvent("contextmenu", { bubbles: true, clientX: e.clientX, clientY: e.clientY }));
+  });
 });
 /* -------------------------------------------- */
 /*  Render Settings Hook                                  */

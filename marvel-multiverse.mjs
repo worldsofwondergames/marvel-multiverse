@@ -776,6 +776,19 @@ MARVEL_MULTIVERSE.vehicleSpeedLabels = {
   swim: { label: "MARVEL_MULTIVERSE.Vehicle.NauticalSpeed" },
 };
 
+MARVEL_MULTIVERSE.equipmentTypes = {
+  protection: "MARVEL_MULTIVERSE.Equipment.Protection",
+  grenade: "MARVEL_MULTIVERSE.Equipment.Grenade.label",
+  gadget: "MARVEL_MULTIVERSE.Equipment.Gadget",
+};
+
+MARVEL_MULTIVERSE.grenadeTypes = {
+  explosive: "MARVEL_MULTIVERSE.Equipment.Grenade.Explosive",
+  flashbang: "MARVEL_MULTIVERSE.Equipment.Grenade.Flashbang",
+  gas: "MARVEL_MULTIVERSE.Equipment.Grenade.Gas",
+  smoke: "MARVEL_MULTIVERSE.Equipment.Grenade.Smoke",
+};
+
 MARVEL_MULTIVERSE.elements = {
   air: { label: "Air", fantasticEffect: "Target is knocked prone for one round.", statusId: "prone" },
   chemical: { label: "Chemical", fantasticEffect: "The target is corroding.", statusId: "corroding" },

@@ -15,6 +15,9 @@
 - Left-click support for three-dot context menu (Make Private / Delete)
 - Proper toggle behavior using v13 ContextMenu API
 
+### Status Effects Cleanup
+- Removed non-MMRPG status effects: Petrified, Silenced, Incapacitated
+
 ## 2.4.0
 
 ### Iconic Items & Battle Suits

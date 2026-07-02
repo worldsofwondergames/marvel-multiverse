@@ -5800,8 +5800,13 @@ Hooks.on("renderChatMessage", (message, html) => {
     if (!tokenImg) {
       const actor = game.actors?.get(speaker.actor);
       const activeToken = actor?.getActiveTokens?.()?.[0];
-      if (activeToken?.document?.texture?.src) tokenImg = activeToken.document.texture.src;
-      else tokenImg = actor?.prototypeToken?.texture?.src || actor?.img || "";
+      if (activeToken?.document?.texture?.src) {
+        tokenImg = activeToken.document.texture.src;
+      } else {
+        const protoSrc = actor?.prototypeToken?.texture?.src;
+        if (protoSrc && !protoSrc.includes("*")) tokenImg = protoSrc;
+        else tokenImg = actor?.img || "";
+      }
     }
   }
 
@@ -5809,11 +5814,11 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (!header) return;
 
   header.classList.add("mm-custom-header");
-  header.style.cssText = "background:#8b0502;padding:2px 8px;position:relative;overflow:visible;min-height:32px;align-items:center;flex-wrap:nowrap;display:flex;";
+  header.style.cssText = "background:#8b0502;padding:2px 8px;margin-left:3px;position:relative;overflow:visible;min-height:32px;align-items:center;flex-wrap:nowrap;display:flex;";
 
   const sender = header.querySelector(".message-sender");
   if (sender) {
-    sender.style.cssText = "color:#fff;font-weight:700;font-size:14px;white-space:nowrap;flex:1;padding-left:" + (tokenImg ? "39px" : "0") + ";";
+    sender.style.cssText = "color:#fff;font-weight:700;font-size:14px;white-space:nowrap;flex:1;padding-left:" + (tokenImg ? "29px" : "0") + ";";
     const nameEl = sender.querySelector(".title");
     if (nameEl) nameEl.style.color = "#fff";
   }
@@ -5825,7 +5830,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (metadata) metadata.style.cssText = "white-space:nowrap;flex-shrink:0;margin-left:auto;";
 
   const allControls = header.querySelectorAll(".chat-control, [data-context-menu]");
-  allControls.forEach(el => el.style.cssText = "display:none !important;");
+  allControls.forEach(el => el.style.cssText = "color:#fff;");
 
   const flavorInHeader = header.querySelector(".flavor-text");
   if (flavorInHeader) {
@@ -5835,7 +5840,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (tokenImg) {
     const img = document.createElement("img");
     img.src = tokenImg;
-    img.style.cssText = "position:absolute;left:1px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
+    img.style.cssText = "position:absolute;left:-7px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
     header.insertBefore(img, header.firstChild);
   }
 });

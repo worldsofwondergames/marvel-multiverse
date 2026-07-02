@@ -316,12 +316,12 @@ test.describe('Condition Automation', () => {
     }, ACTOR_A);
     await page.waitForTimeout(3000);
 
-    // Check that a poison check chat message was posted
-    const messages = await page.evaluate(() => {
-      return game.messages.contents.map(m => m.content);
+    // Check that a poison check chat message was posted (details are in flavor)
+    const flavors = await page.evaluate(() => {
+      return game.messages.contents.map(m => m.flavor);
     });
 
-    const poisonMsg = messages.find(m => m.includes('Poison Check'));
+    const poisonMsg = flavors.find(f => f && f.includes('Poison Check'));
     expect(poisonMsg).toBeDefined();
     expect(poisonMsg).toContain('Resilience');
     expect(poisonMsg).toContain('TN 18');

@@ -15,6 +15,21 @@ function getConditionDamage(actor) {
   return { active, totalDamage };
 }
 
+function getTokenImg(combatant, actor) {
+  const tokenDoc = combatant.token;
+  if (tokenDoc?.texture?.src) return tokenDoc.texture.src;
+  const activeToken = actor?.getActiveTokens?.()?.[0];
+  if (activeToken?.document?.texture?.src) return activeToken.document.texture.src;
+  const protoSrc = actor?.prototypeToken?.texture?.src;
+  if (protoSrc && !protoSrc.includes("*")) return protoSrc;
+  return actor?.img || "";
+}
+
+function buildConditionFlavor(tokenImg, detailHtml) {
+  const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
+  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;">${detailHtml}</div></div>`;
+}
+
 function getWhisperRecipients(actor) {
   const ids = new Set();
   for (const user of game.users) {
@@ -44,19 +59,25 @@ async function processEndOfTurn(combatant) {
   const healthBefore = actor.system.health.value + damageAfterDR;
   const healthAfter = actor.system.health.value;
 
-  let summary = lines.join("<br>");
+  let bodyLines = lines.join("<br>");
   if (conditionDR > 0) {
-    summary += `<br><b>Total:</b> ${totalDamage} | <b>Condition DR:</b> ${conditionDR} | <b>Damage taken:</b> ${damageAfterDR}`;
+    bodyLines += `<br><b>Condition DR:</b> -${conditionDR}`;
   }
-  summary += `<br><b>Health:</b> ${healthBefore} → ${healthAfter}`;
 
+  const tokenImg = getTokenImg(combatant, actor);
+  let detailHtml = active.map(c => `<div><b>${c.name}:</b> ${c.damage} damage</div>`).join("");
+  if (conditionDR > 0) {
+    detailHtml += `<div><b>Condition DR:</b> -${conditionDR}</div>`;
+  }
   await ChatMessage.create({
-    content: `<div class="marvel-multiverse condition-alert">
-      <h4>Condition Damage: ${actor.name}</h4>
-      <p>${summary}</p>
+    content: `<div class="marvel-multiverse dice-roll marvel-roll">
+      <div class="dice-result">
+        <h4 class="dice-total"><span>Health: ${healthBefore} → ${healthAfter}</span></h4>
+      </div>
     </div>`,
+    flavor: buildConditionFlavor(tokenImg, detailHtml),
     whisper: getWhisperRecipients(actor),
-    speaker: ChatMessage.getSpeaker({ actor }),
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
   });
 }
 
@@ -92,19 +113,24 @@ async function processStartOfTurn(combatant) {
     await actor.update({ "system.health.value": actor.system.health.value - 1 });
   }
 
+  const tokenImg = getTokenImg(combatant, actor);
+  const rollFlavor = buildConditionFlavor(tokenImg, `<div>Poison Check: ${abilityLabel} vs TN ${tn}</div>`);
+  const resultFlavor = buildConditionFlavor(tokenImg, `<div>${resultText}</div>`);
+
   await roll.toMessage({
-    speaker: ChatMessage.getSpeaker({ actor }),
-    flavor: `Poison Check: ${abilityLabel} vs TN ${tn}`,
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
+    flavor: rollFlavor,
   }, { rollMode: "publicroll" });
 
   await ChatMessage.create({
-    content: `<div class="marvel-multiverse condition-alert">
-      <h4>Poison Check: ${actor.name}</h4>
-      <p>${abilityLabel} vs TN ${tn}: <b>${total}</b></p>
-      <p>${resultText}</p>
+    content: `<div class="marvel-multiverse dice-roll marvel-roll">
+      <div class="dice-result">
+        <h4 class="dice-total"><span>${total}</span></h4>
+      </div>
     </div>`,
+    flavor: resultFlavor,
     whisper: getWhisperRecipients(actor),
-    speaker: ChatMessage.getSpeaker({ actor }),
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
   });
 }
 

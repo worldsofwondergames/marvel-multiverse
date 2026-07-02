@@ -5594,16 +5594,16 @@ async function _processEndOfTurn(combatant) {
   if (damageAfterDR > 0) {
     await actor.update({ "system.health.value": oldHealth - damageAfterDR });
   }
-  const lines = active.map(c => `<b>${c.name}:</b> ${c.damage} damage`);
-  let summary = lines.join("<br>");
-  if (conditionDR > 0) {
-    summary += `<br><b>Total:</b> ${totalDamage} | <b>Condition DR:</b> ${conditionDR} | <b>Damage taken:</b> ${damageAfterDR}`;
-  }
-  summary += `<br><b>Health:</b> ${oldHealth} → ${oldHealth - damageAfterDR}`;
+  const tokenImg = _getTokenImg(actor);
+  const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
+  let detailHtml = active.map(c => `<div><b>${c.name}:</b> ${c.damage} damage</div>`).join("");
+  if (conditionDR > 0) detailHtml += `<div><b>Condition DR:</b> -${conditionDR}</div>`;
+  const flavor = `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;">${detailHtml}</div></div>`;
   await ChatMessage.create({
-    content: `<div class="marvel-multiverse condition-alert"><h4>Condition Damage: ${actor.name}</h4><p>${summary}</p></div>`,
+    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>Health: ${oldHealth} → ${oldHealth - damageAfterDR}</span></h4></div></div>`,
+    flavor,
     whisper: _getWhisperRecipients(actor),
-    speaker: ChatMessage.getSpeaker({ actor }),
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
   });
 }
 
@@ -5633,14 +5633,19 @@ async function _processStartOfTurn(combatant) {
     resultText = "<b>Failed</b> — loses 1 Health.";
     await actor.update({ "system.health.value": actor.system.health.value - 1 });
   }
+  const tokenImg = _getTokenImg(actor);
+  const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
+  const rollFlavor = `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;"><div>Poison Check: ${abilityLabel} vs TN ${tn}</div></div></div>`;
+  const resultFlavor = `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;"><div>${resultText}</div></div></div>`;
   await roll.toMessage({
-    speaker: ChatMessage.getSpeaker({ actor }),
-    flavor: `Poison Check: ${abilityLabel} vs TN ${tn}`,
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
+    flavor: rollFlavor,
   }, { rollMode: "publicroll" });
   await ChatMessage.create({
-    content: `<div class="marvel-multiverse condition-alert"><h4>Poison Check: ${actor.name}</h4><p>${abilityLabel} vs TN ${tn}: <b>${total}</b></p><p>${resultText}</p></div>`,
+    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>${total}</span></h4></div></div>`,
+    flavor: resultFlavor,
     whisper: _getWhisperRecipients(actor),
-    speaker: ChatMessage.getSpeaker({ actor }),
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
   });
 }
 
@@ -5777,11 +5782,29 @@ function _configureFonts() {
 /* -------------------------------------------- */
 
 Hooks.on("renderChatMessage", (message, html) => {
-  const flavorEl = html.find ? html.find(".mm-roll-flavor") : html.querySelector?.(".mm-roll-flavor");
-  const flavor = flavorEl?.[0] ?? flavorEl;
-  if (!flavor) return;
+  const flavorEl = html.find ? html.find(".mm-roll-flavor")[0] : html.querySelector?.(".mm-roll-flavor");
 
-  const tokenImg = flavor.dataset.tokenImg;
+  const flavorText = html.find ? html.find(".flavor-text")[0] : html.querySelector?.(".flavor-text");
+  const isInitiative = !flavorEl && flavorText?.textContent?.includes("Initiative");
+
+  if (!flavorEl && !isInitiative) return;
+
+  let tokenImg;
+  if (flavorEl) {
+    tokenImg = flavorEl.dataset.tokenImg;
+  } else {
+    const speaker = message.speaker;
+    const scene = game.scenes?.get(speaker.scene);
+    const tokenDoc = scene?.tokens?.get(speaker.token);
+    tokenImg = tokenDoc?.texture?.src;
+    if (!tokenImg) {
+      const actor = game.actors?.get(speaker.actor);
+      const activeToken = actor?.getActiveTokens?.()?.[0];
+      if (activeToken?.document?.texture?.src) tokenImg = activeToken.document.texture.src;
+      else tokenImg = actor?.prototypeToken?.texture?.src || actor?.img || "";
+    }
+  }
+
   const header = html.find ? html.find(".message-header")[0] : html.querySelector(".message-header");
   if (!header) return;
 
@@ -5812,7 +5835,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (tokenImg) {
     const img = document.createElement("img");
     img.src = tokenImg;
-    img.style.cssText = "position:absolute;left:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
+    img.style.cssText = "position:absolute;left:1px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
     header.insertBefore(img, header.firstChild);
   }
 });

@@ -5864,9 +5864,8 @@ Hooks.once("ready", () => {
     const btn = e.target.closest(".chat-message [data-context-menu]");
     if (!btn) return;
     e.preventDefault();
-    e.stopPropagation();
     const msgEl = btn.closest(".message[data-message-id]");
-    if (msgEl) msgEl.dispatchEvent(new PointerEvent("contextmenu", { bubbles: true, clientX: e.clientX, clientY: e.clientY }));
+    if (msgEl) msgEl.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: e.clientX, clientY: e.clientY, view: window }));
   });
 });
 /* -------------------------------------------- */

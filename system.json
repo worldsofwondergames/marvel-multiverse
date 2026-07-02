@@ -25,7 +25,7 @@
             "thumbnail": "systems/marvel-multiverse/ui/official/mmrpg-setup-thumbnail.png"
         }
     ],
-    "version": "2.4.0",
+    "version": "2.4.1",
     "compatibility": {
         "minimum": 13,
         "verified": "13"

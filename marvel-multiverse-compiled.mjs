@@ -5860,25 +5860,19 @@ Hooks.once("ready", () => {
   // Wait to register hotbar drop hook on ready so that modules could register earlier if they want to
   Hooks.on("hotbarDrop", (bar, data, slot) => createItemMacro(data, slot));
 
-  document.addEventListener("click", (e) => {
-    const btn = e.target.closest(".chat-message [data-context-menu]");
-    if (!btn) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    const msgEl = btn.closest(".message[data-message-id]");
-    if (!msgEl) return;
-    if (msgEl.querySelector("nav#context-menu")) {
-      ui.context?.close();
-      msgEl.classList.remove("context");
-      return;
-    }
-    ui.context?.close();
+  const chatLog = document.querySelector("ol.chat-log");
+  if (chatLog) {
     const CM = foundry.applications.ux.ContextMenu.implementation ?? ContextMenu;
     const menuItems = ui.chat._getEntryContextOptions();
-    const ctx = new CM(msgEl.closest(".chat-log"), ".message[data-message-id]", menuItems, { jQuery: false });
-    ui.context = ctx;
-    ctx.render(msgEl, { event: e });
-  });
+    const clickCtx = new CM(chatLog, ".message[data-message-id]", menuItems, { eventName: "mmclick", jQuery: false });
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".chat-message [data-context-menu]");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      clickCtx._onActivate(e);
+    });
+  }
 });
 /* -------------------------------------------- */
 /*  Render Settings Hook                                  */

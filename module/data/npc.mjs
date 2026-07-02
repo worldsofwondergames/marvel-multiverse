@@ -53,6 +53,12 @@ export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       this.abilities.agl.defense = this.abilities.mle.defense;
     }
 
+    if (this.parent?.statuses?.has("asleep")) {
+      for (const key in this.abilities) {
+        this.abilities[key].defense = 10;
+      }
+    }
+
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
     this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 

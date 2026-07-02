@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2.4.1
+
+### Condition Automation
+- Asleep and Exhausted conditions with Active Effects
+- Turn-based condition damage via updateCombat hook with reliable turn tracking
+
+### Chat Message Styling
+- Dark red header with circular token image and white token name
+- Chat messages now display token name instead of actor/sheet name for linked tokens
+- White three-dot context menu controls on dark red header
+
+### Context Menu Improvements
+- Left-click support for three-dot context menu (Make Private / Delete)
+- Proper toggle behavior using v13 ContextMenu API
+
+### Status Effects Cleanup
+- Removed non-MMRPG status effects: Petrified, Silenced, Incapacitated
+
 ## 2.4.0
 
 ### Iconic Items & Battle Suits

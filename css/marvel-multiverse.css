@@ -241,6 +241,11 @@
   background: #e5e5e6;
 }
 
+.mm-custom-header .chat-control,
+.mm-custom-header .chat-control i {
+  color: #fff !important;
+}
+
 #chat-form textarea {
   background: #fff2ec;
 }

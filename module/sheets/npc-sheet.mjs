@@ -524,8 +524,9 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
         this.actor.getRollData()
       );
 
+      const tokenDoc = this.actor.token ?? canvas.tokens?.controlled?.find(t => t.actor?.id === this.actor.id)?.document ?? this.actor.getActiveTokens()?.[0]?.document;
       roll.toMessage({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        speaker: ChatMessage.getSpeaker({ actor: this.actor, token: tokenDoc }),
         flavor: label,
         rollMode: game.settings.get("core", "rollMode"),
         title: title,

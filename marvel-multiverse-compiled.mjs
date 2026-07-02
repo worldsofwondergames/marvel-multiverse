@@ -19,9 +19,18 @@ function _toTitleCase(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+function _getTokenDoc(actor) {
+  if (actor?.token) return actor.token;
+  const controlled = canvas.tokens?.controlled?.find(t => t.actor?.id === actor?.id);
+  if (controlled) return controlled.document;
+  const active = actor?.getActiveTokens?.()?.[0];
+  if (active) return active.document;
+  return null;
+}
+
 function _getTokenImg(actor) {
-  const activeToken = actor?.getActiveTokens?.()?.[0];
-  if (activeToken?.document?.texture?.src) return activeToken.document.texture.src;
+  const tokenDoc = _getTokenDoc(actor);
+  if (tokenDoc?.texture?.src) return tokenDoc.texture.src;
   const protoSrc = actor?.prototypeToken?.texture?.src;
   if (protoSrc && !protoSrc.includes("*")) return protoSrc;
   return actor?.img || "";
@@ -511,7 +520,7 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
    */
   async roll() {
     // Initialize chat data.
-    const speaker = ChatMessage.getSpeaker({ actor: this.actor });
+    const speaker = ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) });
     const rollMode = game.settings.get("core", "rollMode");
     const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
     const tokenImg = _getTokenImg(this.actor);
@@ -779,7 +788,7 @@ MARVEL_MULTIVERSE.vehicleSpeedLabels = {
 MARVEL_MULTIVERSE.elements = {
   air: { label: "Air", fantasticEffect: "Target is knocked prone for one round.", statusId: "prone" },
   chemical: { label: "Chemical", fantasticEffect: "The target is corroding.", statusId: "corroding" },
-  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round.", statusId: "exhaustion" },
+  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round.", statusId: "exhausted" },
   electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round.", statusId: "stunned" },
   energy: { label: "Energy", fantasticEffect: "Blinds target for one round.", statusId: "blinded" },
   fire: { label: "Fire", fantasticEffect: "Sets target ablaze.", statusId: "ablaze" },
@@ -873,6 +882,8 @@ MARVEL_MULTIVERSE.teamManeuvers = [
     ],
   },
 ];
+
+MARVEL_MULTIVERSE.namedTeamManeuvers = [];
 
 MARVEL_MULTIVERSE.sizeEffects = {
   microscopic: {
@@ -1268,24 +1279,60 @@ MARVEL_MULTIVERSE.sizeEffects = {
 };
 
 MARVEL_MULTIVERSE.conditionEffects = {
+  ablaze: {
+    name: "Ablaze",
+    disabled: false,
+    changes: [],
+    description:
+      "Loses 5 Health at end of each turn until death or condition ends. Smother by rolling on ground: Agility vs TN 10 (costs an action).",
+    transfer: true,
+    statuses: ["ablaze"],
+    flags: {},
+    turnDamage: 5,
+    timing: "end",
+  },
+  asleep: {
+    name: "Asleep",
+    disabled: false,
+    changes: [],
+    description:
+      "Cannot take any actions. All defenses reduced to 10. Melee attacks automatically hit. Wake up: Challenging check using resisted ability (Resilience for drugs, Vigilance for magic). Someone helping gives edge on the check.",
+    transfer: true,
+    statuses: ["asleep"],
+    flags: {},
+  },
+  bleeding: {
+    name: "Bleeding",
+    disabled: false,
+    changes: [],
+    description:
+      "Loses 5 Health at end of each turn until death or condition ends. Stop with Logic vs TN 10 (costs an action). Also ends when victim recovers 1+ Health.",
+    transfer: true,
+    statuses: ["bleeding"],
+    flags: {},
+    turnDamage: 5,
+    timing: "end",
+  },
   corroding: {
     name: "Corroding",
     disabled: false,
     changes: [],
     description:
-      "Character loses 5 Health at end of each of their turns. Ends on death or removal of corrosive chemical. Washed off with copious water.",
+      "Loses 5 Health at end of each turn until death or condition ends. Wash with copious water to remove.",
     transfer: true,
     statuses: ["corroding"],
     flags: {},
+    turnDamage: 5,
+    timing: "end",
   },
-  poisoned: {
-    name: "Poisoned",
+  exhausted: {
+    name: "Exhausted",
     disabled: false,
     changes: [],
     description:
-      "Resilience vs. TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+      "+5 to Focus cost of any powers with a Focus cost. Stacks +5 per additional 24 hours awake or exhausting influence. Penalty ignores Focus spending cap. Trouble on all actions. Ends after a good night's sleep.",
     transfer: true,
-    statuses: ["poisoned"],
+    statuses: ["exhausted"],
     flags: {},
   },
   infected: {
@@ -1297,6 +1344,18 @@ MARVEL_MULTIVERSE.conditionEffects = {
     transfer: true,
     statuses: ["infected"],
     flags: {},
+  },
+  poisoned: {
+    name: "Poisoned",
+    disabled: false,
+    changes: [],
+    description:
+      "Resilience vs TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+    transfer: true,
+    statuses: ["poisoned"],
+    flags: {},
+    turnCheck: { ability: "res", tn: 18 },
+    timing: "start",
   },
 };
 
@@ -2040,15 +2099,32 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       ])
     );
 
-    context.teamManeuverTypes = Object.fromEntries(
-      CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map((teamMan) => [
-        teamMan.maneuverType.toLowerCase(),
-        teamMan.maneuverType,
-      ])
-    );
+    const named = CONFIG.MARVEL_MULTIVERSE.namedTeamManeuvers;
+    const sources = [...new Set(named.map(m => m.source))];
+
+    context.teamManeuverOptions = {
+      generic: CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map(tm => ({
+        value: `generic:${tm.maneuverType.toLowerCase()}`,
+        label: tm.maneuverType,
+      })),
+      groups: sources.map(source => ({
+        label: named.find(m => m.source === source)?.sourceLabel || source,
+        options: named.filter(m => m.source === source)
+          .map(m => ({ value: `named:${m.key}`, label: `${m.team}: ${m.name}` })),
+      })),
+    };
+
+    const tm = context.system.teamManeuver;
+    context.teamManeuverSelected = tm.named
+      ? `named:${tm.named}`
+      : tm.maneuverType
+        ? `generic:${tm.maneuverType}`
+        : "";
+
     context.teamManeuverLevels = Object.fromEntries(
       [1, 2, 3].map((tml) => [tml, tml.toString()])
     );
+    context.showLevelPicker = !tm.named && !!tm.maneuverType;
 
     context.elements = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.elements).map((k) => [
@@ -2454,6 +2530,26 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     }
   }
 
+  async _updateObject(event, formData) {
+    const selection = formData["system.teamManeuver._selection"];
+    if (selection !== undefined) {
+      delete formData["system.teamManeuver._selection"];
+      if (selection.startsWith("generic:")) {
+        formData["system.teamManeuver.maneuverType"] = selection.slice(8);
+        formData["system.teamManeuver.named"] = "";
+      } else if (selection.startsWith("named:")) {
+        formData["system.teamManeuver.named"] = selection.slice(6);
+        formData["system.teamManeuver.maneuverType"] = "";
+        formData["system.teamManeuver.level"] = null;
+      } else {
+        formData["system.teamManeuver.maneuverType"] = "";
+        formData["system.teamManeuver.named"] = "";
+        formData["system.teamManeuver.level"] = null;
+      }
+    }
+    return super._updateObject(event, formData);
+  }
+
   /**
    * Handle clickable rolls.
    * @param {Event} event   The originating click event
@@ -2489,7 +2585,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         element: elementKey,
       });
 
-      const speaker = ChatMessage.getSpeaker({ actor: this.actor });
+      const speaker = ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) });
       const rollMode = game.settings.get("core", "rollMode");
 
       if (item?.system?.description) {
@@ -2824,15 +2920,32 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       ])
     );
 
-    context.teamManeuverTypes = Object.fromEntries(
-      CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map((teamMan) => [
-        teamMan.maneuverType.toLowerCase(),
-        teamMan.maneuverType,
-      ])
-    );
+    const named = CONFIG.MARVEL_MULTIVERSE.namedTeamManeuvers;
+    const sources = [...new Set(named.map(m => m.source))];
+
+    context.teamManeuverOptions = {
+      generic: CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map(tm => ({
+        value: `generic:${tm.maneuverType.toLowerCase()}`,
+        label: tm.maneuverType,
+      })),
+      groups: sources.map(source => ({
+        label: named.find(m => m.source === source)?.sourceLabel || source,
+        options: named.filter(m => m.source === source)
+          .map(m => ({ value: `named:${m.key}`, label: `${m.team}: ${m.name}` })),
+      })),
+    };
+
+    const tm = context.system.teamManeuver;
+    context.teamManeuverSelected = tm.named
+      ? `named:${tm.named}`
+      : tm.maneuverType
+        ? `generic:${tm.maneuverType}`
+        : "";
+
     context.teamManeuverLevels = Object.fromEntries(
       [1, 2, 3].map((tml) => [tml, tml.toString()])
     );
+    context.showLevelPicker = !tm.named && !!tm.maneuverType;
 
     context.elements = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.elements).map((k) => [
@@ -3293,7 +3406,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       }
 
       const messageData = {
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        speaker: ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) }),
         flavor: npcFlavor,
         rollMode: game.settings.get("core", "rollMode"),
         title: title,
@@ -4100,6 +4213,12 @@ class MarvelMultiverseActorBase extends foundry.abstract
       this.abilities.agl.defense = this.abilities.mle.defense;
     }
 
+    if (this.parent?.statuses?.has("asleep")) {
+      for (const key in this.abilities) {
+        this.abilities[key].defense = 10;
+      }
+    }
+
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
     this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
 
@@ -4162,7 +4281,8 @@ class MarvelMultiverseCharacter extends MarvelMultiverseActorBase {
 
     schema.teamManeuver = new fields.SchemaField({
       maneuverType: new fields.StringField({ required: true, blank: true }),
-      level: new fields.NumberField({ min: 1, max: 3, integer: true }),
+      level: new fields.NumberField({ min: 1, max: 3, integer: true, nullable: true }),
+      named: new fields.StringField({ required: false, blank: true }),
     });
 
     return schema;
@@ -4221,6 +4341,12 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
     const hasBrawling = this.parent?.items?.some(i => i.type === "power" && i.name === "Brawling");
     if (hasBrawling && this.abilities.mle.defense > this.abilities.agl.defense) {
       this.abilities.agl.defense = this.abilities.mle.defense;
+    }
+
+    if (this.parent?.statuses?.has("asleep")) {
+      for (const key in this.abilities) {
+        this.abilities[key].defense = 10;
+      }
     }
 
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
@@ -5380,24 +5506,22 @@ Hooks.once("init", () => {
   // Replace Foundry defaults with only MMRPG-valid status effects
   const mmrpgStatuses = [
     { id: "ablaze", name: "Ablaze", img: "icons/svg/fire.svg" },
+    { id: "asleep", name: "Asleep", img: "icons/svg/sleep.svg" },
     { id: "bleeding", name: "Bleeding", img: "systems/marvel-multiverse/icons/statuses/bleeding.svg" },
     { id: "blinded", name: "Blinded", img: "systems/marvel-multiverse/icons/statuses/blinded.svg" },
     { id: "corroding", name: "Corroding", img: "icons/svg/acid.svg" },
     { id: "deafened", name: "Deafened", img: "systems/marvel-multiverse/icons/statuses/deafened.svg" },
     { id: "encumbered", name: "Encumbered", img: "systems/marvel-multiverse/icons/statuses/encumbered.svg" },
-    { id: "exhaustion", name: "Exhaustion", img: "systems/marvel-multiverse/icons/statuses/exhaustion.svg" },
+    { id: "exhausted", name: "Exhausted", img: "systems/marvel-multiverse/icons/statuses/exhaustion.svg" },
     { id: "flying", name: "Flying", img: "systems/marvel-multiverse/icons/statuses/flying.svg" },
     { id: "frightened", name: "Frightened", img: "systems/marvel-multiverse/icons/statuses/frightened.svg" },
     { id: "grappled", name: "Grappled", img: "systems/marvel-multiverse/icons/statuses/grappled.svg" },
-    { id: "incapacitated", name: "Incapacitated", img: "systems/marvel-multiverse/icons/statuses/incapacitated.svg" },
     { id: "infected", name: "Infected", img: "icons/svg/biohazard.svg" },
     { id: "invisible", name: "Invisible", img: "systems/marvel-multiverse/icons/statuses/invisible.svg" },
     { id: "paralyzed", name: "Paralyzed", img: "systems/marvel-multiverse/icons/statuses/paralyzed.svg" },
-    { id: "petrified", name: "Petrified", img: "systems/marvel-multiverse/icons/statuses/petrified.svg" },
     { id: "poisoned", name: "Poisoned", img: "icons/svg/poison.svg" },
     { id: "prone", name: "Prone", img: "systems/marvel-multiverse/icons/statuses/prone.svg" },
     { id: "restrained", name: "Restrained", img: "systems/marvel-multiverse/icons/statuses/restrained.svg" },
-    { id: "silenced", name: "Silenced", img: "systems/marvel-multiverse/icons/statuses/silenced.svg" },
     { id: "stunned", name: "Stunned", img: "systems/marvel-multiverse/icons/statuses/stunned.svg" },
     { id: "surprised", name: "Surprised", img: "systems/marvel-multiverse/icons/statuses/surprised.svg" },
     { id: "unconscious", name: "Unconscious", img: "icons/svg/unconscious.svg" },
@@ -5437,6 +5561,112 @@ Hooks.once("init", () => {
 
   // Preload Handlebars templates.
   return preloadHandlebarsTemplates();
+});
+
+/* -------------------------------------------- */
+/*  Condition Automation Hooks                  */
+/* -------------------------------------------- */
+
+function _getConditionDamage(actor) {
+  const conditions = MARVEL_MULTIVERSE.conditionEffects;
+  let totalDamage = 0;
+  const active = [];
+  for (const [id, cfg] of Object.entries(conditions)) {
+    if (cfg.timing !== "end" || !cfg.turnDamage) continue;
+    if (!actor.statuses?.has(id)) continue;
+    active.push({ id, name: cfg.name, damage: cfg.turnDamage });
+    totalDamage += cfg.turnDamage;
+  }
+  return { active, totalDamage };
+}
+
+function _getWhisperRecipients(actor) {
+  const ids = new Set();
+  for (const user of game.users) {
+    if (user.isGM) ids.add(user.id);
+    if (actor.testUserPermission(user, "OWNER")) ids.add(user.id);
+  }
+  return Array.from(ids);
+}
+
+async function _processEndOfTurn(combatant) {
+  const actor = combatant?.actor;
+  if (!actor) return;
+  const { active, totalDamage } = _getConditionDamage(actor);
+  if (active.length === 0) return;
+  const conditionDR = actor.system.conditionDamageReduction ?? 0;
+  const damageAfterDR = Math.max(0, totalDamage - conditionDR);
+  const oldHealth = actor.system.health.value;
+  if (damageAfterDR > 0) {
+    await actor.update({ "system.health.value": oldHealth - damageAfterDR });
+  }
+  const tokenImg = _getTokenImg(actor);
+  const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
+  let detailHtml = active.map(c => `<div><b>${c.name}:</b> ${c.damage} damage</div>`).join("");
+  if (conditionDR > 0) detailHtml += `<div><b>Condition DR:</b> -${conditionDR}</div>`;
+  const flavor = `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;">${detailHtml}</div></div>`;
+  await ChatMessage.create({
+    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>Health: ${oldHealth} → ${oldHealth - damageAfterDR}</span></h4></div></div>`,
+    flavor,
+    whisper: _getWhisperRecipients(actor),
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
+  });
+}
+
+async function _processStartOfTurn(combatant) {
+  const actor = combatant?.actor;
+  if (!actor) return;
+  if (!actor.statuses?.has("poisoned")) return;
+  const cfg = MARVEL_MULTIVERSE.conditionEffects.poisoned;
+  const { ability, tn } = cfg.turnCheck;
+  const abilityValue = actor.system.abilities[ability]?.value ?? 0;
+  const roll = new CONFIG.Dice.MarvelMultiverseRoll(
+    `{1d6,1dm,1d6}+${abilityValue}`,
+    actor.getRollData(),
+  );
+  await roll.evaluate();
+  const total = roll.total;
+  const isFantastic = roll.isFantastic;
+  const success = isFantastic || total >= tn;
+  const abilityLabel = game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[ability]) ?? ability;
+  let resultText;
+  if (isFantastic) {
+    resultText = "<b>Fantastic!</b> Poison cleared!";
+    await actor.toggleStatusEffect("poisoned", { active: false });
+  } else if (success) {
+    resultText = "<b>Success</b> — fine this turn.";
+  } else {
+    resultText = "<b>Failed</b> — loses 1 Health.";
+    await actor.update({ "system.health.value": actor.system.health.value - 1 });
+  }
+  const tokenImg = _getTokenImg(actor);
+  const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
+  const rollFlavor = `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;"><div>Poison Check: ${abilityLabel} vs TN ${tn}</div></div></div>`;
+  const resultFlavor = `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;"><div>${resultText}</div></div></div>`;
+  await roll.toMessage({
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
+    flavor: rollFlavor,
+  }, { rollMode: "publicroll" });
+  await ChatMessage.create({
+    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>${total}</span></h4></div></div>`,
+    flavor: resultFlavor,
+    whisper: _getWhisperRecipients(actor),
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
+  });
+}
+
+Hooks.on("updateCombat", (combat, changed, options, userId) => {
+  if (!game.user.isGM) return;
+  if (!("turn" in changed) && !("round" in changed)) return;
+  if (combat.previous.round === 0) {
+    const current = combat.combatant;
+    if (current) _processStartOfTurn(current);
+    return;
+  }
+  const prevCombatant = combat.turns[combat.previous.turn];
+  if (prevCombatant) _processEndOfTurn(prevCombatant);
+  const current = combat.combatant;
+  if (current) _processStartOfTurn(current);
 });
 
 /* -------------------------------------------- */
@@ -5558,20 +5788,43 @@ function _configureFonts() {
 /* -------------------------------------------- */
 
 Hooks.on("renderChatMessage", (message, html) => {
-  const flavorEl = html.find ? html.find(".mm-roll-flavor") : html.querySelector?.(".mm-roll-flavor");
-  const flavor = flavorEl?.[0] ?? flavorEl;
-  if (!flavor) return;
+  const flavorEl = html.find ? html.find(".mm-roll-flavor")[0] : html.querySelector?.(".mm-roll-flavor");
 
-  const tokenImg = flavor.dataset.tokenImg;
+  const flavorText = html.find ? html.find(".flavor-text")[0] : html.querySelector?.(".flavor-text");
+  const isInitiative = !flavorEl && flavorText?.textContent?.includes("Initiative");
+
+  if (!flavorEl && !isInitiative) return;
+
+  let tokenImg;
+  if (flavorEl) {
+    tokenImg = flavorEl.dataset.tokenImg;
+  } else {
+    const speaker = message.speaker;
+    const scene = game.scenes?.get(speaker.scene);
+    const tokenDoc = scene?.tokens?.get(speaker.token);
+    tokenImg = tokenDoc?.texture?.src;
+    if (!tokenImg) {
+      const actor = game.actors?.get(speaker.actor);
+      const activeToken = actor?.getActiveTokens?.()?.[0];
+      if (activeToken?.document?.texture?.src) {
+        tokenImg = activeToken.document.texture.src;
+      } else {
+        const protoSrc = actor?.prototypeToken?.texture?.src;
+        if (protoSrc && !protoSrc.includes("*")) tokenImg = protoSrc;
+        else tokenImg = actor?.img || "";
+      }
+    }
+  }
+
   const header = html.find ? html.find(".message-header")[0] : html.querySelector(".message-header");
   if (!header) return;
 
   header.classList.add("mm-custom-header");
-  header.style.cssText = "background:#8b0502;padding:2px 8px;position:relative;overflow:visible;min-height:32px;align-items:center;flex-wrap:nowrap;display:flex;";
+  header.style.cssText = "background:#8b0502;padding:2px 8px;margin-left:3px;position:relative;overflow:visible;min-height:32px;align-items:center;flex-wrap:nowrap;display:flex;";
 
   const sender = header.querySelector(".message-sender");
   if (sender) {
-    sender.style.cssText = "color:#fff;font-weight:700;font-size:14px;white-space:nowrap;flex:1;padding-left:" + (tokenImg ? "39px" : "0") + ";";
+    sender.style.cssText = "color:#fff;font-weight:700;font-size:14px;white-space:nowrap;flex:1;padding-left:" + (tokenImg ? "29px" : "0") + ";";
     const nameEl = sender.querySelector(".title");
     if (nameEl) nameEl.style.color = "#fff";
   }
@@ -5582,9 +5835,6 @@ Hooks.on("renderChatMessage", (message, html) => {
   const metadata = header.querySelector(".message-metadata");
   if (metadata) metadata.style.cssText = "white-space:nowrap;flex-shrink:0;margin-left:auto;";
 
-  const allControls = header.querySelectorAll(".chat-control, [data-context-menu]");
-  allControls.forEach(el => el.style.cssText = "display:none !important;");
-
   const flavorInHeader = header.querySelector(".flavor-text");
   if (flavorInHeader) {
     header.parentNode.insertBefore(flavorInHeader, header.nextSibling);
@@ -5593,9 +5843,10 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (tokenImg) {
     const img = document.createElement("img");
     img.src = tokenImg;
-    img.style.cssText = "position:absolute;left:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
+    img.style.cssText = "position:absolute;left:-7px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
     header.insertBefore(img, header.firstChild);
   }
+
 });
 
 /* -------------------------------------------- */
@@ -5605,6 +5856,20 @@ Hooks.on("renderChatMessage", (message, html) => {
 Hooks.once("ready", () => {
   // Wait to register hotbar drop hook on ready so that modules could register earlier if they want to
   Hooks.on("hotbarDrop", (bar, data, slot) => createItemMacro(data, slot));
+
+  const chatLog = document.querySelector("ol.chat-log");
+  if (chatLog) {
+    const CM = foundry.applications.ux.ContextMenu.implementation ?? ContextMenu;
+    const menuItems = ui.chat._getEntryContextOptions();
+    const clickCtx = new CM(chatLog, ".message[data-message-id]", menuItems, { eventName: "mmclick", jQuery: false });
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".chat-message [data-context-menu]");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      clickCtx._onActivate(e);
+    });
+  }
 });
 /* -------------------------------------------- */
 /*  Render Settings Hook                                  */

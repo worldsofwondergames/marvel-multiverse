@@ -74,7 +74,6 @@ export async function switchForm(currentActor, targetActorId) {
 
     const combatant = game.combat?.combatants?.find(c => c.tokenId === currentToken.id);
     const initiative = combatant?.initiative;
-    const isCurrent = game.combat?.combatant?.id === combatant?.id;
 
     await scene.deleteEmbeddedDocuments("Token", [currentToken.id]);
 

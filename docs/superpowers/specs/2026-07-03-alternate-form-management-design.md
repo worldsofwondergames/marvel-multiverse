@@ -86,7 +86,7 @@ alternateForms: new fields.ArrayField(new fields.SchemaField({
   }))
 }))
 
-primaryFormIdss: new fields.ArrayField(new fields.StringField({ required: true, blank: false }))
+primaryFormIds: new fields.ArrayField(new fields.StringField({ required: true, blank: false }))
 ```
 
 ### Config Enum

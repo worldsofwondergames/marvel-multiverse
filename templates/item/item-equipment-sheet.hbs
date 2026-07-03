@@ -25,7 +25,7 @@
           {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false editable=editable}}
         </div>
       </div>
-      <div class="mm-styled-field -sm">
+      <div class="mm-styled-field -fill">
         <label class="mm-styled-label -align-left"><span>Equipment Type</span></label>
         <div class="mm-styled-input">
           <select name="system.equipmentType">
@@ -64,7 +64,7 @@
 
       {{!-- Grenade Fields --}}
       {{#if (eq system.equipmentType "grenade")}}
-        <div class="mm-styled-field -sm">
+        <div class="mm-styled-field -fill">
           <label class="mm-styled-label -align-left"><span>Grenade Type</span></label>
           <div class="mm-styled-input">
             <select name="system.grenadeType">
@@ -94,6 +94,34 @@
           <label class="mm-styled-label -align-left"><span>Effect</span></label>
           <div class="mm-styled-input">
             <textarea name="system.gadgetEffect" data-dtype="String">{{system.gadgetEffect}}</textarea>
+          </div>
+        </div>
+      {{/if}}
+
+      {{!-- Device Fields --}}
+      {{#if (eq system.equipmentType "device")}}
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Effect/Properties</span></label>
+          <div class="mm-styled-input">
+            <textarea name="system.gadgetEffect" data-dtype="String">{{system.gadgetEffect}}</textarea>
+          </div>
+        </div>
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>HP</span></label>
+          <div class="mm-styled-input">
+            <input type="number" name="system.gadgetHP" value="{{system.gadgetHP}}" min="0" data-dtype="Number"/>
+            <span>/</span>
+            <input type="number" name="system.gadgetMaxHP" value="{{system.gadgetMaxHP}}" min="0" data-dtype="Number"/>
+          </div>
+        </div>
+      {{/if}}
+
+      {{!-- Material Fields --}}
+      {{#if (eq system.equipmentType "material")}}
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Properties</span></label>
+          <div class="mm-styled-input">
+            <input type="text" name="system.protectionNotes" value="{{system.protectionNotes}}" data-dtype="String"/>
           </div>
         </div>
       {{/if}}

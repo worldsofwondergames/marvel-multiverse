@@ -59,6 +59,10 @@ describe('MarvelMultiverseEquipment — defineSchema', () => {
   test('schema inherits ability from base', () => {
     expect(schema.ability).toBeDefined();
   });
+
+  test('schema includes source field', () => {
+    expect(schema.source).toBeDefined();
+  });
 });
 
 describe('MarvelMultiverseEquipment — constructor data assignment', () => {
@@ -109,5 +113,34 @@ describe('MarvelMultiverseEquipment — constructor data assignment', () => {
     expect(equipment.ruined).toBe(true);
     expect(equipment.equipped).toBe(true);
     expect(equipment.damageReduction).toBe(2);
+  });
+
+  test('accepts device data', () => {
+    const equipment = new MarvelMultiverseEquipment({
+      equipmentType: 'device',
+      gadgetEffect: 'Blocks telepathic intrusion',
+      gadgetHP: 5,
+      gadgetMaxHP: 5,
+    });
+    expect(equipment.equipmentType).toBe('device');
+    expect(equipment.gadgetEffect).toBe('Blocks telepathic intrusion');
+    expect(equipment.gadgetHP).toBe(5);
+  });
+
+  test('accepts material data', () => {
+    const equipment = new MarvelMultiverseEquipment({
+      equipmentType: 'material',
+      protectionNotes: 'Virtually indestructible',
+    });
+    expect(equipment.equipmentType).toBe('material');
+    expect(equipment.protectionNotes).toBe('Virtually indestructible');
+  });
+
+  test('accepts source field', () => {
+    const equipment = new MarvelMultiverseEquipment({
+      equipmentType: 'protection',
+      source: 'avengers-expansion',
+    });
+    expect(equipment.source).toBe('avengers-expansion');
   });
 });

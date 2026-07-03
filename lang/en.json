@@ -127,7 +127,9 @@
         "Gas": "Gas",
         "Smoke": "Smoke"
       },
-      "Gadget": "Gadget"
+      "Gadget": "Gadget",
+      "Device": "Device",
+      "Material": "Material"
     }
   },
   "InitiativeRoll": "Initiative Roll",

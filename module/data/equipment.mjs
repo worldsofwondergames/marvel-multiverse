@@ -40,7 +40,7 @@ export default class MarvelMultiverseEquipment extends MarvelMultiverseItemBase 
       blank: true,
     });
 
-    // Gadget fields
+    // Gadget / Device fields
     schema.gadgetHP = new fields.NumberField({
       ...requiredInteger,
       initial: 10,
@@ -55,6 +55,8 @@ export default class MarvelMultiverseEquipment extends MarvelMultiverseItemBase 
       required: true,
       blank: true,
     });
+
+    schema.source = new fields.StringField({ required: true, blank: true });
 
     return schema;
   }

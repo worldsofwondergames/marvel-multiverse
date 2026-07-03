@@ -780,6 +780,8 @@ MARVEL_MULTIVERSE.equipmentTypes = {
   protection: "MARVEL_MULTIVERSE.Equipment.Protection",
   grenade: "MARVEL_MULTIVERSE.Equipment.Grenade.label",
   gadget: "MARVEL_MULTIVERSE.Equipment.Gadget",
+  device: "MARVEL_MULTIVERSE.Equipment.Device",
+  material: "MARVEL_MULTIVERSE.Equipment.Material",
 };
 
 MARVEL_MULTIVERSE.grenadeTypes = {
@@ -4903,6 +4905,8 @@ class MarvelMultiverseEquipment extends MarvelMultiverseItemBase {
       required: true,
       blank: true,
     });
+
+    schema.source = new fields.StringField({ required: true, blank: true });
 
     return schema;
   }

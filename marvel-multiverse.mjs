@@ -785,6 +785,21 @@ MARVEL_MULTIVERSE.vehicleSpeedLabels = {
   swim: { label: "MARVEL_MULTIVERSE.Vehicle.NauticalSpeed" },
 };
 
+MARVEL_MULTIVERSE.equipmentTypes = {
+  protection: "MARVEL_MULTIVERSE.Equipment.Protection",
+  grenade: "MARVEL_MULTIVERSE.Equipment.Grenade.label",
+  gadget: "MARVEL_MULTIVERSE.Equipment.Gadget",
+  device: "MARVEL_MULTIVERSE.Equipment.Device",
+  material: "MARVEL_MULTIVERSE.Equipment.Material",
+};
+
+MARVEL_MULTIVERSE.grenadeTypes = {
+  explosive: "MARVEL_MULTIVERSE.Equipment.Grenade.Explosive",
+  flashbang: "MARVEL_MULTIVERSE.Equipment.Grenade.Flashbang",
+  gas: "MARVEL_MULTIVERSE.Equipment.Grenade.Gas",
+  smoke: "MARVEL_MULTIVERSE.Equipment.Grenade.Smoke",
+};
+
 MARVEL_MULTIVERSE.elements = {
   air: { label: "Air", fantasticEffect: "Target is knocked prone for one round.", statusId: "prone" },
   chemical: { label: "Chemical", fantasticEffect: "The target is corroding.", statusId: "corroding" },
@@ -2168,6 +2183,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     const traits = [];
     const tags = [];
     const powers = {};
+    const equipment = [];
 
     // Iterate through items, allocating to containers
     for (const i of context.items) {
@@ -2212,6 +2228,16 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
           : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
         if (!powers[firstSet]) powers[firstSet] = [];
         powers[firstSet].push(i);
+      } else if (i.type === "equipment") {
+        i.equipmentTypeLabel = game.i18n.localize(
+          CONFIG.MARVEL_MULTIVERSE.equipmentTypes[i.system.equipmentType] ?? ""
+        );
+        if (i.system.grenadeType) {
+          i.grenadeTypeLabel = game.i18n.localize(
+            CONFIG.MARVEL_MULTIVERSE.grenadeTypes[i.system.grenadeType] ?? ""
+          );
+        }
+        equipment.push(i);
       }
 
       // Assign and return
@@ -2233,6 +2259,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       }, 0), 0);
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
+      context.equipment = equipment;
     }
   }
 
@@ -2291,6 +2318,9 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       if (item?.type === "battleSuit" && item.system.equipped) {
         await this._removeBattleSuitEffects(itemId);
       }
+      if (item?.type === "equipment" && item.system.equipped) {
+        await this._removeEquipmentEffects(itemId);
+      }
       this.actor.deleteEmbeddedDocuments("Item", [itemId]);
       li.slideUp(200, () => this.render(false));
     });
@@ -2304,6 +2334,9 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
 
     // Battle suit equip toggle
     html.on("click", ".battlesuit-equip-toggle", this._onToggleBattleSuitEquip.bind(this));
+
+    // Equipment equip toggle
+    html.on("click", ".equipment-equip-toggle", this._onToggleEquipmentEquip.bind(this));
 
     // Active Effect management
     html.on("click", ".effect-control", (ev) => {
@@ -2528,6 +2561,44 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         flags: { "marvel-multiverse": { battleSuitId: item.id } }
       }, { parent: this.actor });
     }
+  }
+
+  async _onToggleEquipmentEquip(event) {
+    event.preventDefault();
+    const itemId = event.currentTarget.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    if (item.system.equipped) {
+      await this._removeEquipmentEffects(itemId);
+      await item.update({ "system.equipped": false });
+    } else {
+      await item.update({ "system.equipped": true });
+      if (item.system.equipmentType === "protection" && !item.system.ruined && item.system.damageReduction > 0) {
+        await this._applyEquipmentEffects(item);
+      }
+    }
+  }
+
+  async _removeEquipmentEffects(itemId) {
+    const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.equipmentId === itemId);
+    if (effects.length) {
+      await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
+    }
+  }
+
+  async _applyEquipmentEffects(item) {
+    const changes = [{
+      key: "system.healthDamageReduction",
+      mode: 2,
+      value: item.system.damageReduction.toString(),
+    }];
+    await ActiveEffect.create({
+      name: `Equipment: ${item.name}`,
+      icon: item.img,
+      changes: changes,
+      flags: { "marvel-multiverse": { equipmentId: item.id } },
+    }, { parent: this.actor });
   }
 
   async _updateObject(event, formData) {
@@ -2989,6 +3060,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     const tags = [];
     const weapons = [];
     const powers = {};
+    const equipment = [];
 
     // Iterate through items, allocating to containers
     for (const i of context.items) {
@@ -3037,6 +3109,16 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         gear.push(i);
       } else if (i.type === "weapon") {
         weapons.push(i);
+      } else if (i.type === "equipment") {
+        i.equipmentTypeLabel = game.i18n.localize(
+          CONFIG.MARVEL_MULTIVERSE.equipmentTypes[i.system.equipmentType] ?? ""
+        );
+        if (i.system.grenadeType) {
+          i.grenadeTypeLabel = game.i18n.localize(
+            CONFIG.MARVEL_MULTIVERSE.grenadeTypes[i.system.grenadeType] ?? ""
+          );
+        }
+        equipment.push(i);
       }
 
       // Assign and return
@@ -3054,6 +3136,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       context.origins = origins;
       context.occupations = occupations;
       context.weapons = weapons;
+      context.equipment = equipment;
     }
   }
 
@@ -3113,6 +3196,9 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       if (item?.type === "battleSuit" && item.system.equipped) {
         await this._removeBattleSuitEffects(itemId);
       }
+      if (item?.type === "equipment" && item.system.equipped) {
+        await this._removeEquipmentEffects(itemId);
+      }
       this.actor.deleteEmbeddedDocuments("Item", [itemId]);
       li.slideUp(200, () => this.render(false));
     });
@@ -3126,6 +3212,9 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
 
     // Battle suit equip toggle
     html.on("click", ".battlesuit-equip-toggle", this._onToggleBattleSuitEquip.bind(this));
+
+    // Equipment equip toggle
+    html.on("click", ".equipment-equip-toggle", this._onToggleEquipmentEquip.bind(this));
 
     // Active Effect management
     html.on("click", ".effect-control", (ev) => {
@@ -3344,6 +3433,44 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         flags: { "marvel-multiverse": { battleSuitId: item.id } }
       }, { parent: this.actor });
     }
+  }
+
+  async _onToggleEquipmentEquip(event) {
+    event.preventDefault();
+    const itemId = event.currentTarget.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    if (item.system.equipped) {
+      await this._removeEquipmentEffects(itemId);
+      await item.update({ "system.equipped": false });
+    } else {
+      await item.update({ "system.equipped": true });
+      if (item.system.equipmentType === "protection" && !item.system.ruined && item.system.damageReduction > 0) {
+        await this._applyEquipmentEffects(item);
+      }
+    }
+  }
+
+  async _removeEquipmentEffects(itemId) {
+    const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.equipmentId === itemId);
+    if (effects.length) {
+      await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
+    }
+  }
+
+  async _applyEquipmentEffects(item) {
+    const changes = [{
+      key: "system.healthDamageReduction",
+      mode: 2,
+      value: item.system.damageReduction.toString(),
+    }];
+    await ActiveEffect.create({
+      name: `Equipment: ${item.name}`,
+      icon: item.img,
+      changes: changes,
+      flags: { "marvel-multiverse": { equipmentId: item.id } },
+    }, { parent: this.actor });
   }
 
   /**
@@ -3565,6 +3692,20 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       context.sortedRestrictions = (context.system.restrictions ?? [])
         .map((r, idx) => ({ ...r, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    }
+    if (itemData.type === "equipment") {
+      context.equipmentTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.equipmentTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.equipmentTypes[k]),
+        ])
+      );
+      context.grenadeTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.grenadeTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.grenadeTypes[k]),
+        ])
+      );
     }
     if (itemData.type === "restriction") {
       context.restrictionKinds = Object.fromEntries(
@@ -3928,6 +4069,7 @@ const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-tags.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-traits.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-equipment.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-weapons.hbs",
     // Item partials
     "systems/marvel-multiverse/templates/item/parts/item-effects.hbs",
@@ -4780,6 +4922,65 @@ class MarvelMultiverseBattleSuit extends MarvelMultiverseItemBase {
   }
 }
 
+class MarvelMultiverseEquipment extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const requiredInteger = { required: true, nullable: false, integer: true };
+    const schema = super.defineSchema();
+
+    schema.equipmentType = new fields.StringField({
+      required: true,
+      initial: "protection",
+    });
+    schema.equipped = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+    schema.ruined = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+
+    schema.damageReduction = new fields.NumberField({
+      ...requiredInteger,
+      initial: 0,
+      min: 0,
+    });
+    schema.protectionNotes = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.grenadeType = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+    schema.grenadeEffect = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.gadgetHP = new fields.NumberField({
+      ...requiredInteger,
+      initial: 10,
+      min: 0,
+    });
+    schema.gadgetMaxHP = new fields.NumberField({
+      ...requiredInteger,
+      initial: 10,
+      min: 0,
+    });
+    schema.gadgetEffect = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.source = new fields.StringField({ required: true, blank: true });
+
+    return schema;
+  }
+}
+
 class MarvelMultiversePowerSet extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
@@ -5454,6 +5655,7 @@ Hooks.once("init", () => {
     powerSet: MarvelMultiversePowerSet,
     restriction: MarvelMultiverseRestriction,
     battleSuit: MarvelMultiverseBattleSuit,
+    equipment: MarvelMultiverseEquipment,
     vehicleWeapon: MarvelMultiverseVehicleWeapon,
   };
 

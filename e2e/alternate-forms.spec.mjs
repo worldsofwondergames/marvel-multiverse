@@ -3,13 +3,10 @@ import {
   dismissNotifications,
   createActorViaAPI,
   deleteActor,
-  getActorSystemData,
   createScene,
   activateScene,
   deleteScene,
   placeToken,
-  createCombat,
-  addToCombat,
   deleteCombat,
   setGameSetting,
 } from './helpers.mjs';
@@ -209,7 +206,7 @@ test.describe('Alternate Forms', () => {
         name: alternate.name,
         actorId: alternate.id,
         x, y, elevation, rotation,
-        texture: { src: alternate.img || 'icons/svg/mystery-man.svg' },
+        texture: { src: alternate.prototypeToken?.texture?.src || alternate.img || 'icons/svg/mystery-man.svg' },
       }]);
       if (combatant && newToken) {
         await combatant.update({ actorId: alternate.id, tokenId: newToken.id, initiative: savedInitiative });

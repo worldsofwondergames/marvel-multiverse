@@ -6221,6 +6221,100 @@ Hooks.once("init", () => {
   // Initialize Actor Directory Filters
   ActorDirectoryFilter.init();
 
+  // Add context menu for actor sidebar
+  Hooks.on("getActorDirectoryEntryContext", (html, options) => {
+    if (!game.settings.get("marvel-multiverse", "enableAlternateForms")) return;
+
+    options.push({
+      name: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
+      icon: '<i class="fas fa-exchange-alt"></i>',
+      condition: (li) => {
+        const actorId = li.data("documentId");
+        const actor = game.actors.get(actorId);
+        if (!actor) return false;
+        const forms = actor.system.alternateForms ?? [];
+        const primaryIds = actor.system.primaryFormIds ?? [];
+        return forms.length > 0 || primaryIds.length > 0;
+      },
+      callback: (li) => {
+        const actorId = li.data("documentId");
+        const actor = game.actors.get(actorId);
+        if (!actor) return;
+
+        const forms = actor.system.alternateForms ?? [];
+        const primaryIds = actor.system.primaryFormIds ?? [];
+        const targets = [];
+
+        for (const f of forms) {
+          const a = game.actors.get(f.actorId);
+          if (a) targets.push({ id: a.id, name: a.name });
+        }
+        for (const id of primaryIds) {
+          const a = game.actors.get(id);
+          if (a) targets.push({ id: a.id, name: a.name });
+        }
+
+        if (targets.length === 1) {
+          switchForm(actor, targets[0].id);
+        } else if (targets.length > 1) {
+          const buttons = {};
+          for (const t of targets) {
+            buttons[t.id] = { label: t.name, callback: () => switchForm(actor, t.id) };
+          }
+          new Dialog({
+            title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
+            content: "<p>Select a form to switch to:</p>",
+            buttons,
+          }).render(true);
+        }
+      },
+    });
+  });
+
+  // Add context menu for token HUD
+  Hooks.on("getTokenActionButtons", (token, buttons) => {
+    if (!game.settings.get("marvel-multiverse", "enableAlternateForms")) return;
+    const actor = token.actor;
+    if (!actor) return;
+
+    const forms = actor.system.alternateForms ?? [];
+    const primaryIds = actor.system.primaryFormIds ?? [];
+    if (forms.length === 0 && primaryIds.length === 0) return;
+
+    const targets = [];
+    for (const f of forms) {
+      const a = game.actors.get(f.actorId);
+      if (a) targets.push({ id: a.id, name: a.name, formData: f });
+    }
+    for (const id of primaryIds) {
+      const a = game.actors.get(id);
+      if (a) targets.push({ id: a.id, name: a.name });
+    }
+
+    for (const t of targets) {
+      buttons.push({
+        icon: "fas fa-exchange-alt",
+        label: `Switch to ${t.name}`,
+        onClick: () => switchForm(actor, t.id),
+      });
+    }
+
+    const triggersExist = forms.some(f => (f.triggers ?? []).length > 0);
+    if (triggersExist) {
+      for (const f of forms) {
+        const a = game.actors.get(f.actorId);
+        if (!a) continue;
+        for (const trigger of (f.triggers ?? [])) {
+          buttons.push({
+            icon: "fas fa-bolt",
+            label: `Trigger: ${trigger.description} → ${a.name}`,
+            onClick: () => handleInvoluntaryTrigger(actor, a.id, trigger),
+          });
+        }
+      }
+    }
+  });
+
   // Preload Handlebars templates.
   return preloadHandlebarsTemplates();
 });

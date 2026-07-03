@@ -130,6 +130,27 @@
       "Gadget": "Gadget",
       "Device": "Device",
       "Material": "Material"
+    },
+    "AlternateForm": {
+      "Cosmetic": "Cosmetic",
+      "PowerDown": "Power Down",
+      "PowerSwap": "Power Swap",
+      "SectionTitle": "Alternate Forms",
+      "AddForm": "Add Form",
+      "EditForm": "Edit Form",
+      "UnlinkForm": "Unlink Form",
+      "SwitchForm": "Switch Form",
+      "SwitchTo": "Switch to {name}",
+      "AlternateOf": "Alternate form of:",
+      "TriggerInvoluntary": "Trigger Involuntary Change",
+      "EgoCheckPrompt": "Make an Ego check (TN {tn}) to resist transforming into {name}?",
+      "EgoCheckSuccess": "{name} resists the transformation.",
+      "EgoCheckFailure": "{name} fails to resist and transforms!",
+      "TransformMessage": "{name} transforms into {form}.",
+      "Setting": {
+        "Enable": "Enable Alternate Forms",
+        "EnableHint": "Adds alternate form management to character sheets, allowing characters to link and switch between multiple forms."
+      }
     }
   },
   "InitiativeRoll": "Initiative Roll",

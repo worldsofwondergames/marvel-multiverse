@@ -800,6 +800,12 @@ MARVEL_MULTIVERSE.grenadeTypes = {
   smoke: "MARVEL_MULTIVERSE.Equipment.Grenade.Smoke",
 };
 
+MARVEL_MULTIVERSE.alternateFormTypes = {
+  cosmetic: "MARVEL_MULTIVERSE.AlternateForm.Cosmetic",
+  powerDown: "MARVEL_MULTIVERSE.AlternateForm.PowerDown",
+  powerSwap: "MARVEL_MULTIVERSE.AlternateForm.PowerSwap",
+};
+
 MARVEL_MULTIVERSE.elements = {
   air: { label: "Air", fantasticEffect: "Target is knocked prone for one round.", statusId: "prone" },
   chemical: { label: "Chemical", fantasticEffect: "The target is corroding.", statusId: "corroding" },
@@ -4297,6 +4303,20 @@ class MarvelMultiverseActorBase extends foundry.abstract
       initial: "world",
     });
 
+    schema.alternateForms = new fields.ArrayField(new fields.SchemaField({
+      actorId: new fields.StringField({ required: true, blank: false }),
+      formType: new fields.StringField({ required: true, initial: "powerDown" }),
+      triggers: new fields.ArrayField(new fields.SchemaField({
+        description: new fields.StringField({ required: true, blank: false }),
+        resistable: new fields.BooleanField({ initial: true }),
+        tn: new fields.NumberField({ required: true, initial: 0, integer: true, min: 0 }),
+      })),
+    }));
+
+    schema.primaryFormIds = new fields.ArrayField(
+      new fields.StringField({ required: true, blank: false })
+    );
+
     return schema;
   }
 
@@ -5687,6 +5707,15 @@ Hooks.once("init", () => {
     choices: Object.fromEntries(
       Object.entries(MARVEL_MULTIVERSE.mutantReputationLevels).map(([k, v]) => [k, `${v.label} (${v.effect})`])
     ),
+  });
+
+  game.settings.register("marvel-multiverse", "enableAlternateForms", {
+    name: "MARVEL_MULTIVERSE.AlternateForm.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.AlternateForm.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
   });
 
   // Active Effects are never copied to the Actor,

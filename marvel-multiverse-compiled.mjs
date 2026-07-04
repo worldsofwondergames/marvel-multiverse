@@ -466,7 +466,9 @@ const ITEM_DEFAULT_ICONS = {
   origin: "systems/marvel-multiverse/icons/origin.svg",
   powerSet: "icons/svg/card-hand.svg",
   power: "systems/marvel-multiverse/icons/super-powers.svg",
-  tag: "systems/marvel-multiverse/icons/tags.svg"
+  tag: "systems/marvel-multiverse/icons/tags.svg",
+  hqTag: "systems/marvel-multiverse/icons/tags.svg",
+  hqTrait: "systems/marvel-multiverse/icons/trait.svg"
 };
 
 let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
@@ -783,6 +785,27 @@ MARVEL_MULTIVERSE.vehicleSpeedLabels = {
   flight: { label: "MARVEL_MULTIVERSE.Vehicle.FlightSpeed" },
   climb: { label: "MARVEL_MULTIVERSE.Vehicle.ClimbSpeed" },
   swim: { label: "MARVEL_MULTIVERSE.Vehicle.NauticalSpeed" },
+};
+
+MARVEL_MULTIVERSE.equipmentTypes = {
+  protection: "MARVEL_MULTIVERSE.Equipment.Protection",
+  grenade: "MARVEL_MULTIVERSE.Equipment.Grenade.label",
+  gadget: "MARVEL_MULTIVERSE.Equipment.Gadget",
+  device: "MARVEL_MULTIVERSE.Equipment.Device",
+  material: "MARVEL_MULTIVERSE.Equipment.Material",
+};
+
+MARVEL_MULTIVERSE.grenadeTypes = {
+  explosive: "MARVEL_MULTIVERSE.Equipment.Grenade.Explosive",
+  flashbang: "MARVEL_MULTIVERSE.Equipment.Grenade.Flashbang",
+  gas: "MARVEL_MULTIVERSE.Equipment.Grenade.Gas",
+  smoke: "MARVEL_MULTIVERSE.Equipment.Grenade.Smoke",
+};
+
+MARVEL_MULTIVERSE.alternateFormTypes = {
+  cosmetic: "MARVEL_MULTIVERSE.AlternateForm.Cosmetic",
+  powerDown: "MARVEL_MULTIVERSE.AlternateForm.PowerDown",
+  powerSwap: "MARVEL_MULTIVERSE.AlternateForm.PowerSwap",
 };
 
 MARVEL_MULTIVERSE.elements = {
@@ -2018,6 +2041,98 @@ function prepareActiveEffectCategories(effects) {
   return categories;
 }
 
+function validateFormLink(primaryActor, alternateActor) {
+  if (primaryActor.id === alternateActor.id) {
+    return { valid: false, reason: "An actor cannot link to itself." };
+  }
+
+  const existingIds = (primaryActor.system.alternateForms ?? []).map(f => f.actorId);
+  if (existingIds.includes(alternateActor.id)) {
+    return { valid: false, reason: "This actor is already linked as an alternate form." };
+  }
+
+  if ((alternateActor.system.alternateForms ?? []).length > 0) {
+    return { valid: false, reason: "This actor already has its own alternate forms and cannot be an alternate." };
+  }
+
+  return { valid: true };
+}
+
+async function linkForm(primaryActor, alternateActorId, formType, triggers = []) {
+  const currentForms = foundry.utils.deepClone(primaryActor.system.alternateForms ?? []);
+  currentForms.push({ actorId: alternateActorId, formType, triggers });
+  await primaryActor.update({ "system.alternateForms": currentForms });
+
+  const alternateActor = game.actors.get(alternateActorId);
+  if (alternateActor) {
+    const currentPrimaryIds = [...(alternateActor.system.primaryFormIds ?? [])];
+    if (!currentPrimaryIds.includes(primaryActor.id)) {
+      currentPrimaryIds.push(primaryActor.id);
+      await alternateActor.update({ "system.primaryFormIds": currentPrimaryIds });
+    }
+  }
+}
+
+async function unlinkForm(primaryActor, alternateActorId) {
+  const currentForms = (primaryActor.system.alternateForms ?? [])
+    .filter(f => f.actorId !== alternateActorId);
+  await primaryActor.update({ "system.alternateForms": currentForms });
+
+  const alternateActor = game.actors.get(alternateActorId);
+  if (alternateActor) {
+    const currentPrimaryIds = (alternateActor.system.primaryFormIds ?? [])
+      .filter(id => id !== primaryActor.id);
+    await alternateActor.update({ "system.primaryFormIds": currentPrimaryIds });
+  }
+}
+
+async function switchForm(currentActor, targetActorId) {
+  const targetActor = game.actors.get(targetActorId);
+  if (!targetActor) {
+    ui.notifications.warn("Target form actor not found.");
+    return;
+  }
+
+  const scene = game.scenes.active;
+  const currentToken = scene?.tokens.find(t => t.actorId === currentActor.id);
+  if (currentToken) {
+    const { x, y, elevation, rotation } = currentToken;
+
+    const combatant = game.combat?.combatants?.find(c => c.tokenId === currentToken.id);
+    const initiative = combatant?.initiative;
+
+    await scene.deleteEmbeddedDocuments("Token", [currentToken.id]);
+
+    const protoData = targetActor.prototypeToken?.toObject?.() ?? {};
+    const [newToken] = await scene.createEmbeddedDocuments("Token", [{
+      ...protoData,
+      actorId: targetActor.id,
+      x, y, elevation, rotation,
+    }]);
+
+    if (combatant && game.combat && newToken) {
+      const updateData = { actorId: targetActor.id, tokenId: newToken.id };
+      if (initiative !== null && initiative !== undefined) {
+        updateData.initiative = initiative;
+      }
+      await combatant.update(updateData);
+    }
+  }
+
+  ChatMessage.create({
+    content: `<em>${game.i18n.format("MARVEL_MULTIVERSE.AlternateForm.TransformMessage", { name: currentActor.name, form: targetActor.name })}</em>`,
+    speaker: ChatMessage.getSpeaker({ actor: targetActor }),
+  });
+
+  const openSheet = Object.values(ui.windows).find(
+    w => w instanceof ActorSheet && w.actor?.id === currentActor.id
+  );
+  if (openSheet) {
+    await openSheet.close();
+    targetActor.sheet.render(true);
+  }
+}
+
 /**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
@@ -2147,6 +2262,46 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       this.actor.allApplicableEffects()
     );
 
+    context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
+    if (context.enableAlternateForms) {
+      const alternateForms = this.actor.system.alternateForms ?? [];
+      const primaryFormIds = this.actor.system.primaryFormIds ?? [];
+      const isPrimary = alternateForms.length > 0;
+      const isAlternate = primaryFormIds.length > 0;
+
+      const formTypeLabels = {
+        cosmetic: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.Cosmetic"),
+        powerDown: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerDown"),
+        powerSwap: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerSwap"),
+      };
+
+      const forms = alternateForms.map(f => {
+        const actor = game.actors.get(f.actorId);
+        const triggerSummary = f.triggers?.length
+          ? "Triggers: " + f.triggers.map(t => t.description).join(", ")
+          : "";
+        return {
+          ...f,
+          actor: actor ? { id: actor.id, name: actor.name, img: actor.img } : { id: f.actorId, name: "(Deleted)", img: "icons/svg/mystery-man.svg" },
+          formTypeLabel: formTypeLabels[f.formType] ?? f.formType,
+          triggerSummary,
+        };
+      });
+
+      const primaryActors = primaryFormIds.map(id => {
+        const actor = game.actors.get(id);
+        const formEntry = actor?.system.alternateForms?.find(f => f.actorId === this.actor.id);
+        return {
+          id,
+          name: actor?.name ?? "(Deleted)",
+          img: actor?.img ?? "icons/svg/mystery-man.svg",
+          formTypeLabel: formTypeLabels[formEntry?.formType] ?? "",
+        };
+      });
+
+      context.formData = { isPrimary, isAlternate, forms, primaryActors };
+    }
+
     return context;
   }
 
@@ -2168,6 +2323,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     const traits = [];
     const tags = [];
     const powers = {};
+    const equipment = [];
 
     // Iterate through items, allocating to containers
     for (const i of context.items) {
@@ -2212,6 +2368,16 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
           : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
         if (!powers[firstSet]) powers[firstSet] = [];
         powers[firstSet].push(i);
+      } else if (i.type === "equipment") {
+        i.equipmentTypeLabel = game.i18n.localize(
+          CONFIG.MARVEL_MULTIVERSE.equipmentTypes[i.system.equipmentType] ?? ""
+        );
+        if (i.system.grenadeType) {
+          i.grenadeTypeLabel = game.i18n.localize(
+            CONFIG.MARVEL_MULTIVERSE.grenadeTypes[i.system.grenadeType] ?? ""
+          );
+        }
+        equipment.push(i);
       }
 
       // Assign and return
@@ -2233,6 +2399,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       }, 0), 0);
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
+      context.equipment = equipment;
     }
   }
 
@@ -2291,6 +2458,9 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       if (item?.type === "battleSuit" && item.system.equipped) {
         await this._removeBattleSuitEffects(itemId);
       }
+      if (item?.type === "equipment" && item.system.equipped) {
+        await this._removeEquipmentEffects(itemId);
+      }
       this.actor.deleteEmbeddedDocuments("Item", [itemId]);
       li.slideUp(200, () => this.render(false));
     });
@@ -2304,6 +2474,9 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
 
     // Battle suit equip toggle
     html.on("click", ".battlesuit-equip-toggle", this._onToggleBattleSuitEquip.bind(this));
+
+    // Equipment equip toggle
+    html.on("click", ".equipment-equip-toggle", this._onToggleEquipmentEquip.bind(this));
 
     // Active Effect management
     html.on("click", ".effect-control", (ev) => {
@@ -2337,6 +2510,103 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         li.addEventListener("dragstart", handler, false);
       });
     }
+
+    // Alternate Forms
+    html.on("click", ".alternate-form-switch", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await switchForm(this.actor, targetActorId);
+    });
+
+    html.on("click", ".alternate-form-unlink", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await unlinkForm(this.actor, targetActorId);
+      this.render(false);
+    });
+
+    html.on("click", ".alternate-form-edit", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      const targetActor = game.actors.get(targetActorId);
+      if (targetActor) targetActor.sheet.render(true);
+    });
+
+    html.on("click", ".alternate-form-add", async () => {
+      this._onAddAlternateForm();
+    });
+  }
+
+  async _onAddAlternateForm() {
+    const formTypes = {};
+    for (const [key, label] of Object.entries(CONFIG.MARVEL_MULTIVERSE.alternateFormTypes)) {
+      formTypes[key] = game.i18n.localize(label);
+    }
+
+    const availableActors = game.actors.filter(a => {
+      if (a.id === this.actor.id) return false;
+      if (!["character", "npc"].includes(a.type)) return false;
+      if ((a.system.alternateForms ?? []).length > 0) return false;
+      return true;
+    });
+
+    const content = await renderTemplate(
+      "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
+      { availableActors, formTypes, triggers: [] }
+    );
+
+    new Dialog({
+      title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+      content,
+      buttons: {
+        add: {
+          icon: '<i class="fas fa-plus"></i>',
+          label: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+          callback: async (html) => {
+            const actorId = html.find('select[name="actorId"]').val();
+            const formType = html.find('select[name="formType"]').val();
+            if (!actorId) return;
+
+            const triggers = [];
+            html.find(".trigger-row").each((i, row) => {
+              const desc = $(row).find('input[name^="triggers"][name$=".description"]').val();
+              const resistable = $(row).find('input[name^="triggers"][name$=".resistable"]').is(":checked");
+              const tn = Number($(row).find('input[name^="triggers"][name$=".tn"]').val()) || 0;
+              if (desc) triggers.push({ description: desc, resistable, tn });
+            });
+
+            const alternateActor = game.actors.get(actorId);
+            const validation = validateFormLink(this.actor, alternateActor);
+            if (!validation.valid) {
+              ui.notifications.warn(validation.reason);
+              return;
+            }
+
+            await linkForm(this.actor, actorId, formType, triggers);
+            this.render(false);
+          },
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel",
+        },
+      },
+      default: "add",
+      render: (html) => {
+        html.find(".trigger-add").on("click", () => {
+          const list = html.find(".trigger-list");
+          const idx = list.find(".trigger-row").length;
+          list.append(`
+            <div class="trigger-row flexrow" data-index="${idx}">
+              <input type="text" name="triggers.${idx}.description" value="" placeholder="e.g., Anger, Full Moon" />
+              <label><input type="checkbox" name="triggers.${idx}.resistable" checked /> Resistable</label>
+              <input type="number" name="triggers.${idx}.tn" value="0" min="0" placeholder="TN" style="width:60px" />
+              <a class="trigger-remove" data-index="${idx}"><i class="fas fa-trash"></i></a>
+            </div>
+          `);
+        });
+        html.on("click", ".trigger-remove", (ev) => {
+          $(ev.currentTarget).closest(".trigger-row").remove();
+        });
+      },
+    }).render(true);
   }
 
   /**
@@ -2528,6 +2798,44 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         flags: { "marvel-multiverse": { battleSuitId: item.id } }
       }, { parent: this.actor });
     }
+  }
+
+  async _onToggleEquipmentEquip(event) {
+    event.preventDefault();
+    const itemId = event.currentTarget.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    if (item.system.equipped) {
+      await this._removeEquipmentEffects(itemId);
+      await item.update({ "system.equipped": false });
+    } else {
+      await item.update({ "system.equipped": true });
+      if (item.system.equipmentType === "protection" && !item.system.ruined && item.system.damageReduction > 0) {
+        await this._applyEquipmentEffects(item);
+      }
+    }
+  }
+
+  async _removeEquipmentEffects(itemId) {
+    const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.equipmentId === itemId);
+    if (effects.length) {
+      await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
+    }
+  }
+
+  async _applyEquipmentEffects(item) {
+    const changes = [{
+      key: "system.healthDamageReduction",
+      mode: 2,
+      value: item.system.damageReduction.toString(),
+    }];
+    await ActiveEffect.create({
+      name: `Equipment: ${item.name}`,
+      icon: item.img,
+      changes: changes,
+      flags: { "marvel-multiverse": { equipmentId: item.id } },
+    }, { parent: this.actor });
   }
 
   async _updateObject(event, formData) {
@@ -2838,6 +3146,124 @@ class MarvelMultiverseVehicleSheet extends ActorSheet {
   }
 }
 
+class MarvelMultiverseHeadquartersSheet extends ActorSheet {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      classes: ["marvel-multiverse", "sheet", "actor"],
+      width: 600,
+      height: 700,
+      tabs: [],
+    });
+  }
+
+  get template() {
+    return "systems/marvel-multiverse/templates/actor/actor-headquarters-sheet.hbs";
+  }
+
+  getData() {
+    const context = super.getData();
+    const actorData = context.data;
+    context.system = actorData.system;
+    context.flags = actorData.flags;
+    this._prepareItems(context);
+    this._prepareMembers(context);
+    context.rollData = context.actor.getRollData();
+    return context;
+  }
+
+  _prepareItems(context) {
+    const hqTags = [];
+    const hqTraits = [];
+    for (const i of context.items) {
+      i.img = i.img || Item.DEFAULT_ICON;
+      if (i.type === "hqTag") hqTags.push(i);
+      else if (i.type === "hqTrait") hqTraits.push(i);
+    }
+    hqTags.sort((a, b) => a.name.localeCompare(b.name));
+    hqTraits.sort((a, b) => a.name.localeCompare(b.name));
+    context.hqTags = hqTags;
+    context.hqTraits = hqTraits;
+  }
+
+  _prepareMembers(context) {
+    context.members = context.system.members.map(m => {
+      const actor = game.actors?.get(m.actorId);
+      return {
+        actorId: m.actorId,
+        name: actor?.name ?? m.name,
+        img: actor?.img ?? m.img,
+        rank: actor?.system?.attributes?.rank?.value ?? "?",
+      };
+    });
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    html.on("click", ".item-edit", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      const item = this.actor.items.get(li.data("itemId"));
+      item.sheet.render(true);
+    });
+    if (!this.isEditable) return;
+    html.on("click", ".item-delete", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      this.actor.deleteEmbeddedDocuments("Item", [li.data("itemId")]);
+      li.slideUp(200, () => this.render(false));
+    });
+    html.on("click", ".member-delete", this._onMemberDelete.bind(this));
+  }
+
+  async _onMemberDelete(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.dataset.index);
+    const members = foundry.utils.deepClone(this.actor.system.members);
+    members.splice(index, 1);
+    await this.actor.update({ "system.members": members });
+  }
+
+  async _onDropActor(event, data) {
+    if (!this.isEditable) return;
+    const actor = await Actor.implementation.fromDropData(data);
+    if (!actor) return;
+    if (!["character", "npc"].includes(actor.type)) {
+      ui.notifications.warn("Only characters and NPCs can be added as team members.");
+      return;
+    }
+    const members = foundry.utils.deepClone(this.actor.system.members);
+    if (members.some(m => m.actorId === actor.id)) {
+      ui.notifications.warn(`${actor.name} ${game.i18n.localize("MARVEL_MULTIVERSE.Headquarters.MemberAlreadyAdded")}`);
+      return;
+    }
+    members.push({ actorId: actor.id, name: actor.name, img: actor.img });
+    await this.actor.update({ "system.members": members });
+  }
+
+  async _onDropItemCreate(itemData) {
+    const allowedTypes = ["hqTag", "hqTrait"];
+    const items = Array.isArray(itemData) ? itemData : [itemData];
+    for (const item of items) {
+      if (!allowedTypes.includes(item.type)) {
+        ui.notifications.warn(`Headquarters cannot hold ${item.type} items.`);
+        return;
+      }
+      if (item.type === "hqTag") {
+        const incomingIncompat = (item.system?.incompatible ?? "").split(",").map(s => s.trim()).filter(Boolean);
+        const existingTags = this.actor.items.filter(i => i.type === "hqTag");
+        for (const existing of existingTags) {
+          const existingIncompat = (existing.system?.incompatible ?? "").split(",").map(s => s.trim()).filter(Boolean);
+          if (incomingIncompat.includes(existing.name) || existingIncompat.includes(item.name)) {
+            ui.notifications.warn(
+              `${item.name} ${game.i18n.localize("MARVEL_MULTIVERSE.Headquarters.IncompatibleTag")} ${existing.name}.`
+            );
+            return;
+          }
+        }
+      }
+    }
+    return super._onDropItemCreate(itemData);
+  }
+}
+
 /**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
@@ -2968,6 +3394,46 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       this.actor.allApplicableEffects()
     );
 
+    context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
+    if (context.enableAlternateForms) {
+      const alternateForms = this.actor.system.alternateForms ?? [];
+      const primaryFormIds = this.actor.system.primaryFormIds ?? [];
+      const isPrimary = alternateForms.length > 0;
+      const isAlternate = primaryFormIds.length > 0;
+
+      const formTypeLabels = {
+        cosmetic: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.Cosmetic"),
+        powerDown: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerDown"),
+        powerSwap: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerSwap"),
+      };
+
+      const forms = alternateForms.map(f => {
+        const actor = game.actors.get(f.actorId);
+        const triggerSummary = f.triggers?.length
+          ? "Triggers: " + f.triggers.map(t => t.description).join(", ")
+          : "";
+        return {
+          ...f,
+          actor: actor ? { id: actor.id, name: actor.name, img: actor.img } : { id: f.actorId, name: "(Deleted)", img: "icons/svg/mystery-man.svg" },
+          formTypeLabel: formTypeLabels[f.formType] ?? f.formType,
+          triggerSummary,
+        };
+      });
+
+      const primaryActors = primaryFormIds.map(id => {
+        const actor = game.actors.get(id);
+        const formEntry = actor?.system.alternateForms?.find(f => f.actorId === this.actor.id);
+        return {
+          id,
+          name: actor?.name ?? "(Deleted)",
+          img: actor?.img ?? "icons/svg/mystery-man.svg",
+          formTypeLabel: formTypeLabels[formEntry?.formType] ?? "",
+        };
+      });
+
+      context.formData = { isPrimary, isAlternate, forms, primaryActors };
+    }
+
     return context;
   }
 
@@ -2989,6 +3455,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     const tags = [];
     const weapons = [];
     const powers = {};
+    const equipment = [];
 
     // Iterate through items, allocating to containers
     for (const i of context.items) {
@@ -3037,6 +3504,16 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         gear.push(i);
       } else if (i.type === "weapon") {
         weapons.push(i);
+      } else if (i.type === "equipment") {
+        i.equipmentTypeLabel = game.i18n.localize(
+          CONFIG.MARVEL_MULTIVERSE.equipmentTypes[i.system.equipmentType] ?? ""
+        );
+        if (i.system.grenadeType) {
+          i.grenadeTypeLabel = game.i18n.localize(
+            CONFIG.MARVEL_MULTIVERSE.grenadeTypes[i.system.grenadeType] ?? ""
+          );
+        }
+        equipment.push(i);
       }
 
       // Assign and return
@@ -3054,6 +3531,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       context.origins = origins;
       context.occupations = occupations;
       context.weapons = weapons;
+      context.equipment = equipment;
     }
   }
 
@@ -3113,6 +3591,9 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       if (item?.type === "battleSuit" && item.system.equipped) {
         await this._removeBattleSuitEffects(itemId);
       }
+      if (item?.type === "equipment" && item.system.equipped) {
+        await this._removeEquipmentEffects(itemId);
+      }
       this.actor.deleteEmbeddedDocuments("Item", [itemId]);
       li.slideUp(200, () => this.render(false));
     });
@@ -3126,6 +3607,9 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
 
     // Battle suit equip toggle
     html.on("click", ".battlesuit-equip-toggle", this._onToggleBattleSuitEquip.bind(this));
+
+    // Equipment equip toggle
+    html.on("click", ".equipment-equip-toggle", this._onToggleEquipmentEquip.bind(this));
 
     // Active Effect management
     html.on("click", ".effect-control", (ev) => {
@@ -3159,6 +3643,103 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         li.addEventListener("dragstart", handler, false);
       });
     }
+
+    // Alternate Forms
+    html.on("click", ".alternate-form-switch", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await switchForm(this.actor, targetActorId);
+    });
+
+    html.on("click", ".alternate-form-unlink", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await unlinkForm(this.actor, targetActorId);
+      this.render(false);
+    });
+
+    html.on("click", ".alternate-form-edit", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      const targetActor = game.actors.get(targetActorId);
+      if (targetActor) targetActor.sheet.render(true);
+    });
+
+    html.on("click", ".alternate-form-add", async () => {
+      this._onAddAlternateForm();
+    });
+  }
+
+  async _onAddAlternateForm() {
+    const formTypes = {};
+    for (const [key, label] of Object.entries(CONFIG.MARVEL_MULTIVERSE.alternateFormTypes)) {
+      formTypes[key] = game.i18n.localize(label);
+    }
+
+    const availableActors = game.actors.filter(a => {
+      if (a.id === this.actor.id) return false;
+      if (!["character", "npc"].includes(a.type)) return false;
+      if ((a.system.alternateForms ?? []).length > 0) return false;
+      return true;
+    });
+
+    const content = await renderTemplate(
+      "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
+      { availableActors, formTypes, triggers: [] }
+    );
+
+    new Dialog({
+      title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+      content,
+      buttons: {
+        add: {
+          icon: '<i class="fas fa-plus"></i>',
+          label: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+          callback: async (html) => {
+            const actorId = html.find('select[name="actorId"]').val();
+            const formType = html.find('select[name="formType"]').val();
+            if (!actorId) return;
+
+            const triggers = [];
+            html.find(".trigger-row").each((i, row) => {
+              const desc = $(row).find('input[name^="triggers"][name$=".description"]').val();
+              const resistable = $(row).find('input[name^="triggers"][name$=".resistable"]').is(":checked");
+              const tn = Number($(row).find('input[name^="triggers"][name$=".tn"]').val()) || 0;
+              if (desc) triggers.push({ description: desc, resistable, tn });
+            });
+
+            const alternateActor = game.actors.get(actorId);
+            const validation = validateFormLink(this.actor, alternateActor);
+            if (!validation.valid) {
+              ui.notifications.warn(validation.reason);
+              return;
+            }
+
+            await linkForm(this.actor, actorId, formType, triggers);
+            this.render(false);
+          },
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel",
+        },
+      },
+      default: "add",
+      render: (html) => {
+        html.find(".trigger-add").on("click", () => {
+          const list = html.find(".trigger-list");
+          const idx = list.find(".trigger-row").length;
+          list.append(`
+            <div class="trigger-row flexrow" data-index="${idx}">
+              <input type="text" name="triggers.${idx}.description" value="" placeholder="e.g., Anger, Full Moon" />
+              <label><input type="checkbox" name="triggers.${idx}.resistable" checked /> Resistable</label>
+              <input type="number" name="triggers.${idx}.tn" value="0" min="0" placeholder="TN" style="width:60px" />
+              <a class="trigger-remove" data-index="${idx}"><i class="fas fa-trash"></i></a>
+            </div>
+          `);
+        });
+        html.on("click", ".trigger-remove", (ev) => {
+          $(ev.currentTarget).closest(".trigger-row").remove();
+        });
+      },
+    }).render(true);
   }
 
   /**
@@ -3344,6 +3925,44 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         flags: { "marvel-multiverse": { battleSuitId: item.id } }
       }, { parent: this.actor });
     }
+  }
+
+  async _onToggleEquipmentEquip(event) {
+    event.preventDefault();
+    const itemId = event.currentTarget.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    if (item.system.equipped) {
+      await this._removeEquipmentEffects(itemId);
+      await item.update({ "system.equipped": false });
+    } else {
+      await item.update({ "system.equipped": true });
+      if (item.system.equipmentType === "protection" && !item.system.ruined && item.system.damageReduction > 0) {
+        await this._applyEquipmentEffects(item);
+      }
+    }
+  }
+
+  async _removeEquipmentEffects(itemId) {
+    const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.equipmentId === itemId);
+    if (effects.length) {
+      await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
+    }
+  }
+
+  async _applyEquipmentEffects(item) {
+    const changes = [{
+      key: "system.healthDamageReduction",
+      mode: 2,
+      value: item.system.damageReduction.toString(),
+    }];
+    await ActiveEffect.create({
+      name: `Equipment: ${item.name}`,
+      icon: item.img,
+      changes: changes,
+      flags: { "marvel-multiverse": { equipmentId: item.id } },
+    }, { parent: this.actor });
   }
 
   /**
@@ -3565,6 +4184,20 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       context.sortedRestrictions = (context.system.restrictions ?? [])
         .map((r, idx) => ({ ...r, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    }
+    if (itemData.type === "equipment") {
+      context.equipmentTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.equipmentTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.equipmentTypes[k]),
+        ])
+      );
+      context.grenadeTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.grenadeTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.grenadeTypes[k]),
+        ])
+      );
     }
     if (itemData.type === "restriction") {
       context.restrictionKinds = Object.fromEntries(
@@ -3928,10 +4561,14 @@ const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-tags.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-traits.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-equipment.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-weapons.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-alternate-forms.hbs",
     // Item partials
     "systems/marvel-multiverse/templates/item/parts/item-effects.hbs",
     "systems/marvel-multiverse/templates/item/parts/item-source.hbs",
+    // Dialog partials
+    "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
     // Sidebar partials
     "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
     // Vehicle partials
@@ -4154,6 +4791,20 @@ class MarvelMultiverseActorBase extends foundry.abstract
       required: true,
       initial: "world",
     });
+
+    schema.alternateForms = new fields.ArrayField(new fields.SchemaField({
+      actorId: new fields.StringField({ required: true, blank: false }),
+      formType: new fields.StringField({ required: true, initial: "powerDown", choices: ["cosmetic", "powerDown", "powerSwap"] }),
+      triggers: new fields.ArrayField(new fields.SchemaField({
+        description: new fields.StringField({ required: true, blank: false }),
+        resistable: new fields.BooleanField({ initial: true }),
+        tn: new fields.NumberField({ required: true, initial: 0, integer: true, min: 0 }),
+      })),
+    }));
+
+    schema.primaryFormIds = new fields.ArrayField(
+      new fields.StringField({ required: true, blank: false })
+    );
 
     return schema;
   }
@@ -4488,6 +5139,53 @@ class MarvelMultiverseVehicle extends foundry.abstract.TypeDataModel {
   }
 }
 
+class MarvelMultiverseHeadquarters extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = {};
+
+    schema.health = new fields.SchemaField({
+      value: new fields.NumberField({ required: true, nullable: false, initial: 0, min: 0 }),
+      max: new fields.NumberField({ required: true, nullable: false, initial: 0, min: 0 }),
+    });
+
+    schema.members = new fields.ArrayField(new fields.SchemaField({
+      actorId: new fields.StringField({ required: true, blank: false }),
+      name: new fields.StringField({ required: true, blank: true }),
+      img: new fields.StringField({ required: true, blank: true }),
+    }));
+
+    schema.description = new fields.StringField({ required: true, blank: true });
+    schema.notes = new fields.StringField({ required: true, blank: true });
+    schema.source = new fields.StringField({ required: true, blank: true });
+
+    return schema;
+  }
+
+  prepareDerivedData() {
+    const hqTraits = this.parent?.items?.filter(i => i.type === "hqTrait") ?? [];
+    this.traitCount = hqTraits.length;
+    this.health.max = this.traitCount * 2;
+
+    const ranks = this.members
+      .map(m => game.actors?.get(m.actorId)?.system?.attributes?.rank?.value)
+      .filter(r => r != null)
+      .sort((a, b) => b - a)
+      .slice(0, 6);
+
+    this.teamRank = ranks.length > 0 ? Math.ceil(ranks.reduce((s, r) => s + r, 0) / ranks.length) : 1;
+    this.traitSlots = this.teamRank * 3;
+
+    this.health.damaged = this.health.max > 0 && this.health.value > 0 && this.health.value <= this.health.max / 2;
+    this.health.destroyed = this.health.max > 0 && this.health.value <= 0;
+
+    let healthStatus = "operational";
+    if (this.health.destroyed) healthStatus = "destroyed";
+    else if (this.health.damaged) healthStatus = "damaged";
+    this.health.status = healthStatus;
+  }
+}
+
 class MarvelMultiverseItemBase extends foundry.abstract.TypeDataModel {
 
   static defineSchema() {
@@ -4710,6 +5408,31 @@ class MarvelMultiverseTrait extends MarvelMultiverseItemBase {
     }
 }
 
+class MarvelMultiverseHqTag extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = {};
+
+    schema.description = new fields.StringField({ required: true, blank: true });
+    schema.incompatible = new fields.StringField({ required: true, blank: true });
+
+    return schema;
+  }
+}
+
+class MarvelMultiverseHqTrait extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = {};
+
+    schema.description = new fields.StringField({ required: true, blank: true });
+    schema.downtimeActivity = new fields.StringField({ required: true, blank: true });
+    schema.maxCount = new fields.NumberField({ required: true, nullable: false, integer: true, initial: 0, min: 0 });
+
+    return schema;
+  }
+}
+
 class MarvelMultiverseRestriction extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
@@ -4777,6 +5500,65 @@ class MarvelMultiverseBattleSuit extends MarvelMultiverseItemBase {
     const restrictionsCount = this.restrictions?.length ?? 0;
     if (powersCount === 0 && restrictionsCount === 0) return 0;
     return Math.max(1, powersCount - restrictionsCount);
+  }
+}
+
+class MarvelMultiverseEquipment extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const requiredInteger = { required: true, nullable: false, integer: true };
+    const schema = super.defineSchema();
+
+    schema.equipmentType = new fields.StringField({
+      required: true,
+      initial: "protection",
+    });
+    schema.equipped = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+    schema.ruined = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+
+    schema.damageReduction = new fields.NumberField({
+      ...requiredInteger,
+      initial: 0,
+      min: 0,
+    });
+    schema.protectionNotes = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.grenadeType = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+    schema.grenadeEffect = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.gadgetHP = new fields.NumberField({
+      ...requiredInteger,
+      initial: 10,
+      min: 0,
+    });
+    schema.gadgetMaxHP = new fields.NumberField({
+      ...requiredInteger,
+      initial: 10,
+      min: 0,
+    });
+    schema.gadgetEffect = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.source = new fields.StringField({ required: true, blank: true });
+
+    return schema;
   }
 }
 
@@ -5439,6 +6221,7 @@ Hooks.once("init", () => {
     character: MarvelMultiverseCharacter,
     npc: MarvelMultiverseNPC,
     vehicle: MarvelMultiverseVehicle,
+    headquarters: MarvelMultiverseHeadquarters,
   };
   CONFIG.ChatMessage.documentClass = ChatMessageMarvel;
   CONFIG.Item.documentClass = MarvelMultiverseItem$1;
@@ -5454,7 +6237,10 @@ Hooks.once("init", () => {
     powerSet: MarvelMultiversePowerSet,
     restriction: MarvelMultiverseRestriction,
     battleSuit: MarvelMultiverseBattleSuit,
+    equipment: MarvelMultiverseEquipment,
     vehicleWeapon: MarvelMultiverseVehicleWeapon,
+    hqTag: MarvelMultiverseHqTag,
+    hqTrait: MarvelMultiverseHqTrait,
   };
 
   game.settings.register("marvel-multiverse", "autoPopulateOrigin", {
@@ -5485,6 +6271,15 @@ Hooks.once("init", () => {
     choices: Object.fromEntries(
       Object.entries(MARVEL_MULTIVERSE.mutantReputationLevels).map(([k, v]) => [k, `${v.label} (${v.effect})`])
     ),
+  });
+
+  game.settings.register("marvel-multiverse", "enableAlternateForms", {
+    name: "MARVEL_MULTIVERSE.AlternateForm.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.AlternateForm.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
   });
 
   // Active Effects are never copied to the Actor,
@@ -5550,6 +6345,11 @@ Hooks.once("init", () => {
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.Vehicle",
   });
+  Actors.registerSheet("marvel-multiverse", MarvelMultiverseHeadquartersSheet, {
+    types: ["headquarters"],
+    makeDefault: true,
+    label: "MARVEL_MULTIVERSE.SheetLabels.Headquarters",
+  });
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("marvel-multiverse", MarvelMultiverseItemSheet, {
     makeDefault: true,
@@ -5558,6 +6358,103 @@ Hooks.once("init", () => {
 
   // Initialize Actor Directory Filters
   ActorDirectoryFilter.init();
+
+  // Add context menu for actor sidebar
+  Hooks.on("getActorContextOptions", (app, options) => {
+    if (!game.settings.get("marvel-multiverse", "enableAlternateForms")) return;
+
+    options.push({
+      name: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
+      icon: '<i class="fas fa-exchange-alt"></i>',
+      condition: (li) => {
+        const actorId = li.dataset.entryId;
+        const actor = game.actors.get(actorId);
+        if (!actor) return false;
+        const forms = actor.system.alternateForms ?? [];
+        const primaryIds = actor.system.primaryFormIds ?? [];
+        return forms.length > 0 || primaryIds.length > 0;
+      },
+      callback: (li) => {
+        const actorId = li.dataset.entryId;
+        const actor = game.actors.get(actorId);
+        if (!actor) return;
+
+        const forms = actor.system.alternateForms ?? [];
+        const primaryIds = actor.system.primaryFormIds ?? [];
+        const targets = [];
+
+        for (const f of forms) {
+          const a = game.actors.get(f.actorId);
+          if (a) targets.push({ id: a.id, name: a.name });
+        }
+        for (const id of primaryIds) {
+          const a = game.actors.get(id);
+          if (a) targets.push({ id: a.id, name: a.name });
+        }
+
+        if (targets.length === 1) {
+          switchForm(actor, targets[0].id);
+        } else if (targets.length > 1) {
+          const buttons = {};
+          for (const t of targets) {
+            buttons[t.id] = { label: t.name, callback: () => switchForm(actor, t.id) };
+          }
+          new Dialog({
+            title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
+            content: "<p>Select a form to switch to:</p>",
+            buttons,
+          }).render(true);
+        }
+      },
+    });
+  });
+
+  // Add Switch Form button to Token HUD
+  Hooks.on("renderTokenHUD", (app, html) => {
+    if (!game.settings.get("marvel-multiverse", "enableAlternateForms")) return;
+    const actor = app.actor;
+    if (!actor) return;
+
+    const forms = actor.system.alternateForms ?? [];
+    const primaryIds = actor.system.primaryFormIds ?? [];
+    if (forms.length === 0 && primaryIds.length === 0) return;
+
+    const targets = [];
+    for (const f of forms) {
+      const a = game.actors.get(f.actorId);
+      if (a) targets.push({ id: a.id, name: a.name });
+    }
+    for (const id of primaryIds) {
+      const a = game.actors.get(id);
+      if (a) targets.push({ id: a.id, name: a.name });
+    }
+    if (targets.length === 0) return;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.classList.add("control-icon");
+    btn.dataset.tooltip = game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm");
+    btn.innerHTML = '<i class="fas fa-exchange-alt" inert></i>';
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      if (targets.length === 1) {
+        switchForm(actor, targets[0].id);
+      } else {
+        const buttons = {};
+        for (const t of targets) {
+          buttons[t.id] = { label: t.name, callback: () => switchForm(actor, t.id) };
+        }
+        new Dialog({
+          title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
+          content: "<p>Select a form to switch to:</p>",
+          buttons,
+        }).render(true);
+      }
+    });
+
+    const col = html.querySelector(".col.left");
+    if (col) col.appendChild(btn);
+  });
 
   // Preload Handlebars templates.
   return preloadHandlebarsTemplates();

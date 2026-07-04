@@ -2,6 +2,7 @@ import {
   onManageActiveEffect,
   prepareActiveEffectCategories,
 } from "../helpers/effects.mjs";
+import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
 
 /**
  * Extend the basic ActorSheet with some very simple modifications
@@ -110,6 +111,46 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
       // as well as any items
       this.actor.allApplicableEffects()
     );
+
+    context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
+    if (context.enableAlternateForms) {
+      const alternateForms = this.actor.system.alternateForms ?? [];
+      const primaryFormIds = this.actor.system.primaryFormIds ?? [];
+      const isPrimary = alternateForms.length > 0;
+      const isAlternate = primaryFormIds.length > 0;
+
+      const formTypeLabels = {
+        cosmetic: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.Cosmetic"),
+        powerDown: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerDown"),
+        powerSwap: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerSwap"),
+      };
+
+      const forms = alternateForms.map(f => {
+        const actor = game.actors.get(f.actorId);
+        const triggerSummary = f.triggers?.length
+          ? "Triggers: " + f.triggers.map(t => t.description).join(", ")
+          : "";
+        return {
+          ...f,
+          actor: actor ? { id: actor.id, name: actor.name, img: actor.img } : { id: f.actorId, name: "(Deleted)", img: "icons/svg/mystery-man.svg" },
+          formTypeLabel: formTypeLabels[f.formType] ?? f.formType,
+          triggerSummary,
+        };
+      });
+
+      const primaryActors = primaryFormIds.map(id => {
+        const actor = game.actors.get(id);
+        const formEntry = actor?.system.alternateForms?.find(f => f.actorId === this.actor.id);
+        return {
+          id,
+          name: actor?.name ?? "(Deleted)",
+          img: actor?.img ?? "icons/svg/mystery-man.svg",
+          formTypeLabel: formTypeLabels[formEntry?.formType] ?? "",
+        };
+      });
+
+      context.formData = { isPrimary, isAlternate, forms, primaryActors };
+    }
 
     return context;
   }
@@ -293,6 +334,103 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
         li.addEventListener("dragstart", handler, false);
       });
     }
+
+    // Alternate Forms
+    html.on("click", ".alternate-form-switch", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await switchForm(this.actor, targetActorId);
+    });
+
+    html.on("click", ".alternate-form-unlink", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await unlinkForm(this.actor, targetActorId);
+      this.render(false);
+    });
+
+    html.on("click", ".alternate-form-edit", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      const targetActor = game.actors.get(targetActorId);
+      if (targetActor) targetActor.sheet.render(true);
+    });
+
+    html.on("click", ".alternate-form-add", async () => {
+      this._onAddAlternateForm();
+    });
+  }
+
+  async _onAddAlternateForm() {
+    const formTypes = {};
+    for (const [key, label] of Object.entries(CONFIG.MARVEL_MULTIVERSE.alternateFormTypes)) {
+      formTypes[key] = game.i18n.localize(label);
+    }
+
+    const availableActors = game.actors.filter(a => {
+      if (a.id === this.actor.id) return false;
+      if (!["character", "npc"].includes(a.type)) return false;
+      if ((a.system.alternateForms ?? []).length > 0) return false;
+      return true;
+    });
+
+    const content = await renderTemplate(
+      "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
+      { availableActors, formTypes, triggers: [] }
+    );
+
+    new Dialog({
+      title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+      content,
+      buttons: {
+        add: {
+          icon: '<i class="fas fa-plus"></i>',
+          label: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+          callback: async (html) => {
+            const actorId = html.find('select[name="actorId"]').val();
+            const formType = html.find('select[name="formType"]').val();
+            if (!actorId) return;
+
+            const triggers = [];
+            html.find(".trigger-row").each((i, row) => {
+              const desc = $(row).find('input[name^="triggers"][name$=".description"]').val();
+              const resistable = $(row).find('input[name^="triggers"][name$=".resistable"]').is(":checked");
+              const tn = Number($(row).find('input[name^="triggers"][name$=".tn"]').val()) || 0;
+              if (desc) triggers.push({ description: desc, resistable, tn });
+            });
+
+            const alternateActor = game.actors.get(actorId);
+            const validation = validateFormLink(this.actor, alternateActor);
+            if (!validation.valid) {
+              ui.notifications.warn(validation.reason);
+              return;
+            }
+
+            await linkForm(this.actor, actorId, formType, triggers);
+            this.render(false);
+          },
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel",
+        },
+      },
+      default: "add",
+      render: (html) => {
+        html.find(".trigger-add").on("click", () => {
+          const list = html.find(".trigger-list");
+          const idx = list.find(".trigger-row").length;
+          list.append(`
+            <div class="trigger-row flexrow" data-index="${idx}">
+              <input type="text" name="triggers.${idx}.description" value="" placeholder="e.g., Anger, Full Moon" />
+              <label><input type="checkbox" name="triggers.${idx}.resistable" checked /> Resistable</label>
+              <input type="number" name="triggers.${idx}.tn" value="0" min="0" placeholder="TN" style="width:60px" />
+              <a class="trigger-remove" data-index="${idx}"><i class="fas fa-trash"></i></a>
+            </div>
+          `);
+        });
+        html.on("click", ".trigger-remove", (ev) => {
+          $(ev.currentTarget).closest(".trigger-row").remove();
+        });
+      },
+    }).render(true);
   }
 
   /**

@@ -1,0 +1,33 @@
+<form class="add-form-dialog">
+  <div class="form-group">
+    <label>Actor</label>
+    <select name="actorId">
+      <option value="">-- Select Actor --</option>
+      {{#each availableActors}}
+        <option value="{{this.id}}">{{this.name}}</option>
+      {{/each}}
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Form Type</label>
+    <select name="formType">
+      {{#each formTypes}}
+        <option value="{{@key}}" {{#if (eq @key "powerDown")}}selected{{/if}}>{{this}}</option>
+      {{/each}}
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Triggers</label>
+    <div class="trigger-list">
+      {{#each triggers}}
+        <div class="trigger-row flexrow" data-index="{{@index}}">
+          <input type="text" name="triggers.{{@index}}.description" value="{{this.description}}" placeholder="e.g., Anger, Full Moon" />
+          <label><input type="checkbox" name="triggers.{{@index}}.resistable" {{#if this.resistable}}checked{{/if}} /> Resistable</label>
+          <input type="number" name="triggers.{{@index}}.tn" value="{{this.tn}}" min="0" placeholder="TN" style="width:60px" />
+          <a class="trigger-remove" data-index="{{@index}}"><i class="fas fa-trash"></i></a>
+        </div>
+      {{/each}}
+    </div>
+    <a class="trigger-add"><i class="fas fa-plus"></i> Add Trigger</a>
+  </div>
+</form>

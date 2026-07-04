@@ -209,6 +209,20 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       initial: "world",
     });
 
+    schema.alternateForms = new fields.ArrayField(new fields.SchemaField({
+      actorId: new fields.StringField({ required: true, blank: false }),
+      formType: new fields.StringField({ required: true, initial: "powerDown", choices: ["cosmetic", "powerDown", "powerSwap"] }),
+      triggers: new fields.ArrayField(new fields.SchemaField({
+        description: new fields.StringField({ required: true, blank: false }),
+        resistable: new fields.BooleanField({ initial: true }),
+        tn: new fields.NumberField({ required: true, initial: 0, integer: true, min: 0 }),
+      })),
+    }));
+
+    schema.primaryFormIds = new fields.ArrayField(
+      new fields.StringField({ required: true, blank: false })
+    );
+
     return schema;
   }
 

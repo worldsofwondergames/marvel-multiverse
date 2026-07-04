@@ -112,5 +112,70 @@
     &.mm-gear-block {
       height: 100%;
     }
+
+    &.mm-alternate-forms-block {
+      clip-path: polygon(0% 0%, 228px 0%, 259px 28px, 100% 28px, 100% 100%, 0% 100%);
+
+      h3 {
+        width: 280px;
+      }
+
+      .mm-styled-container-body {
+        color: white;
+      }
+
+      .alternate-of-label {
+        color: white;
+        margin: 0 0 $mm-spacing-sm;
+      }
+
+      .alternate-form-entry {
+        align-items: center;
+        display: grid;
+        gap: $mm-spacing-md;
+        grid-template-columns: 36px 1fr 1fr auto;
+        padding: $mm-spacing-sm 0;
+      }
+
+      .alternate-form-img {
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        height: 36px;
+        object-fit: cover;
+        width: 36px;
+      }
+
+      .alternate-form-name {
+        font-weight: 600;
+      }
+
+      .alternate-form-type {
+        opacity: 0.85;
+      }
+
+      .alternate-form-controls {
+        display: flex;
+        gap: $mm-spacing-sm;
+        justify-content: flex-end;
+
+        a {
+          color: white;
+
+          &:hover {
+            color: $mm-primary-red;
+          }
+        }
+      }
+
+      .alternate-form-add {
+        color: white;
+        display: block;
+        padding: $mm-spacing-sm 0;
+        white-space: nowrap;
+
+        &:hover {
+          color: $mm-primary-red;
+        }
+      }
+    }
   }
 }

@@ -834,6 +834,12 @@ MARVEL_MULTIVERSE.grenadeTypes = {
   smoke: "MARVEL_MULTIVERSE.Equipment.Grenade.Smoke",
 };
 
+MARVEL_MULTIVERSE.alternateFormTypes = {
+  cosmetic: "MARVEL_MULTIVERSE.AlternateForm.Cosmetic",
+  powerDown: "MARVEL_MULTIVERSE.AlternateForm.PowerDown",
+  powerSwap: "MARVEL_MULTIVERSE.AlternateForm.PowerSwap",
+};
+
 // ASCII Artwork
 MARVEL_MULTIVERSE.ASCII = `
 =ccccc,      ,cccc       ccccc      ,cccc,  ?$$$$$$$,  ,ccc,   -ccc

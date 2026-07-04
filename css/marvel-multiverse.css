@@ -241,11 +241,6 @@
   background: #e5e5e6;
 }
 
-.mm-custom-header .chat-control,
-.mm-custom-header .chat-control i {
-  color: #fff !important;
-}
-
 #chat-form textarea {
   background: #fff2ec;
 }
@@ -1748,6 +1743,71 @@
 
 .marvel-multiverse.sheet.actor .mm-styled-container.mm-gear-block {
   height: 100%;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block {
+  clip-path: polygon(0% 0%, 228px 0%, 259px 28px, 100% 28px, 100% 100%, 0% 100%);
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block h3 {
+  width: 280px;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .mm-styled-container-body {
+  color: white;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-of-label {
+  color: white;
+  margin: 0 0 4px;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-entry {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 36px 1fr 1fr auto;
+  padding: 4px 0;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-img {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  height: 36px;
+  object-fit: cover;
+  width: 36px;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-name {
+  font-weight: 600;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-type {
+  opacity: 0.85;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-controls {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-controls a {
+  color: white;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-controls a:hover {
+  color: #e41d18;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-add {
+  color: white;
+  display: block;
+  padding: 4px 0;
+  white-space: nowrap;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-add:hover {
+  color: #e41d18;
 }
 
 .marvel-multiverse.sheet.actor .vehicle {

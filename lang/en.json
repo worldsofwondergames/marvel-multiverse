@@ -49,7 +49,8 @@
       "Actor": "MarvelMultiverse Actor Sheet",
       "Item": "MarvelMultiverse Item Sheet",
       "NPC": "MarvelMultiverse NPC Sheet",
-      "Vehicle": "MarvelMultiverse Vehicle Sheet"
+      "Vehicle": "MarvelMultiverse Vehicle Sheet",
+      "Headquarters": "Headquarters Sheet"
     },
     "Item": {
       "Power": {
@@ -131,6 +132,27 @@
       "Device": "Device",
       "Material": "Material"
     },
+    "Headquarters": {
+      "Health": "Health",
+      "TeamRank": "Team Rank",
+      "Members": "Members",
+      "Tags": "Tags",
+      "Traits": "Traits",
+      "TraitSlots": "Trait Slots",
+      "Description": "Description",
+      "Notes": "Notes",
+      "Source": "Source",
+      "Status": {
+        "Operational": "Operational",
+        "Damaged": "Damaged",
+        "Destroyed": "Destroyed"
+      },
+      "DropMember": "Drop a character or NPC here to add a team member",
+      "MemberAlreadyAdded": "is already a team member.",
+      "IncompatibleTag": "is incompatible with",
+      "DowntimeActivity": "Downtime Activity",
+      "Rank": "Rank"
+    },
     "AlternateForm": {
       "Cosmetic": "Cosmetic",
       "PowerDown": "Power Down",
@@ -158,7 +180,8 @@
     "Actor": {
       "character": "Character",
       "npc": "NPC",
-      "vehicle": "Vehicle"
+      "vehicle": "Vehicle",
+      "headquarters": "Headquarters"
     },
     "Item": {
       "item": "Item",
@@ -173,7 +196,9 @@
       "restriction": "Restriction",
       "battleSuit": "Battlesuit",
       "equipment": "Equipment",
-      "vehicleWeapon": "Vehicle Weapon"
+      "vehicleWeapon": "Vehicle Weapon",
+      "hqTag": "HQ Tag",
+      "hqTrait": "HQ Trait"
     }
   }
 }

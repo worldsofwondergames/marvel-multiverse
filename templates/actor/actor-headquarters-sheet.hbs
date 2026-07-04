@@ -1,0 +1,180 @@
+<form class="{{cssClass}} headquarters flexcol" autocomplete="off">
+  {{!-- Sheet Header --}}
+  <header class="sheet-header">
+    <div class="flexrow">
+      <div class="flexcol -gap-sm -grow-2">
+        {{!-- HQ Name --}}
+        <div class="mm-styled-field">
+          <label class="mm-styled-label -align-left" for="name"><span>{{localize "MARVEL_MULTIVERSE.ActorType.Headquarters"}}</span></label>
+          <div class="mm-styled-input">
+            <input name="name" type="text" value="{{actor.name}}" placeholder="Headquarters Name"/>
+          </div>
+        </div>
+
+        <div class="flexrow -nowrap mm-hq-portrait-row">
+          {{!-- Portrait --}}
+          <div class="mm-hq-portrait-block">
+            <div class="mm-hero-portrait">
+              <img src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
+            </div>
+          </div>
+
+          {{!-- Stats --}}
+          <div class="flexrow -nowrap mm-hq-header-stats">
+            {{!-- Health --}}
+            <div class="mm-hq-stat-block mm-hq-health-{{system.health.status}}">
+              <span class="mm-hq-stat-label">{{localize "MARVEL_MULTIVERSE.Headquarters.Health"}}</span>
+              <div class="mm-hq-stat-input">
+                <input type="number" name="system.health.value" value="{{system.health.value}}" data-dtype="Number" min="0"/>
+                <span>/</span>
+                <span>{{system.health.max}}</span>
+              </div>
+              <span class="mm-hq-status-badge {{#if system.health.damaged}}-warning{{/if}} {{#if system.health.destroyed}}-destroyed{{/if}}">
+                {{#if system.health.destroyed}}
+                  {{localize "MARVEL_MULTIVERSE.Headquarters.Status.Destroyed"}}
+                {{else if system.health.damaged}}
+                  {{localize "MARVEL_MULTIVERSE.Headquarters.Status.Damaged"}}
+                {{else}}
+                  {{localize "MARVEL_MULTIVERSE.Headquarters.Status.Operational"}}
+                {{/if}}
+              </span>
+            </div>
+
+            {{!-- Team Rank & Trait Slots --}}
+            <div class="mm-hq-info-block">
+              <div class="mm-hq-info-field">
+                <label class="mm-hq-info-label">{{localize "MARVEL_MULTIVERSE.Headquarters.TeamRank"}}</label>
+                <span class="mm-hq-info-value">{{system.teamRank}}</span>
+              </div>
+              <div class="mm-hq-info-field">
+                <label class="mm-hq-info-label">{{localize "MARVEL_MULTIVERSE.Headquarters.TraitSlots"}}</label>
+                <span class="mm-hq-info-value">{{system.traitCount}} / {{system.traitSlots}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  {{!-- Sheet Body --}}
+  <section class="sheet-body">
+    <div class="mm-hq-scroll">
+
+      {{!-- Members --}}
+      <div class="mm-styled-container">
+        <h3>{{localize "MARVEL_MULTIVERSE.Headquarters.Members"}}</h3>
+        <div class="mm-styled-container-body mm-hq-members-drop-zone">
+          {{#if members.length}}
+            <ul class="mm-hq-members-list">
+              {{#each members as |member idx|}}
+              <li class="flexrow mm-hq-member" data-index="{{idx}}">
+                <div class="mm-hq-member-img">
+                  <img src="{{member.img}}" width="30" height="30"/>
+                </div>
+                <span class="mm-hq-member-name">{{member.name}}</span>
+                <span class="mm-hq-member-rank">{{localize "MARVEL_MULTIVERSE.Headquarters.Rank"}} {{member.rank}}</span>
+                {{#if @root.editable}}
+                <div class="mm-hq-member-controls">
+                  <a class="member-delete" data-index="{{idx}}" title="Remove"><i class="fas fa-trash"></i></a>
+                </div>
+                {{/if}}
+              </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <p class="mm-hq-member-empty">{{localize "MARVEL_MULTIVERSE.Headquarters.DropMember"}}</p>
+          {{/if}}
+        </div>
+      </div>
+
+      {{!-- Tags --}}
+      <div class="mm-styled-container">
+        <h3>{{localize "MARVEL_MULTIVERSE.Headquarters.Tags"}}</h3>
+        <div class="mm-styled-container-body">
+          {{#if hqTags.length}}
+            <ul class="mm-hq-tags-list">
+              {{#each hqTags as |tag|}}
+              <li class="flexrow item" data-item-id="{{tag._id}}">
+                <div class="item-image"><img src="{{tag.img}}" width="24" height="24"/></div>
+                <span class="item-edit mm-hq-tag-name">{{tag.name}}</span>
+                {{#if @root.editable}}
+                <div class="mm-hq-item-controls">
+                  <a class="item-delete" title="Remove"><i class="fas fa-trash"></i></a>
+                </div>
+                {{/if}}
+              </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <p class="mm-hq-empty-section">Drop HQ Tags here</p>
+          {{/if}}
+        </div>
+      </div>
+
+      {{!-- Traits --}}
+      <div class="mm-styled-container">
+        <h3>{{localize "MARVEL_MULTIVERSE.Headquarters.Traits"}} ({{system.traitCount}} / {{system.traitSlots}})</h3>
+        <div class="mm-styled-container-body">
+          {{#if hqTraits.length}}
+            <ul class="mm-hq-traits-list">
+              {{#each hqTraits as |trait|}}
+              <li class="item" data-item-id="{{trait._id}}">
+                <div class="flexrow mm-hq-trait-row">
+                  <div class="item-image"><img src="{{trait.img}}" width="24" height="24"/></div>
+                  <span class="item-edit mm-hq-trait-name">{{trait.name}}</span>
+                  {{#if @root.editable}}
+                  <div class="mm-hq-item-controls">
+                    <a class="item-delete" title="Remove"><i class="fas fa-trash"></i></a>
+                  </div>
+                  {{/if}}
+                </div>
+                {{#if trait.system.downtimeActivity}}
+                <div class="mm-hq-trait-downtime">
+                  <strong>{{localize "MARVEL_MULTIVERSE.Headquarters.DowntimeActivity"}}:</strong> {{trait.system.downtimeActivity}}
+                </div>
+                {{/if}}
+              </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <p class="mm-hq-empty-section">Drop HQ Traits here</p>
+          {{/if}}
+        </div>
+      </div>
+
+      {{!-- Source --}}
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Headquarters.Source"}}</span></label>
+        <div class="mm-styled-input">
+          <input type="text" name="system.source" value="{{system.source}}" data-dtype="String" placeholder="e.g. Avengers Expansion p.125"/>
+        </div>
+      </div>
+
+      {{!-- Description --}}
+      <div class="mm-styled-container">
+        <h3>{{localize "MARVEL_MULTIVERSE.Headquarters.Description"}}</h3>
+        <div class="mm-styled-container-body">
+          <div class="mm-styled-field -fill">
+            <div class="mm-styled-input">
+              {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false editable=editable}}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {{!-- Notes --}}
+      <div class="mm-styled-container">
+        <h3>{{localize "MARVEL_MULTIVERSE.Headquarters.Notes"}}</h3>
+        <div class="mm-styled-container-body">
+          <div class="mm-styled-field -fill">
+            <div class="mm-styled-input">
+              {{editor system.notes target="system.notes" button=false engine="prosemirror" collaborate=false editable=editable}}
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</form>

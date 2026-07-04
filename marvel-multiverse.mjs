@@ -370,7 +370,19 @@ class MarvelMultiverseRoll extends Roll {
  * Extend the base Actor document by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
  */
+const ACTOR_DEFAULT_ICONS = {
+  headquarters: "systems/marvel-multiverse/icons/headquarters.svg",
+};
+
 class MarvelMultiverseActor extends Actor {
+  async _preCreate(data, options, user) {
+    await super._preCreate(data, options, user);
+    const defaultIcon = ACTOR_DEFAULT_ICONS[data.type];
+    if (defaultIcon && (!data.img || data.img === Actor.DEFAULT_ICON)) {
+      this.updateSource({ img: defaultIcon });
+    }
+  }
+
   /** @override */
   prepareData() {
     // Prepare data for the actor. Calling the super version of this executes
@@ -466,7 +478,9 @@ const ITEM_DEFAULT_ICONS = {
   origin: "systems/marvel-multiverse/icons/origin.svg",
   powerSet: "icons/svg/card-hand.svg",
   power: "systems/marvel-multiverse/icons/super-powers.svg",
-  tag: "systems/marvel-multiverse/icons/tags.svg"
+  tag: "systems/marvel-multiverse/icons/tags.svg",
+  hqTag: "systems/marvel-multiverse/icons/tags.svg",
+  hqTrait: "systems/marvel-multiverse/icons/trait.svg"
 };
 
 let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
@@ -3198,6 +3212,124 @@ class MarvelMultiverseVehicleSheet extends ActorSheet {
   }
 }
 
+class MarvelMultiverseHeadquartersSheet extends ActorSheet {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      classes: ["marvel-multiverse", "sheet", "actor"],
+      width: 600,
+      height: 700,
+      tabs: [],
+    });
+  }
+
+  get template() {
+    return "systems/marvel-multiverse/templates/actor/actor-headquarters-sheet.hbs";
+  }
+
+  getData() {
+    const context = super.getData();
+    const actorData = context.data;
+    context.system = actorData.system;
+    context.flags = actorData.flags;
+    this._prepareItems(context);
+    this._prepareMembers(context);
+    context.rollData = context.actor.getRollData();
+    return context;
+  }
+
+  _prepareItems(context) {
+    const hqTags = [];
+    const hqTraits = [];
+    for (const i of context.items) {
+      i.img = i.img || Item.DEFAULT_ICON;
+      if (i.type === "hqTag") hqTags.push(i);
+      else if (i.type === "hqTrait") hqTraits.push(i);
+    }
+    hqTags.sort((a, b) => a.name.localeCompare(b.name));
+    hqTraits.sort((a, b) => a.name.localeCompare(b.name));
+    context.hqTags = hqTags;
+    context.hqTraits = hqTraits;
+  }
+
+  _prepareMembers(context) {
+    context.members = context.system.members.map(m => {
+      const actor = game.actors?.get(m.actorId);
+      return {
+        actorId: m.actorId,
+        name: actor?.name ?? m.name,
+        img: actor?.img ?? m.img,
+        rank: actor?.system?.attributes?.rank?.value ?? "?",
+      };
+    });
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    html.on("click", ".item-edit", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      const item = this.actor.items.get(li.data("itemId"));
+      item.sheet.render(true);
+    });
+    if (!this.isEditable) return;
+    html.on("click", ".item-delete", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      this.actor.deleteEmbeddedDocuments("Item", [li.data("itemId")]);
+      li.slideUp(200, () => this.render(false));
+    });
+    html.on("click", ".member-delete", this._onMemberDelete.bind(this));
+  }
+
+  async _onMemberDelete(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.dataset.index);
+    const members = foundry.utils.deepClone(this.actor.system.members);
+    members.splice(index, 1);
+    await this.actor.update({ "system.members": members });
+  }
+
+  async _onDropActor(event, data) {
+    if (!this.isEditable) return;
+    const actor = await Actor.implementation.fromDropData(data);
+    if (!actor) return;
+    if (!["character", "npc"].includes(actor.type)) {
+      ui.notifications.warn("Only characters and NPCs can be added as team members.");
+      return;
+    }
+    const members = foundry.utils.deepClone(this.actor.system.members);
+    if (members.some(m => m.actorId === actor.id)) {
+      ui.notifications.warn(`${actor.name} ${game.i18n.localize("MARVEL_MULTIVERSE.Headquarters.MemberAlreadyAdded")}`);
+      return;
+    }
+    members.push({ actorId: actor.id, name: actor.name, img: actor.img });
+    await this.actor.update({ "system.members": members });
+  }
+
+  async _onDropItemCreate(itemData) {
+    const allowedTypes = ["hqTag", "hqTrait"];
+    const items = Array.isArray(itemData) ? itemData : [itemData];
+    for (const item of items) {
+      if (!allowedTypes.includes(item.type)) {
+        ui.notifications.warn(`Headquarters cannot hold ${item.type} items.`);
+        return;
+      }
+      if (item.type === "hqTag") {
+        const incomingIncompat = (item.system?.incompatible ?? "").split(",").map(s => s.trim()).filter(Boolean);
+        const existingTags = this.actor.items.filter(i => i.type === "hqTag");
+        for (const existing of existingTags) {
+          const existingIncompat = (existing.system?.incompatible ?? "").split(",").map(s => s.trim()).filter(Boolean);
+          if (incomingIncompat.includes(existing.name) || existingIncompat.includes(item.name)) {
+            ui.notifications.warn(
+              `${item.name} ${game.i18n.localize("MARVEL_MULTIVERSE.Headquarters.IncompatibleTag")} ${existing.name}.`
+            );
+            return;
+          }
+        }
+      }
+    }
+    return super._onDropItemCreate(itemData);
+  }
+}
+
 /**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
@@ -5073,6 +5205,53 @@ class MarvelMultiverseVehicle extends foundry.abstract.TypeDataModel {
   }
 }
 
+class MarvelMultiverseHeadquarters extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = {};
+
+    schema.health = new fields.SchemaField({
+      value: new fields.NumberField({ required: true, nullable: false, initial: 0, min: 0 }),
+      max: new fields.NumberField({ required: true, nullable: false, initial: 0, min: 0 }),
+    });
+
+    schema.members = new fields.ArrayField(new fields.SchemaField({
+      actorId: new fields.StringField({ required: true, blank: false }),
+      name: new fields.StringField({ required: true, blank: true }),
+      img: new fields.StringField({ required: true, blank: true }),
+    }));
+
+    schema.description = new fields.StringField({ required: true, blank: true });
+    schema.notes = new fields.StringField({ required: true, blank: true });
+    schema.source = new fields.StringField({ required: true, blank: true });
+
+    return schema;
+  }
+
+  prepareDerivedData() {
+    const hqTraits = this.parent?.items?.filter(i => i.type === "hqTrait") ?? [];
+    this.traitCount = hqTraits.length;
+    this.health.max = this.traitCount * 2;
+
+    const ranks = this.members
+      .map(m => game.actors?.get(m.actorId)?.system?.attributes?.rank?.value)
+      .filter(r => r != null)
+      .sort((a, b) => b - a)
+      .slice(0, 6);
+
+    this.teamRank = ranks.length > 0 ? Math.ceil(ranks.reduce((s, r) => s + r, 0) / ranks.length) : 1;
+    this.traitSlots = this.teamRank * 3;
+
+    this.health.damaged = this.health.max > 0 && this.health.value > 0 && this.health.value <= this.health.max / 2;
+    this.health.destroyed = this.health.max > 0 && this.health.value <= 0;
+
+    let healthStatus = "operational";
+    if (this.health.destroyed) healthStatus = "destroyed";
+    else if (this.health.damaged) healthStatus = "damaged";
+    this.health.status = healthStatus;
+  }
+}
+
 class MarvelMultiverseItemBase extends foundry.abstract.TypeDataModel {
 
   static defineSchema() {
@@ -5293,6 +5472,31 @@ class MarvelMultiverseTrait extends MarvelMultiverseItemBase {
 
         return schema;
     }
+}
+
+class MarvelMultiverseHqTag extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = {};
+
+    schema.description = new fields.StringField({ required: true, blank: true });
+    schema.incompatible = new fields.StringField({ required: true, blank: true });
+
+    return schema;
+  }
+}
+
+class MarvelMultiverseHqTrait extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = {};
+
+    schema.description = new fields.StringField({ required: true, blank: true });
+    schema.downtimeActivity = new fields.StringField({ required: true, blank: true });
+    schema.maxCount = new fields.NumberField({ required: true, nullable: false, integer: true, initial: 0, min: 0 });
+
+    return schema;
+  }
 }
 
 class MarvelMultiverseRestriction extends MarvelMultiverseItemBase {
@@ -6083,6 +6287,7 @@ Hooks.once("init", () => {
     character: MarvelMultiverseCharacter,
     npc: MarvelMultiverseNPC,
     vehicle: MarvelMultiverseVehicle,
+    headquarters: MarvelMultiverseHeadquarters,
   };
   CONFIG.ChatMessage.documentClass = ChatMessageMarvel;
   CONFIG.Item.documentClass = MarvelMultiverseItem$1;
@@ -6100,6 +6305,8 @@ Hooks.once("init", () => {
     battleSuit: MarvelMultiverseBattleSuit,
     equipment: MarvelMultiverseEquipment,
     vehicleWeapon: MarvelMultiverseVehicleWeapon,
+    hqTag: MarvelMultiverseHqTag,
+    hqTrait: MarvelMultiverseHqTrait,
   };
 
   game.settings.register("marvel-multiverse", "autoPopulateOrigin", {
@@ -6203,6 +6410,11 @@ Hooks.once("init", () => {
     types: ["vehicle"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.Vehicle",
+  });
+  Actors.registerSheet("marvel-multiverse", MarvelMultiverseHeadquartersSheet, {
+    types: ["headquarters"],
+    makeDefault: true,
+    label: "MARVEL_MULTIVERSE.SheetLabels.Headquarters",
   });
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("marvel-multiverse", MarvelMultiverseItemSheet, {

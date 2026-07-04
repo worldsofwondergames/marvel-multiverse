@@ -106,6 +106,24 @@
             "type": "Actor",
             "private": false,
             "flags": {}
+        },
+        {
+            "name": "hq-tags",
+            "label": "HQ Tags",
+            "system": "marvel-multiverse",
+            "path": "packs/hq-tags",
+            "type": "Item",
+            "private": false,
+            "flags": {}
+        },
+        {
+            "name": "hq-traits",
+            "label": "HQ Traits",
+            "system": "marvel-multiverse",
+            "path": "packs/hq-traits",
+            "type": "Item",
+            "private": false,
+            "flags": {}
         }
     ],
     "packFolders": [
@@ -120,7 +138,9 @@
                 "occupations",
                 "items",
                 "powers",
-                "vehicles"
+                "vehicles",
+                "hq-tags",
+                "hq-traits"
             ]
         }
     ],

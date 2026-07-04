@@ -89,6 +89,10 @@ The Marvel Multiverse uses a custom `MarvelMultiverseRoll` class that extends Fo
 - **d616 die** — Marvel's custom die type
 - **Roll flavor** — HTML templates for rendering rolls in chat with power/ability/damage info
 
+## UI / Styling
+
+- Text directly on a red background must be white. Black text is only for directly black backgrounds.
+
 ## Key Patterns & Guidelines
 
 ### Adding New Item Types

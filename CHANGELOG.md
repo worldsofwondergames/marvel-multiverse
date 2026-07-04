@@ -2,6 +2,16 @@
 
 ## 2.4.1
 
+### Headquarters System
+- New Headquarters actor type for team bases with dedicated sheet
+- HQ Tag and HQ Trait item types owned by headquarters actors
+- Tag incompatibility enforcement prevents conflicting tags
+- Team rank auto-calculated from top 6 member ranks (rounded up)
+- Health bar with operational/damaged/destroyed status tracking
+- Trait slots scale with team rank (3 per rank)
+- Drag-and-drop member management (characters and NPCs)
+- Downtime activity tracking on traits
+
 ### Alternate Form Management
 - Alternate form system allowing characters to link and switch between multiple forms
 - Three form types: Cosmetic, Power Down, and Power Swap

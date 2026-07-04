@@ -87,20 +87,16 @@ export async function switchForm(currentActor, targetActorId) {
     }]);
 
     if (combatant && game.combat && newToken) {
-      await combatant.update({
-        actorId: targetActor.id,
-        tokenId: newToken.id,
-      });
+      const updateData = { actorId: targetActor.id, tokenId: newToken.id };
       if (initiative !== null && initiative !== undefined) {
-        await combatant.update({ initiative });
+        updateData.initiative = initiative;
       }
+      await combatant.update(updateData);
     }
   }
 
-  const currentName = currentActor.name;
-  const targetName = targetActor.name;
   ChatMessage.create({
-    content: `<em>${currentName} transforms into ${targetName}.</em>`,
+    content: `<em>${game.i18n.format("MARVEL_MULTIVERSE.AlternateForm.TransformMessage", { name: currentActor.name, form: targetActor.name })}</em>`,
     speaker: ChatMessage.getSpeaker({ actor: targetActor }),
   });
 
@@ -124,7 +120,7 @@ export async function handleInvoluntaryTrigger(actor, targetActorId, trigger) {
 
   const confirmed = await Dialog.confirm({
     title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.TriggerInvoluntary"),
-    content: `<p>Make an Ego check (TN ${trigger.tn}) to resist transforming into ${targetActor.name}?</p>`,
+    content: `<p>${game.i18n.format("MARVEL_MULTIVERSE.AlternateForm.EgoCheckPrompt", { tn: trigger.tn, name: targetActor.name })}</p>`,
     yes: () => true,
     no: () => false,
   });
@@ -141,12 +137,12 @@ export async function handleInvoluntaryTrigger(actor, targetActorId, trigger) {
   if (roll.total >= trigger.tn) {
     await roll.toMessage({
       speaker,
-      flavor: `<em>${actor.name} resists the transformation.</em>`,
+      flavor: `<em>${game.i18n.format("MARVEL_MULTIVERSE.AlternateForm.EgoCheckSuccess", { name: actor.name })}</em>`,
     });
   } else {
     await roll.toMessage({
       speaker,
-      flavor: `<em>${actor.name} fails to resist and transforms!</em>`,
+      flavor: `<em>${game.i18n.format("MARVEL_MULTIVERSE.AlternateForm.EgoCheckFailure", { name: actor.name })}</em>`,
     });
     await switchForm(actor, targetActorId);
   }

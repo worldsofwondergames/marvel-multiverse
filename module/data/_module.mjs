@@ -3,6 +3,7 @@ export {default as MarvelMultiverseActorBase} from "./actor-base.mjs";
 export {default as MarvelMultiverseCharacter} from "./character.mjs";
 export {default as MarvelMultiverseNPC} from "./npc.mjs";
 export {default as MarvelMultiverseVehicle} from "./vehicle.mjs";
+export {default as MarvelMultiverseHeadquarters} from "./headquarters.mjs";
 
 // Export Items
 export {default as MarvelMultiverseItemBase} from "./item-base.mjs";
@@ -17,3 +18,5 @@ export {default as MarvelMultiversePower} from "./power.mjs";
 export {default as MarvelMultiverseRestriction} from "./restriction.mjs";
 export {default as MarvelMultiverseBattleSuit} from "./battle-suit.mjs";
 export {default as MarvelMultiverseEquipment} from "./equipment.mjs";
+export {default as MarvelMultiverseHqTag} from "./hq-tag.mjs";
+export {default as MarvelMultiverseHqTrait} from "./hq-trait.mjs";

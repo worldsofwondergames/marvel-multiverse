@@ -1,0 +1,27 @@
+<form class="{{cssClass}}" autocomplete="off">
+  <header class="sheet-header">
+    <div class="mm-styled-field -lg -img">
+      <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+      <div class="mm-styled-input">
+        <input name="name" type="text" value="{{item.name}}" placeholder="Name"/>
+      </div>
+    </div>
+  </header>
+
+  <section class="sheet-body">
+    <div class="flexcol -gap-sm">
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Description</span></label>
+        <div class="mm-styled-input">
+          {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false}}
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Incompatible With</span></label>
+        <div class="mm-styled-input">
+          <input type="text" name="system.incompatible" value="{{join system.incompatible ", "}}" data-dtype="String" placeholder="e.g. Isolated Location, Secret Location"/>
+        </div>
+      </div>
+    </div>
+  </section>
+</form>

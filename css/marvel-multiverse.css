@@ -2266,6 +2266,295 @@
   color: white;
 }
 
+.marvel-multiverse.sheet.actor .headquarters {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.marvel-multiverse.sheet.actor .headquarters .sheet-header {
+  flex: 0 0 auto;
+}
+
+.marvel-multiverse.sheet.actor .headquarters .sheet-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.mm-hq-portrait-row {
+  gap: 8px;
+}
+
+.mm-hq-portrait-block {
+  flex: 0 0 120px;
+}
+
+.mm-hq-portrait-block .mm-hero-portrait {
+  width: 120px;
+  height: 120px;
+}
+
+.mm-hq-header-stats {
+  flex: 1 1 auto;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.mm-hq-stat-block {
+  background: #e41d18;
+  border-radius: 2px;
+  color: white;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px;
+  gap: 2px;
+}
+
+.mm-hq-stat-label {
+  color: white;
+  font-family: "Roboto", serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mm-hq-stat-input {
+  align-items: center;
+  background: #fff2ec;
+  border-radius: 2px;
+  color: #000101;
+  display: flex;
+  font-size: 18px;
+  font-weight: 700;
+  gap: 2px;
+  justify-content: center;
+  padding: 2px 4px;
+  width: 100%;
+}
+
+.mm-hq-stat-input input {
+  background: none;
+  border: none;
+  color: #000101;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  width: 50px;
+}
+
+.mm-hq-stat-input input:focus {
+  box-shadow: 0 0 0 1px #e41d18;
+}
+
+.mm-hq-stat-input span {
+  color: #575757;
+}
+
+.mm-hq-health-operational {
+  background: #e41d18;
+}
+
+.mm-hq-health-damaged {
+  background: #f5a623;
+}
+
+.mm-hq-health-destroyed {
+  background: #000101;
+}
+
+.mm-hq-status-badge {
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  text-transform: uppercase;
+}
+
+.mm-hq-status-badge.-warning {
+  background: #f5a623;
+  color: white;
+}
+
+.mm-hq-status-badge.-destroyed {
+  background: #000101;
+  color: white;
+}
+
+.mm-hq-info-block {
+  background: #e41d18;
+  border-radius: 2px;
+  color: white;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 2px;
+  padding: 4px;
+}
+
+.mm-hq-info-field {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.mm-hq-info-label {
+  flex: 0 0 80px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mm-hq-info-value {
+  background: #fff2ec;
+  border-radius: 2px;
+  box-sizing: border-box;
+  color: #000101;
+  flex: 1 1 auto;
+  font-size: 12px;
+  font-weight: 600;
+  height: 21px;
+  line-height: 21px;
+  padding: 0 4px;
+}
+
+.mm-hq-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.mm-hq-members-drop-zone {
+  min-height: 60px;
+}
+
+.mm-hq-members-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mm-hq-member {
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+}
+
+.mm-hq-member:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.mm-hq-member-img {
+  flex: 0 0 auto;
+}
+
+.mm-hq-member-img img {
+  border: 1px solid #e41d18;
+  border-radius: 2px;
+}
+
+.mm-hq-member-name {
+  color: #fff2ec;
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mm-hq-member-rank {
+  color: #fff2ec;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+
+.mm-hq-member-controls {
+  flex: 0 0 auto;
+}
+
+.mm-hq-member-controls a {
+  color: #fff2ec;
+  opacity: 0.7;
+}
+
+.mm-hq-member-controls a:hover {
+  opacity: 1;
+}
+
+.mm-hq-member-empty,
+.mm-hq-empty-section {
+  color: #fff2ec;
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px;
+  text-align: center;
+}
+
+.mm-hq-tags-list,
+.mm-hq-traits-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mm-hq-tag-name,
+.mm-hq-trait-name {
+  color: #fff2ec;
+  cursor: pointer;
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mm-hq-tag-name:hover,
+.mm-hq-trait-name:hover {
+  color: white;
+}
+
+.mm-hq-trait-row {
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+}
+
+.mm-hq-traits-list li:nth-child(odd) .mm-hq-trait-row {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.mm-hq-tags-list li {
+  padding: 2px 4px;
+}
+
+.mm-hq-tags-list li:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.mm-hq-item-controls {
+  flex: 0 0 24px;
+  text-align: right;
+}
+
+.mm-hq-item-controls a {
+  color: #fff2ec;
+  opacity: 0.7;
+}
+
+.mm-hq-item-controls a:hover {
+  opacity: 1;
+}
+
+.mm-hq-trait-downtime {
+  color: #fff2ec;
+  font-size: 11px;
+  padding: 0 4px 2px 44px;
+}
+
 .marvel-multiverse.sheet.item .window-content > form {
   display: flex;
   flex-direction: column;

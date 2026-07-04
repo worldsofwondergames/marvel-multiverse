@@ -370,7 +370,19 @@ class MarvelMultiverseRoll extends Roll {
  * Extend the base Actor document by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
  */
+const ACTOR_DEFAULT_ICONS = {
+  headquarters: "systems/marvel-multiverse/icons/headquarters.svg",
+};
+
 class MarvelMultiverseActor extends Actor {
+  async _preCreate(data, options, user) {
+    await super._preCreate(data, options, user);
+    const defaultIcon = ACTOR_DEFAULT_ICONS[data.type];
+    if (defaultIcon && (!data.img || data.img === Actor.DEFAULT_ICON)) {
+      this.updateSource({ img: defaultIcon });
+    }
+  }
+
   /** @override */
   prepareData() {
     // Prepare data for the actor. Calling the super version of this executes

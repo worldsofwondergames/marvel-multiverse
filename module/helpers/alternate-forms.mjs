@@ -66,9 +66,7 @@ export async function switchForm(currentActor, targetActorId) {
   }
 
   const scene = game.scenes.active;
-  if (!scene) return;
-
-  const currentToken = scene.tokens.find(t => t.actorId === currentActor.id);
+  const currentToken = scene?.tokens.find(t => t.actorId === currentActor.id);
   if (currentToken) {
     const { x, y, elevation, rotation } = currentToken;
 

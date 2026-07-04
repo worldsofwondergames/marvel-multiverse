@@ -2107,9 +2107,7 @@ async function switchForm(currentActor, targetActorId) {
   }
 
   const scene = game.scenes.active;
-  if (!scene) return;
-
-  const currentToken = scene.tokens.find(t => t.actorId === currentActor.id);
+  const currentToken = scene?.tokens.find(t => t.actorId === currentActor.id);
   if (currentToken) {
     const { x, y, elevation, rotation } = currentToken;
 
@@ -6218,14 +6216,14 @@ Hooks.once("init", () => {
   ActorDirectoryFilter.init();
 
   // Add context menu for actor sidebar
-  Hooks.on("getActorDirectoryEntryContext", (html, options) => {
+  Hooks.on("getActorContextOptions", (app, options) => {
     if (!game.settings.get("marvel-multiverse", "enableAlternateForms")) return;
 
     options.push({
       name: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
       icon: '<i class="fas fa-exchange-alt"></i>',
       condition: (li) => {
-        const actorId = li.data("documentId");
+        const actorId = li.dataset.entryId;
         const actor = game.actors.get(actorId);
         if (!actor) return false;
         const forms = actor.system.alternateForms ?? [];
@@ -6233,7 +6231,7 @@ Hooks.once("init", () => {
         return forms.length > 0 || primaryIds.length > 0;
       },
       callback: (li) => {
-        const actorId = li.data("documentId");
+        const actorId = li.dataset.entryId;
         const actor = game.actors.get(actorId);
         if (!actor) return;
 

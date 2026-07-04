@@ -5,12 +5,10 @@
     {{#if formData.isAlternate}}
       <p class="alternate-of-label">{{localize "MARVEL_MULTIVERSE.AlternateForm.AlternateOf"}}</p>
       {{#each formData.primaryActors}}
-        <div class="flexrow alternate-form-entry">
-          <img src="{{this.img}}" class="alternate-form-img" width="36" height="36" />
-          <div class="flexcol alternate-form-info">
-            <span class="alternate-form-name">{{this.name}}</span>
-            <span class="alternate-form-type">{{this.formTypeLabel}}</span>
-          </div>
+        <div class="alternate-form-entry">
+          <img src="{{this.img}}" class="alternate-form-img" />
+          <span class="alternate-form-name">{{this.name}}</span>
+          <span class="alternate-form-type">{{this.formTypeLabel}}</span>
           <div class="alternate-form-controls">
             <a class="alternate-form-switch" data-actor-id="{{this.id}}" title="{{localize 'MARVEL_MULTIVERSE.AlternateForm.SwitchForm'}}">
               <i class="fas fa-exchange-alt"></i>
@@ -20,12 +18,10 @@
       {{/each}}
     {{else}}
       {{#each formData.forms}}
-        <div class="flexrow alternate-form-entry">
-          <img src="{{this.actor.img}}" class="alternate-form-img" width="36" height="36" />
-          <div class="flexcol alternate-form-info">
-            <span class="alternate-form-name">{{this.actor.name}}</span>
-            <span class="alternate-form-type">{{this.formTypeLabel}}{{#if this.triggerSummary}}  &middot;  {{this.triggerSummary}}{{/if}}</span>
-          </div>
+        <div class="alternate-form-entry">
+          <img src="{{this.actor.img}}" class="alternate-form-img" />
+          <span class="alternate-form-name">{{this.actor.name}}</span>
+          <span class="alternate-form-type">{{this.formTypeLabel}}{{#if this.triggerSummary}}  &middot;  {{this.triggerSummary}}{{/if}}</span>
           <div class="alternate-form-controls">
             <a class="alternate-form-switch" data-actor-id="{{this.actorId}}" title="{{localize 'MARVEL_MULTIVERSE.AlternateForm.SwitchForm'}}">
               <i class="fas fa-exchange-alt"></i>
@@ -39,11 +35,9 @@
           </div>
         </div>
       {{/each}}
-      <div class="flexrow">
-        <a class="alternate-form-add">
-          <i class="fas fa-plus"></i> {{localize "MARVEL_MULTIVERSE.AlternateForm.AddForm"}}
-        </a>
-      </div>
+      <a class="alternate-form-add">
+        <i class="fas fa-plus"></i> {{localize "MARVEL_MULTIVERSE.AlternateForm.AddForm"}}
+      </a>
     {{/if}}
   </div>
 </div>

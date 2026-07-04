@@ -3,7 +3,8 @@
     "types": [
       "character",
       "npc",
-      "vehicle"
+      "vehicle",
+      "headquarters"
     ]
   },
   "Item": {
@@ -20,7 +21,9 @@
       "restriction",
       "battleSuit",
       "equipment",
-      "vehicleWeapon"
+      "vehicleWeapon",
+      "hqTag",
+      "hqTrait"
     ]
   }
 }

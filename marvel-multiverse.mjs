@@ -3229,7 +3229,7 @@ class MarvelMultiverseHeadquartersSheet extends ActorSheet {
   getData() {
     const context = super.getData();
     const actorData = context.data;
-    context.system = actorData.system;
+    context.system = this.actor.system;
     context.flags = actorData.flags;
     this._prepareItems(context);
     this._prepareMembers(context);

@@ -78,6 +78,7 @@ export const ActorDirectoryFilter = {
       character: { label: "Character", checked: s.actorType.includes("character") },
       npc: { label: "NPC", checked: s.actorType.includes("npc") },
       vehicle: { label: "Vehicle", checked: s.actorType.includes("vehicle") },
+      headquarters: { label: "Headquarters", checked: s.actorType.includes("headquarters") },
     };
     const sizes = {};
     for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.sizes)) {

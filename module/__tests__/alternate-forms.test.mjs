@@ -119,13 +119,23 @@ describe('switchForm', () => {
       name: 'Bruce Banner',
       system: { alternateForms: [{ actorId: 'actor2', formType: 'powerDown', triggers: [] }] },
     };
+    const protoTokenData = {
+      name: 'Hulk',
+      texture: { src: 'hulk-token.png' },
+      width: 1,
+      height: 1,
+      displayName: 30,
+      actorLink: true,
+      lockRotation: false,
+      disposition: 1,
+    };
     targetActor = {
       id: 'actor2',
       name: 'Hulk',
       img: 'hulk.png',
       system: { primaryFormIds: ['actor1'] },
       sheet: { render: jest.fn() },
-      prototypeToken: { texture: { src: 'hulk-token.png' }, width: 1, height: 1 },
+      prototypeToken: { ...protoTokenData, toObject: jest.fn(() => ({ ...protoTokenData })) },
     };
 
     global.game.actors = { get: jest.fn((id) => (id === 'actor2' ? targetActor : undefined)) };
@@ -182,6 +192,26 @@ describe('switchForm', () => {
       expect.objectContaining({ actorId: 'actor2', x: 100, y: 200 }),
     ]);
     expect(chatCreateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test('carries prototype token settings to the new token', async () => {
+    const mockToken = { id: 'token1', actorId: 'actor1', x: 50, y: 75, elevation: 0, rotation: 0 };
+    const createEmbedded = jest.fn(() => [{ id: 'token2' }]);
+
+    global.game.scenes = {
+      active: {
+        tokens: { find: jest.fn(() => mockToken) },
+        deleteEmbeddedDocuments: jest.fn(),
+        createEmbeddedDocuments: createEmbedded,
+      },
+    };
+
+    await switchForm(currentActor, 'actor2');
+    const tokenData = createEmbedded.mock.calls[0][1][0];
+    expect(tokenData.displayName).toBe(30);
+    expect(tokenData.actorLink).toBe(true);
+    expect(tokenData.disposition).toBe(1);
+    expect(tokenData.texture.src).toBe('hulk-token.png');
   });
 
   test('preserves initiative when switching token during combat', async () => {

@@ -2116,13 +2116,11 @@ async function switchForm(currentActor, targetActorId) {
 
     await scene.deleteEmbeddedDocuments("Token", [currentToken.id]);
 
+    const protoData = targetActor.prototypeToken?.toObject?.() ?? {};
     const [newToken] = await scene.createEmbeddedDocuments("Token", [{
-      name: targetActor.name,
+      ...protoData,
       actorId: targetActor.id,
       x, y, elevation, rotation,
-      texture: { src: targetActor.prototypeToken?.texture?.src || targetActor.img || "icons/svg/mystery-man.svg" },
-      width: targetActor.prototypeToken?.width ?? 1,
-      height: targetActor.prototypeToken?.height ?? 1,
     }]);
 
     if (combatant && game.combat && newToken) {
@@ -6140,7 +6138,7 @@ Hooks.once("init", () => {
     scope: "world",
     config: true,
     type: Boolean,
-    default: false,
+    default: true,
   });
 
   // Active Effects are never copied to the Actor,
@@ -6265,10 +6263,10 @@ Hooks.once("init", () => {
     });
   });
 
-  // Add context menu for token HUD
-  Hooks.on("getTokenActionButtons", (token, buttons) => {
+  // Add Switch Form button to Token HUD
+  Hooks.on("renderTokenHUD", (app, html) => {
     if (!game.settings.get("marvel-multiverse", "enableAlternateForms")) return;
-    const actor = token.actor;
+    const actor = app.actor;
     if (!actor) return;
 
     const forms = actor.system.alternateForms ?? [];
@@ -6278,35 +6276,38 @@ Hooks.once("init", () => {
     const targets = [];
     for (const f of forms) {
       const a = game.actors.get(f.actorId);
-      if (a) targets.push({ id: a.id, name: a.name, formData: f });
+      if (a) targets.push({ id: a.id, name: a.name });
     }
     for (const id of primaryIds) {
       const a = game.actors.get(id);
       if (a) targets.push({ id: a.id, name: a.name });
     }
+    if (targets.length === 0) return;
 
-    for (const t of targets) {
-      buttons.push({
-        icon: "fas fa-exchange-alt",
-        label: `Switch to ${t.name}`,
-        onClick: () => switchForm(actor, t.id),
-      });
-    }
-
-    const triggersExist = forms.some(f => (f.triggers ?? []).length > 0);
-    if (triggersExist) {
-      for (const f of forms) {
-        const a = game.actors.get(f.actorId);
-        if (!a) continue;
-        for (const trigger of (f.triggers ?? [])) {
-          buttons.push({
-            icon: "fas fa-bolt",
-            label: `Trigger: ${trigger.description} → ${a.name}`,
-            onClick: () => handleInvoluntaryTrigger(actor, a.id, trigger),
-          });
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.classList.add("control-icon");
+    btn.dataset.tooltip = game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm");
+    btn.innerHTML = '<i class="fas fa-exchange-alt" inert></i>';
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      if (targets.length === 1) {
+        switchForm(actor, targets[0].id);
+      } else {
+        const buttons = {};
+        for (const t of targets) {
+          buttons[t.id] = { label: t.name, callback: () => switchForm(actor, t.id) };
         }
+        new Dialog({
+          title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
+          content: "<p>Select a form to switch to:</p>",
+          buttons,
+        }).render(true);
       }
-    }
+    });
+
+    const col = html.querySelector(".col.left");
+    if (col) col.appendChild(btn);
   });
 
   // Preload Handlebars templates.

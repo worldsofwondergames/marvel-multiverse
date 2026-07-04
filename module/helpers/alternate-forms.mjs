@@ -75,13 +75,11 @@ export async function switchForm(currentActor, targetActorId) {
 
     await scene.deleteEmbeddedDocuments("Token", [currentToken.id]);
 
+    const protoData = targetActor.prototypeToken?.toObject?.() ?? {};
     const [newToken] = await scene.createEmbeddedDocuments("Token", [{
-      name: targetActor.name,
+      ...protoData,
       actorId: targetActor.id,
       x, y, elevation, rotation,
-      texture: { src: targetActor.prototypeToken?.texture?.src || targetActor.img || "icons/svg/mystery-man.svg" },
-      width: targetActor.prototypeToken?.width ?? 1,
-      height: targetActor.prototypeToken?.height ?? 1,
     }]);
 
     if (combatant && game.combat && newToken) {

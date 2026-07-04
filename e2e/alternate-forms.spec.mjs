@@ -150,26 +150,18 @@ test.describe('Alternate Forms', () => {
       const alternate = game.actors.find(a => a.name === names.alternate);
       const scene = game.scenes.active;
       const currentToken = scene.tokens.find(t => t.actorId === actor.id);
+      const protoData = alternate.prototypeToken?.toObject?.() ?? {};
       const { x, y, elevation, rotation } = currentToken;
       await scene.deleteEmbeddedDocuments('Token', [currentToken.id]);
       await scene.createEmbeddedDocuments('Token', [{
-        name: alternate.name,
+        ...protoData,
         actorId: alternate.id,
         x, y, elevation, rotation,
-        texture: { src: alternate.prototypeToken?.texture?.src || alternate.img || 'icons/svg/mystery-man.svg' },
       }]);
     }, { primary: PRIMARY_NAME, alternate: ALTERNATE_NAME });
     await foundryPage.waitForTimeout(1000);
     tokenName = await getTokenActorName(foundryPage, SCENE_NAME);
     expect(tokenName).toBe(ALTERNATE_NAME);
-  });
-
-  test('switch forms via context menu', async ({ foundryPage }) => {
-    await linkFormsViaAPI(foundryPage, PRIMARY_NAME, ALTERNATE_NAME, 'powerDown');
-    const formData = await getAlternateFormData(foundryPage, PRIMARY_NAME);
-    expect(formData.alternateForms).toHaveLength(1);
-    const altData = await getAlternateFormData(foundryPage, ALTERNATE_NAME);
-    expect(altData.primaryFormIds).toHaveLength(1);
   });
 
   test('combat tracker preserves initiative after form switch', async ({ foundryPage }) => {
@@ -198,15 +190,15 @@ test.describe('Alternate Forms', () => {
       const alternate = game.actors.find(a => a.name === names.alternate);
       const scene = game.scenes.active;
       const currentToken = scene.tokens.find(t => t.actorId === actor.id);
+      const protoData = alternate.prototypeToken?.toObject?.() ?? {};
       const { x, y, elevation, rotation } = currentToken;
       const combatant = game.combat.combatants.find(c => c.tokenId === currentToken.id);
       const savedInitiative = combatant?.initiative;
       await scene.deleteEmbeddedDocuments('Token', [currentToken.id]);
       const [newToken] = await scene.createEmbeddedDocuments('Token', [{
-        name: alternate.name,
+        ...protoData,
         actorId: alternate.id,
         x, y, elevation, rotation,
-        texture: { src: alternate.prototypeToken?.texture?.src || alternate.img || 'icons/svg/mystery-man.svg' },
       }]);
       if (combatant && newToken) {
         await combatant.update({ actorId: alternate.id, tokenId: newToken.id, initiative: savedInitiative });
@@ -267,6 +259,139 @@ test.describe('Alternate Forms', () => {
     await foundryPage.waitForTimeout(500);
     const formsSection = sheet.locator('.mm-alternate-forms-block');
     await expect(formsSection).toHaveCount(0);
+  });
+
+  test('token HUD shows Switch Form button for linked actor', async ({ foundryPage }) => {
+    await linkFormsViaAPI(foundryPage, PRIMARY_NAME, ALTERNATE_NAME, 'powerDown');
+    await createScene(foundryPage, SCENE_NAME);
+    await activateScene(foundryPage, SCENE_NAME);
+    await placeToken(foundryPage, PRIMARY_NAME, 300, 300);
+    await foundryPage.waitForTimeout(1000);
+
+    const hasSwitchBtn = await foundryPage.evaluate(async (primaryName) => {
+      const token = canvas.tokens.placeables.find(t => t.name === primaryName);
+      if (!token) throw new Error('Token not found');
+      token.control({ releaseOthers: true });
+      canvas.hud.token.bind(token);
+      await new Promise(r => setTimeout(r, 500));
+      const btn = canvas.hud.token.element?.querySelector('.fa-exchange-alt');
+      return !!btn;
+    }, PRIMARY_NAME);
+
+    expect(hasSwitchBtn).toBe(true);
+  });
+
+  test('token HUD hides Switch Form button for unlinked actor', async ({ foundryPage }) => {
+    await createScene(foundryPage, SCENE_NAME);
+    await activateScene(foundryPage, SCENE_NAME);
+    await placeToken(foundryPage, PRIMARY_NAME, 300, 300);
+    await foundryPage.waitForTimeout(1000);
+
+    const hasSwitchBtn = await foundryPage.evaluate(async (primaryName) => {
+      const token = canvas.tokens.placeables.find(t => t.name === primaryName);
+      if (!token) throw new Error('Token not found');
+      token.control({ releaseOthers: true });
+      canvas.hud.token.bind(token);
+      await new Promise(r => setTimeout(r, 500));
+      const btn = canvas.hud.token.element?.querySelector('.fa-exchange-alt');
+      return !!btn;
+    }, PRIMARY_NAME);
+
+    expect(hasSwitchBtn).toBe(false);
+  });
+
+  test('token HUD Switch Form button triggers form switch', async ({ foundryPage }) => {
+    await linkFormsViaAPI(foundryPage, PRIMARY_NAME, ALTERNATE_NAME, 'powerDown');
+    await createScene(foundryPage, SCENE_NAME);
+    await activateScene(foundryPage, SCENE_NAME);
+    await placeToken(foundryPage, PRIMARY_NAME, 300, 300);
+    await foundryPage.waitForTimeout(1000);
+
+    await foundryPage.evaluate(async (primaryName) => {
+      const token = canvas.tokens.placeables.find(t => t.name === primaryName);
+      if (!token) throw new Error('Token not found');
+      token.control({ releaseOthers: true });
+      canvas.hud.token.bind(token);
+      await new Promise(r => setTimeout(r, 500));
+      const btn = canvas.hud.token.element?.querySelector('.fa-exchange-alt')?.closest('button');
+      if (!btn) throw new Error('Switch Form button not found');
+      btn.click();
+    }, PRIMARY_NAME);
+
+    await foundryPage.waitForTimeout(2000);
+    const tokenName = await getTokenActorName(foundryPage, SCENE_NAME);
+    expect(tokenName).toBe(ALTERNATE_NAME);
+  });
+
+  test('switch form preserves prototype token settings', async ({ foundryPage }) => {
+    await foundryPage.evaluate(async (altName) => {
+      const alt = game.actors.find(a => a.name === altName);
+      if (!alt) throw new Error('Alternate actor not found');
+      await alt.update({
+        'prototypeToken.displayName': 30,
+        'prototypeToken.actorLink': true,
+        'prototypeToken.disposition': 1,
+      });
+    }, ALTERNATE_NAME);
+    await foundryPage.waitForTimeout(500);
+
+    await linkFormsViaAPI(foundryPage, PRIMARY_NAME, ALTERNATE_NAME, 'powerDown');
+    await createScene(foundryPage, SCENE_NAME);
+    await activateScene(foundryPage, SCENE_NAME);
+    await placeToken(foundryPage, PRIMARY_NAME, 300, 300);
+    await foundryPage.waitForTimeout(1000);
+
+    await foundryPage.evaluate(async ({ primaryName, alternateName }) => {
+      const actor = game.actors.find(a => a.name === primaryName);
+      const alternate = game.actors.find(a => a.name === alternateName);
+      const scene = game.scenes.active;
+      const currentToken = scene.tokens.find(t => t.actorId === actor.id);
+      const protoData = alternate.prototypeToken?.toObject?.() ?? {};
+      const { x, y, elevation, rotation } = currentToken;
+      await scene.deleteEmbeddedDocuments('Token', [currentToken.id]);
+      await scene.createEmbeddedDocuments('Token', [{
+        ...protoData,
+        actorId: alternate.id,
+        x, y, elevation, rotation,
+      }]);
+    }, { primaryName: PRIMARY_NAME, alternateName: ALTERNATE_NAME });
+    await foundryPage.waitForTimeout(1000);
+
+    const tokenSettings = await foundryPage.evaluate((sceneName) => {
+      const scene = game.scenes.find(s => s.name === sceneName);
+      const token = scene.tokens.contents[0];
+      return {
+        displayName: token.displayName,
+        actorLink: token.actorLink,
+        disposition: token.disposition,
+      };
+    }, SCENE_NAME);
+
+    expect(tokenSettings.displayName).toBe(30);
+    expect(tokenSettings.actorLink).toBe(true);
+    expect(tokenSettings.disposition).toBe(1);
+  });
+
+  test('token HUD hidden when alternate forms setting disabled', async ({ foundryPage }) => {
+    await linkFormsViaAPI(foundryPage, PRIMARY_NAME, ALTERNATE_NAME, 'powerDown');
+    await disableAlternateForms(foundryPage);
+    await createScene(foundryPage, SCENE_NAME);
+    await activateScene(foundryPage, SCENE_NAME);
+    await placeToken(foundryPage, PRIMARY_NAME, 300, 300);
+    await foundryPage.waitForTimeout(1000);
+
+    const hasSwitchBtn = await foundryPage.evaluate(async (primaryName) => {
+      const token = canvas.tokens.placeables.find(t => t.name === primaryName);
+      if (!token) throw new Error('Token not found');
+      token.control({ releaseOthers: true });
+      canvas.hud.token.bind(token);
+      await new Promise(r => setTimeout(r, 500));
+      const btn = canvas.hud.token.element?.querySelector('.fa-exchange-alt');
+      return !!btn;
+    }, PRIMARY_NAME);
+
+    expect(hasSwitchBtn).toBe(false);
+    await enableAlternateForms(foundryPage);
   });
 
   test('involuntary trigger with resistable Ego check', async ({ foundryPage }) => {

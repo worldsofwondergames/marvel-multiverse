@@ -5,11 +5,11 @@
 ### Alternate Form Management
 - Alternate form system allowing characters to link and switch between multiple forms
 - Three form types: Cosmetic, Power Down, and Power Swap
-- Form switching replaces tokens in-place, preserving position, elevation, rotation, and combat tracker state
-- Actor sidebar and token context menu entries for voluntary switching and involuntary triggers
+- Form switching replaces tokens in-place, preserving position, elevation, rotation, combat tracker state, and all prototype token settings
+- Actor sidebar context menu and Token HUD button for voluntary switching
 - Involuntary trigger flow with resistable Ego check
 - Forms section on character and NPC sheet Biography tabs with Add Form dialog
-- Gated behind "Enable Alternate Forms" world setting (default off)
+- Enabled by default via "Enable Alternate Forms" world setting
 
 ### Condition Automation
 - Asleep and Exhausted conditions with Active Effects

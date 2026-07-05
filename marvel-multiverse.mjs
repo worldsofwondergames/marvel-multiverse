@@ -5927,8 +5927,8 @@ const ActorDirectoryFilter = {
       Object.entries(CONFIG.MARVEL_MULTIVERSE.elements).map(([key, data]) => [key, {
         label: data.label,
         checked: s.elements.includes(key),
-      };
-    }
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
     const powerSets = dynamicOpts.powerSets.map(name => ({
       name,
       checked: s.powerSets.includes(name),

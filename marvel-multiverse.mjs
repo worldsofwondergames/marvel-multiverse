@@ -6508,15 +6508,28 @@ Hooks.once("init", () => {
       if (targets.length === 1) {
         switchForm(actor, targets[0].id);
       } else {
-        const buttons = {};
-        for (const t of targets) {
-          buttons[t.id] = { label: t.name, callback: () => switchForm(actor, t.id) };
-        }
-        new Dialog({
+        const items = targets.map(t => {
+          const a = game.actors.get(t.id);
+          const img = a?.prototypeToken?.texture?.src || a?.img || CONST.DEFAULT_TOKEN;
+          return `<div class="mm-form-picker-item" data-actor-id="${t.id}" title="${t.name}">
+            <img src="${img}" width="64" height="64"/>
+            <span>${t.name}</span>
+          </div>`;
+        }).join("");
+        const content = `<div class="mm-form-picker-grid">${items}</div>`;
+        const d = new Dialog({
           title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
-          content: "<p>Select a form to switch to:</p>",
-          buttons,
-        }).render(true);
+          content,
+          buttons: {},
+          render: (html) => {
+            html.find(".mm-form-picker-item").on("click", (e) => {
+              const actorId = e.currentTarget.dataset.actorId;
+              d.close();
+              switchForm(actor, actorId);
+            });
+          },
+        }, { width: Math.min(targets.length * 100, 400), classes: ["mm-form-picker-dialog"] });
+        d.render(true);
       }
     });
 

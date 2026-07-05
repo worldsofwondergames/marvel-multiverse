@@ -3216,7 +3216,7 @@ class MarvelMultiverseHeadquartersSheet extends ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "actor"],
-      width: 600,
+      width: 690,
       height: 700,
       tabs: [],
     });

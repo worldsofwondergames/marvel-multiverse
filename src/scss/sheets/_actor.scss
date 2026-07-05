@@ -193,10 +193,15 @@
   border-radius: 8px;
   cursor: pointer;
   padding: 6px;
+  position: relative;
   transition: background 0.15s;
 
   &:hover {
     background: rgba(0, 0, 0, 0.85);
+
+    .mm-form-picker-name {
+      opacity: 1;
+    }
   }
 
   img {
@@ -206,4 +211,21 @@
     object-fit: cover;
     width: 100px;
   }
+}
+
+.mm-form-picker-name {
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 4px;
+  bottom: 10px;
+  color: white;
+  font-size: 11px;
+  left: 50%;
+  opacity: 0;
+  padding: 2px 6px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+  transition: opacity 0.15s;
+  white-space: nowrap;
 }

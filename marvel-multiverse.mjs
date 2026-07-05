@@ -6519,7 +6519,7 @@ Hooks.once("init", () => {
           const item = document.createElement("div");
           item.classList.add("mm-form-picker-item");
           item.dataset.actorId = t.id;
-          item.innerHTML = `<img src="${img}"/>`;
+          item.innerHTML = `<img src="${img}"/><span class="mm-form-picker-name">${t.name}</span>`;
           item.addEventListener("click", () => {
             picker.remove();
             switchForm(actor, t.id);

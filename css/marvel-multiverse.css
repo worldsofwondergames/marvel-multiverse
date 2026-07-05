@@ -2340,12 +2340,13 @@
   height: 120px;
 }
 
-.mm-hq-portrait-block .mm-hero-portrait {
+.marvel-multiverse.sheet.actor .mm-hq-portrait-block .mm-hero-portrait {
+  clip-path: polygon(0 0, 70% 0%, 100% 30%, 100% 100%, 100% 100%, 30% 100%, 0% 70%, 0 0);
   height: 100%;
   width: 100%;
 }
 
-.mm-hq-portrait-block .mm-hero-portrait img {
+.marvel-multiverse.sheet.actor .mm-hq-portrait-block .mm-hero-portrait img {
   height: 100%;
   max-height: 100%;
   max-width: 100%;

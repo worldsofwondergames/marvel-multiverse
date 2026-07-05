@@ -370,7 +370,19 @@ class MarvelMultiverseRoll extends Roll {
  * Extend the base Actor document by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
  */
+const ACTOR_DEFAULT_ICONS = {
+  headquarters: "systems/marvel-multiverse/icons/headquarters.svg",
+};
+
 class MarvelMultiverseActor extends Actor {
+  async _preCreate(data, options, user) {
+    await super._preCreate(data, options, user);
+    const defaultIcon = ACTOR_DEFAULT_ICONS[data.type];
+    if (defaultIcon && (!data.img || data.img === Actor.DEFAULT_ICON)) {
+      this.updateSource({ img: defaultIcon });
+    }
+  }
+
   /** @override */
   prepareData() {
     // Prepare data for the actor. Calling the super version of this executes
@@ -3150,7 +3162,7 @@ class MarvelMultiverseHeadquartersSheet extends ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "actor"],
-      width: 600,
+      width: 690,
       height: 700,
       tabs: [],
     });
@@ -3163,10 +3175,11 @@ class MarvelMultiverseHeadquartersSheet extends ActorSheet {
   getData() {
     const context = super.getData();
     const actorData = context.data;
-    context.system = actorData.system;
+    context.system = this.actor.system;
     context.flags = actorData.flags;
     this._prepareItems(context);
     this._prepareMembers(context);
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
     context.rollData = context.actor.getRollData();
     return context;
   }
@@ -5835,32 +5848,33 @@ const ActorDirectoryFilter = {
         value: s.abilities[key].value,
       };
     }
-    const actorTypes = {
+    const actorTypesUnsorted = {
       character: { label: "Character", checked: s.actorType.includes("character") },
       npc: { label: "NPC", checked: s.actorType.includes("npc") },
       vehicle: { label: "Vehicle", checked: s.actorType.includes("vehicle") },
+      headquarters: { label: "Headquarters", checked: s.actorType.includes("headquarters") },
     };
-    const sizes = {};
-    for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.sizes)) {
-      sizes[key] = {
+    const actorTypes = Object.fromEntries(
+      Object.entries(actorTypesUnsorted).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+    const sizes = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.sizes).map(([key, data]) => [key, {
         label: game.i18n.localize(data.label),
         checked: s.size.includes(key),
-      };
-    }
-    const movementTypes = {};
-    for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.movementTypes)) {
-      movementTypes[key] = {
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+    const movementTypes = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.movementTypes).map(([key, data]) => [key, {
         label: game.i18n.localize(data.label),
         checked: s.movementTypes.includes(key),
-      };
-    }
-    const elements = {};
-    for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.elements)) {
-      elements[key] = {
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+    const elements = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.elements).map(([key, data]) => [key, {
         label: data.label,
         checked: s.elements.includes(key),
-      };
-    }
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
     const powerSets = dynamicOpts.powerSets.map(name => ({
       name,
       checked: s.powerSets.includes(name),
@@ -6440,15 +6454,42 @@ Hooks.once("init", () => {
       if (targets.length === 1) {
         switchForm(actor, targets[0].id);
       } else {
-        const buttons = {};
-        for (const t of targets) {
-          buttons[t.id] = { label: t.name, callback: () => switchForm(actor, t.id) };
+        const existing = document.querySelector(".mm-form-picker");
+        if (existing) {
+          existing.remove();
+          return;
         }
-        new Dialog({
-          title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
-          content: "<p>Select a form to switch to:</p>",
-          buttons,
-        }).render(true);
+
+        const picker = document.createElement("div");
+        picker.classList.add("mm-form-picker");
+
+        for (const t of targets) {
+          const a = game.actors.get(t.id);
+          const img = a?.prototypeToken?.texture?.src || a?.img || CONST.DEFAULT_TOKEN;
+          const item = document.createElement("div");
+          item.classList.add("mm-form-picker-item");
+          item.dataset.actorId = t.id;
+          item.innerHTML = `<img src="${img}"/><span class="mm-form-picker-name">${t.name}</span>`;
+          item.addEventListener("click", () => {
+            picker.remove();
+            switchForm(actor, t.id);
+          });
+          picker.appendChild(item);
+        }
+
+        const btnRect = btn.getBoundingClientRect();
+        picker.style.top = `${btnRect.top + btnRect.height / 2}px`;
+        picker.style.left = `${btnRect.left}px`;
+
+        document.body.appendChild(picker);
+
+        const dismiss = (e) => {
+          if (!picker.contains(e.target) && e.target !== btn) {
+            picker.remove();
+            document.removeEventListener("pointerdown", dismiss);
+          }
+        };
+        setTimeout(() => document.addEventListener("pointerdown", dismiss), 50);
       }
     });
 

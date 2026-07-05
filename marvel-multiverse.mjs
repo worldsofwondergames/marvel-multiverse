@@ -6508,28 +6508,43 @@ Hooks.once("init", () => {
       if (targets.length === 1) {
         switchForm(actor, targets[0].id);
       } else {
-        const items = targets.map(t => {
+        document.querySelectorAll(".mm-form-picker").forEach(el => el.remove());
+
+        const picker = document.createElement("div");
+        picker.classList.add("mm-form-picker");
+
+        for (const t of targets) {
           const a = game.actors.get(t.id);
           const img = a?.prototypeToken?.texture?.src || a?.img || CONST.DEFAULT_TOKEN;
-          return `<div class="mm-form-picker-item" data-actor-id="${t.id}" title="${t.name}">
-            <img src="${img}" width="64" height="64"/>
-            <span>${t.name}</span>
-          </div>`;
-        }).join("");
-        const content = `<div class="mm-form-picker-grid">${items}</div>`;
-        const d = new Dialog({
-          title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
-          content,
-          buttons: {},
-          render: (html) => {
-            html.find(".mm-form-picker-item").on("click", (e) => {
-              const actorId = e.currentTarget.dataset.actorId;
-              d.close();
-              switchForm(actor, actorId);
-            });
-          },
-        }, { width: Math.min(targets.length * 100, 400), classes: ["mm-form-picker-dialog"] });
-        d.render(true);
+          const item = document.createElement("div");
+          item.classList.add("mm-form-picker-item");
+          item.dataset.actorId = t.id;
+          item.innerHTML = `<img src="${img}"/>`;
+          item.addEventListener("click", () => {
+            picker.remove();
+            switchForm(actor, t.id);
+          });
+          picker.appendChild(item);
+        }
+
+        const tokenEl = app.object;
+        const { x, y, width } = tokenEl;
+        const scale = canvas.stage.scale.x;
+        const pan = canvas.stage.pivot;
+        const screenX = (x - pan.x) * scale + window.innerWidth / 2;
+        const screenY = (y - pan.y) * scale + window.innerHeight / 2;
+        picker.style.left = `${screenX + (width * scale) / 2}px`;
+        picker.style.top = `${screenY - 10}px`;
+
+        document.body.appendChild(picker);
+
+        const dismiss = (e) => {
+          if (!picker.contains(e.target) && e.target !== btn) {
+            picker.remove();
+            document.removeEventListener("pointerdown", dismiss);
+          }
+        };
+        setTimeout(() => document.addEventListener("pointerdown", dismiss), 50);
       }
     });
 

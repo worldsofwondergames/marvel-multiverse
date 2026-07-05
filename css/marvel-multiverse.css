@@ -2494,12 +2494,6 @@
   text-align: center;
 }
 
-.mm-hq-trait-downtime {
-  color: #fff2ec;
-  font-size: 11px;
-  padding: 0 4px 2px 44px;
-}
-
 .marvel-multiverse.sheet.item .window-content > form {
   display: flex;
   flex-direction: column;

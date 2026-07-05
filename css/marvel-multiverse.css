@@ -1072,7 +1072,7 @@
 .mm-sidebar-filters .mm-filter-group-header {
   color: #8b0502;
   font-family: "Roboto", sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   margin: 0 0 2px;
   padding: 0;
@@ -1145,7 +1145,7 @@
   gap: 4px 8px;
 }
 .mm-sidebar-filters .mm-filter-checkbox-label {
-  font-size: 12px;
+  font-size: 11px;
   display: inline-flex;
   align-items: center;
   gap: 8px;

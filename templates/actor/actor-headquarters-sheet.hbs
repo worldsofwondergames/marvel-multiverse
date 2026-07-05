@@ -142,7 +142,9 @@
       <div class="mm-styled-field -fill">
         <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Headquarters.Source"}}</span></label>
         <div class="mm-styled-input">
-          <input type="text" name="system.source" value="{{system.source}}" data-dtype="String" placeholder="e.g. Avengers Expansion p.125"/>
+          <select name="system.source">
+            {{selectOptions sources selected=system.source labelAttr="label" blank=""}}
+          </select>
         </div>
       </div>
 

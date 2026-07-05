@@ -27,6 +27,7 @@ export class MarvelMultiverseHeadquartersSheet extends ActorSheet {
     context.flags = actorData.flags;
     this._prepareItems(context);
     this._prepareMembers(context);
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
     context.rollData = context.actor.getRollData();
     return context;
   }

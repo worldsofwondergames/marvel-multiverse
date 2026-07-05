@@ -2340,8 +2340,13 @@
 }
 
 .mm-hq-portrait-block .mm-hero-portrait {
-  width: 120px;
   height: 120px;
+  width: 120px;
+}
+
+.mm-hq-portrait-block .mm-hero-portrait,
+.mm-hq-portrait-block .mm-hero-portrait img {
+  clip-path: polygon(0 0, 70% 0%, 100% 30%, 100% 100%, 100% 100%, 30% 100%, 0% 70%, 0 0);
 }
 
 .mm-hq-header-stats {

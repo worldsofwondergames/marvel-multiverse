@@ -26,8 +26,13 @@
   flex: 0 0 120px;
 
   .mm-hero-portrait {
-    width: 120px;
     height: 120px;
+    width: 120px;
+
+    &,
+    img {
+      clip-path: polygon(0 0, 70% 0%, 100% 30%, 100% 100%, 100% 100%, 30% 100%, 0% 70%, 0 0);
+    }
   }
 }
 

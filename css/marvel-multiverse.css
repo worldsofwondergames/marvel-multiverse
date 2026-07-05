@@ -2508,6 +2508,7 @@
   flex: 1 1 auto;
   font-size: 13px;
   font-weight: 600;
+  text-align: left;
 }
 
 .mm-hq-tag-name:hover,

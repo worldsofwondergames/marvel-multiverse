@@ -129,3 +129,4 @@ When touching item types or gear, check for required data migrations before assu
 - **No IP in system** — Marvel characters, team names, universe-specific content belong in marvel-multiverse-data, not this repo
 - **E2E tests run headed** — Never kill or relaunch Chrome during e2e tests; use existing session
 - **Stryker lock issues** — Close FoundryVTT before running mutation tests to avoid LOCK file contention
+- **PRs** — Always prompt before creating or updating a PR. Check for closed PRs on the same branch combination first.

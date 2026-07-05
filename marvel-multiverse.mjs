@@ -6508,7 +6508,11 @@ Hooks.once("init", () => {
       if (targets.length === 1) {
         switchForm(actor, targets[0].id);
       } else {
-        document.querySelectorAll(".mm-form-picker").forEach(el => el.remove());
+        const existing = document.querySelector(".mm-form-picker");
+        if (existing) {
+          existing.remove();
+          return;
+        }
 
         const picker = document.createElement("div");
         picker.classList.add("mm-form-picker");

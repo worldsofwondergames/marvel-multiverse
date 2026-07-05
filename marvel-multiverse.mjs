@@ -6527,14 +6527,9 @@ Hooks.once("init", () => {
           picker.appendChild(item);
         }
 
-        const tokenEl = app.object;
-        const { x, y, width } = tokenEl;
-        const scale = canvas.stage.scale.x;
-        const pan = canvas.stage.pivot;
-        const screenX = (x - pan.x) * scale + window.innerWidth / 2;
-        const screenY = (y - pan.y) * scale + window.innerHeight / 2;
-        picker.style.left = `${screenX + (width * scale) / 2}px`;
-        picker.style.top = `${screenY - 10}px`;
+        const btnRect = btn.getBoundingClientRect();
+        picker.style.top = `${btnRect.top + btnRect.height / 2}px`;
+        picker.style.left = `${btnRect.left}px`;
 
         document.body.appendChild(picker);
 

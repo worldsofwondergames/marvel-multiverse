@@ -2337,16 +2337,20 @@
 
 .mm-hq-portrait-block {
   flex: 0 0 120px;
+  height: 120px;
 }
 
 .mm-hq-portrait-block .mm-hero-portrait {
-  height: 120px;
-  width: 120px;
+  height: 100%;
+  width: 100%;
 }
 
-.mm-hq-portrait-block .mm-hero-portrait,
 .mm-hq-portrait-block .mm-hero-portrait img {
-  clip-path: polygon(0 0, 70% 0%, 100% 30%, 100% 100%, 100% 100%, 30% 100%, 0% 70%, 0 0);
+  height: 100%;
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .mm-hq-header-stats {

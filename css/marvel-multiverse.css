@@ -2494,62 +2494,6 @@
   text-align: center;
 }
 
-.mm-hq-tags-list,
-.mm-hq-traits-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.mm-hq-tag-name,
-.mm-hq-trait-name {
-  color: #fff2ec;
-  cursor: pointer;
-  flex: 1 1 auto;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-}
-
-.mm-hq-tag-name:hover,
-.mm-hq-trait-name:hover {
-  color: white;
-}
-
-.mm-hq-trait-row {
-  align-items: center;
-  gap: 4px;
-  padding: 2px 4px;
-}
-
-.mm-hq-traits-list li:nth-child(odd) .mm-hq-trait-row {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 2px;
-}
-
-.mm-hq-tags-list li {
-  padding: 2px 4px;
-}
-
-.mm-hq-tags-list li:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 2px;
-}
-
-.mm-hq-item-controls {
-  flex: 0 0 24px;
-  text-align: right;
-}
-
-.mm-hq-item-controls a {
-  color: #fff2ec;
-  opacity: 0.7;
-}
-
-.mm-hq-item-controls a:hover {
-  opacity: 1;
-}
-
 .mm-hq-trait-downtime {
   color: #fff2ec;
   font-size: 11px;

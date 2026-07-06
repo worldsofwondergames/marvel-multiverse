@@ -1675,6 +1675,14 @@
   flex: 0 0 210px;
 }
 
+.marvel-multiverse.sheet.actor .sheet-header .mm-codename-field {
+  flex: 2 1 0;
+}
+
+.marvel-multiverse.sheet.actor .sheet-header .mm-team-maneuver-field {
+  flex: 1 1 0;
+}
+
 .marvel-multiverse.sheet.actor .sheet-header .team-maneuver select:first-child {
   width: 100%;
 }

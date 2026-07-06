@@ -37,6 +37,14 @@
       }
     }
 
+    .mm-codename-field {
+      flex: 2 1 0;
+    }
+
+    .mm-team-maneuver-field {
+      flex: 1 1 0;
+    }
+
     .team-maneuver {
       select:first-child {
         width: 100%;

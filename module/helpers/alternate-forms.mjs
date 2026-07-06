@@ -73,14 +73,28 @@ export async function switchForm(currentActor, targetActorId) {
     const combatant = game.combat?.combatants?.find(c => c.tokenId === currentToken.id);
     const initiative = combatant?.initiative;
 
-    await scene.deleteEmbeddedDocuments("Token", [currentToken.id]);
+    const oldPlaceable = currentToken.object;
 
     const protoData = targetActor.prototypeToken?.toObject?.() ?? {};
     const [newToken] = await scene.createEmbeddedDocuments("Token", [{
       ...protoData,
       actorId: targetActor.id,
       x, y, elevation, rotation,
+      hidden: false,
     }]);
+
+    const newPlaceable = await _waitForPlaceable(newToken);
+    const duration = 1000;
+
+    if (oldPlaceable?.mesh && newPlaceable?.mesh) {
+      newPlaceable.mesh.alpha = 0;
+      await Promise.all([
+        _animateAlpha(oldPlaceable.mesh, 1, 0, duration),
+        _animateAlpha(newPlaceable.mesh, 0, 1, duration),
+      ]);
+    }
+
+    await scene.deleteEmbeddedDocuments("Token", [currentToken.id]);
 
     if (combatant && game.combat && newToken) {
       const updateData = { actorId: targetActor.id, tokenId: newToken.id };
@@ -142,4 +156,29 @@ export async function handleInvoluntaryTrigger(actor, targetActorId, trigger) {
     });
     await switchForm(actor, targetActorId);
   }
+}
+
+function _waitForPlaceable(tokenDoc, timeout = 2000) {
+  return new Promise(resolve => {
+    if (tokenDoc?.object) return resolve(tokenDoc.object);
+    const start = Date.now();
+    const id = setInterval(() => {
+      if (tokenDoc?.object) { clearInterval(id); resolve(tokenDoc.object); }
+      else if (Date.now() - start > timeout) { clearInterval(id); resolve(null); }
+    }, 16);
+  });
+}
+
+function _animateAlpha(placeable, from, to, duration) {
+  const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : cb => setTimeout(cb, 16);
+  return new Promise(resolve => {
+    const start = performance.now();
+    function step(now) {
+      const t = Math.min((now - start) / duration, 1);
+      placeable.alpha = from + (to - from) * t;
+      if (t < 1) raf(step);
+      else resolve();
+    }
+    raf(step);
+  });
 }

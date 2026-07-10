@@ -10,9 +10,8 @@ import {
   deleteActor,
 } from './helpers.mjs';
 
-const ACTOR_NAME = 'Spider-Man (Peter Parker)';
+const ACTOR_NAME = 'E2E Character Creation Test';
 
-// Spider-Man's ability scores from the character profile
 const ABILITIES = {
   'system.abilities.mle.value': 5,  // Melee
   'system.abilities.agl.value': 7,  // Agility
@@ -59,22 +58,22 @@ const BASIC_POWERS = [
   'Wisecracker',
 ];
 
-const SPIDER_POWERS = [
+const ADDITIONAL_POWERS = [
   'Jump 1',
-  'Spider-Dodge',
-  'Spider-Sense',
-  'Spider-Strike',
-  'Wallcrawling',
-  'Webcasting',
-  'Webgliding',
-  'Webgrabbing',
-  'Webslinging',
-  'Webtrapping',
+  'Sturdy 1',
+  'Danger Sense',
+  'Healing Factor',
+  'Brawling',
+  'Accuracy 1',
+  'Clobber',
+  'Defense Stance',
+  'Attack Stance',
+  'Fast Strikes',
 ];
 
-test.describe('Character Creation - Spider-Man', () => {
+test.describe('Character Creation', () => {
 
-  test('create Spider-Man and verify character sheet', async ({ foundryPage }) => {
+  test('create character and verify character sheet', async ({ foundryPage }) => {
     const page = foundryPage;
 
     // Clean up any leftover actor from a previous run
@@ -117,7 +116,7 @@ test.describe('Character Creation - Spider-Man', () => {
       }
 
       // ── Step 8: Add Powers from compendium ──
-      for (const power of [...BASIC_POWERS, ...SPIDER_POWERS]) {
+      for (const power of [...BASIC_POWERS, ...ADDITIONAL_POWERS]) {
         await dragCompendiumItem(page, 'powers', power, sheet);
       }
 
@@ -185,7 +184,7 @@ test.describe('Character Creation - Spider-Man', () => {
 
       // ── Powers ──
       const powers = await getActorItems(page, ACTOR_NAME, 'power');
-      for (const power of [...BASIC_POWERS, ...SPIDER_POWERS]) {
+      for (const power of [...BASIC_POWERS, ...ADDITIONAL_POWERS]) {
         expect(powers, `Should have power: ${power}`).toContain(power);
       }
 

@@ -541,9 +541,9 @@ test.describe('Iconic Item Lifecycle', () => {
     expect(result.powerValue).toBe(1); // max(1, 4-3)
   });
 
-  // ── Full Captain America's Shield Scenario ───────────────────────────
+  // ── Full Iconic Shield Scenario ──────────────────────────────────────
 
-  test('captain america shield scenario: 4 powers, 3 restrictions, PV = 1', async ({ foundryPage }) => {
+  test('iconic shield scenario: 4 powers, 3 restrictions, PV = 1', async ({ foundryPage }) => {
     const page = foundryPage;
     await createIconicItem(page, ITEM_NAME);
 

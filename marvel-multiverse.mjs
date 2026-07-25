@@ -5418,10 +5418,9 @@ Hooks.once("init", () => {
     ),
   });
 
-  // Active Effects are never copied to the Actor,
-  // but will still apply to the Actor from within the Item
-  // if the transfer property on the Active Effect is true.
-  CONFIG.ActiveEffect.legacyTransferral = false;
+  // Active Effects are never copied to the Actor, but still apply to the Actor
+  // from within the Item when the effect's transfer property is true. This is
+  // core behavior as of v14 (the legacy transferral framework was removed).
 
   CONFIG.Dice.MarvelDie = MarvelDie;
   CONFIG.Dice.types.push(MarvelDie);

@@ -373,6 +373,11 @@ class MarvelMultiverseActor extends Actor {
 
   /** @override */
   prepareBaseData() {
+    // Must call super: as of v14, Actor#prepareBaseData runs _clearData(),
+    // which initialises tokenActiveEffectChanges and resets the ActiveEffect
+    // application phases. Without it applyActiveEffects() throws and NO
+    // active effect is ever applied.
+    super.prepareBaseData();
     // Data modifications in this step occur before processing embedded
     // documents or derived data.
   }

@@ -11,7 +11,7 @@
     "url": "https://github.com/worldsofwondergames/marvel-multiverse/",
     "license": "LICENSE.txt",
     "readme": "README.md",
-    "bugs": "Replace this with a link to file issues or tickets",
+    "bugs": "https://github.com/worldsofwondergames/marvel-multiverse/issues",
     "changelog": "CHANGELOG.md",
     "media": [
         {
@@ -28,7 +28,7 @@
     "version": "2.4.0",
     "compatibility": {
         "minimum": 13,
-        "verified": "13"
+        "verified": "14"
     },
     "esmodules": [
         "marvel-multiverse.mjs"

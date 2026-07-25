@@ -67,4 +67,30 @@ describe('FoundryVTT v14 removed APIs', () => {
   test('ActiveEffect#label is not used (removed in v14, use #name)', () => {
     expect(findMatches(/\beffect\.label\b/)).toEqual([]);
   });
+
+  test('prepareBaseData() overrides call super.prepareBaseData() (v14 runs _clearData() there; skipping it breaks applyActiveEffects())', () => {
+    const violations = [];
+    for (const file of sourceFiles()) {
+      const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+      lines.forEach((line, i) => {
+        if (!/^\s*prepareBaseData\s*\(\s*\)\s*\{/.test(line)) return;
+        // Brace-match from the opening line to find the end of the method body.
+        let depth = 0;
+        let end = i;
+        for (let j = i; j < lines.length; j++) {
+          for (const ch of lines[j]) {
+            if (ch === '{') depth++;
+            else if (ch === '}') depth--;
+          }
+          end = j;
+          if (depth === 0) break;
+        }
+        const body = lines.slice(i, end + 1).join('\n');
+        if (!/super\.prepareBaseData\s*\(\s*\)\s*;/.test(body)) {
+          violations.push(`${path.relative(ROOT, file)}:${i + 1}: prepareBaseData() override does not call super.prepareBaseData()`);
+        }
+      });
+    }
+    expect(violations).toEqual([]);
+  });
 });

@@ -1389,14 +1389,14 @@ class ChatMessageMarvel extends ChatMessage {
       chatCard.find(".effects-tray .effect").each((i, el) => {
         if (
           !game.user.isGM &&
-          (el.dataset.transferred === "false" || this.user.id !== game.user.id)
+          (el.dataset.transferred === "false" || this.author.id !== game.user.id)
         )
           el.remove();
       });
 
       // If the user is the message author or the actor owner, proceed
       const actor = game.actors.get(this.speaker.actor);
-      if (game.user.isGM || actor?.isOwner || this.user.id === game.user.id) {
+      if (game.user.isGM || actor?.isOwner || this.author.id === game.user.id) {
         const summonsButton = chatCard[0].querySelector(
           'button[data-action="summon"]'
         );
@@ -1439,7 +1439,7 @@ class ChatMessageMarvel extends ChatMessage {
     if (this.isContentVisible) {
       nameText = this.alias;
     } else {
-      nameText = this.user.name;
+      nameText = this.author.name;
     }
 
     const avatar = document.createElement("div");

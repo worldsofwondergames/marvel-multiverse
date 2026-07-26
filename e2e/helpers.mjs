@@ -103,46 +103,6 @@ export async function setSelectField(sheet, fieldName, value) {
 }
 
 /**
- * Drop a compendium item onto the currently open character sheet
- * by using FoundryVTT's API to find the item and call the sheet's drop handler.
- *
- * Searches the marvel-multiverse-data module's combined items pack,
- * falling back to the system's own packs if not found.
- */
-export async function dragCompendiumItem(page, packName, itemName, sheet) {
-  await page.evaluate(async ({ packName, itemName }) => {
-    // Primary source: the module's combined items pack
-    const modulePack = game.packs.get('marvel-multiverse-data.marvel-multiverse-items');
-    // Fallback: the system's per-type packs
-    const systemPack = game.packs.get(`marvel-multiverse.${packName}`);
-
-    let item = null;
-
-    for (const pack of [modulePack, systemPack].filter(Boolean)) {
-      const index = await pack.getIndex({ fields: ['name', 'type'] });
-      const entry = index.find(e => e.name === itemName);
-      if (entry) {
-        item = await pack.getDocument(entry._id);
-        break;
-      }
-    }
-
-    if (!item) {
-      throw new Error(`Item "${itemName}" not found in any compendium pack.`);
-    }
-
-    const itemData = item.toObject();
-
-    const actorSheet = Object.values(ui.windows).find(w => w instanceof ActorSheet);
-    if (!actorSheet) throw new Error('No actor sheet is currently open');
-
-    await actorSheet._onDropItemCreate(itemData);
-  }, { packName, itemName });
-
-  await page.waitForTimeout(500);
-}
-
-/**
  * Navigate to the Biography tab on the character sheet.
  */
 export async function goToBiographyTab(sheet) {

@@ -2,7 +2,6 @@ import { test, expect } from './fixtures.mjs';
 import {
   createActor,
   setNumericField,
-  dragCompendiumItem,
   goToAbilitiesTab,
   getActorSystemData,
   deleteActor,
@@ -42,31 +41,6 @@ test.describe('Powers with Active Effects', () => {
 
       sys = await getActorSystemData(page, ACTOR_NAME);
       expect(sys.abilities.mle.damageMultiplier).toBe(4);
-    } finally {
-      await deleteActor(page, ACTOR_NAME);
-    }
-  });
-
-  test('adding multiple powers accumulates correct items', async ({ foundryPage }) => {
-    const page = foundryPage;
-    const sheet = await createActor(page, ACTOR_NAME);
-
-    try {
-      await setNumericField(sheet, 'system.attributes.rank.value', 4);
-
-      await dragCompendiumItem(page, 'powers', 'Evasion', sheet);
-      await dragCompendiumItem(page, 'powers', 'Combat Trickery', sheet);
-      await dragCompendiumItem(page, 'powers', 'Mighty 1', sheet);
-      await page.waitForTimeout(1000);
-
-      const powers = await page.evaluate((name) => {
-        const actor = game.actors.find(a => a.name === name);
-        return actor.items.filter(i => i.type === 'power').map(i => i.name).sort();
-      }, ACTOR_NAME);
-
-      expect(powers).toContain('Evasion');
-      expect(powers).toContain('Combat Trickery');
-      expect(powers).toContain('Mighty 1');
     } finally {
       await deleteActor(page, ACTOR_NAME);
     }

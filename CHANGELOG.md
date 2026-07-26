@@ -8,7 +8,7 @@
 - Replaced `ChatMessage#user` with `#author` (removed in v14)
 - Replaced `ActiveEffect#icon` with `#img` (removed in v14)
 - Removed `CONFIG.ActiveEffect.legacyTransferral` (framework removed in v14; the system already used the modern behavior)
-- Compatibility now declares `verified: 14`; `minimum` stays at 13
+- **Breaking:** FoundryVTT v14 is now the minimum supported version. Compatibility declares `minimum: 14, verified: 14`; v13 and earlier are no longer supported
 - Added a guard test that scans for v14-removed APIs and for missing `super.prepareBaseData()` calls, so these cannot silently regress
 - Untracked the generated `marvel-multiverse-compiled.mjs` build artifact, which is regenerated during release
 

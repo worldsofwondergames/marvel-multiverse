@@ -5638,7 +5638,15 @@ Hooks.on("renderChatMessage", (message, html) => {
 
 Hooks.once("ready", () => {
   // Wait to register hotbar drop hook on ready so that modules could register earlier if they want to
-  Hooks.on("hotbarDrop", (bar, data, slot) => createItemMacro(data, slot));
+  Hooks.on("hotbarDrop", (bar, data, slot) => {
+    // Only Items become roll macros; let core handle Macro, RollTable, etc.
+    if (data.type !== "Item") return;
+    // Core suppresses its own handling only on a strict `false`, and checks the
+    // return synchronously. Returning the async createItemMacro() promise would
+    // never match, so core would also assign a sheet-toggle macro to this slot.
+    createItemMacro(data, slot);
+    return false;
+  });
 });
 /* -------------------------------------------- */
 /*  Render Settings Hook                                  */
@@ -5721,8 +5729,10 @@ Hooks.once("diceSoNiceReady", (dice3d) => {
  * @returns {Promise}
  */
 async function createItemMacro(data, slot) {
-  // First, determine if this is a valid owned item.
-  if (data.type !== "Item" || data.type !== "Weapon") return;
+  // First, determine if this is a valid owned item. `data.type` is the Document
+  // name, so it is "Item" for every item including weapons — `weapon` is an item
+  // subtype and never appears here.
+  if (data.type !== "Item") return;
   if (!data.uuid.includes("Actor.") && !data.uuid.includes("Token.")) {
     return ui.notifications.warn(
       "You can only create macro buttons for owned Items"

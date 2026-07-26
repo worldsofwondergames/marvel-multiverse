@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 2.4.1
+## 3.0.0
 
 ### FoundryVTT v14 Compatibility
 

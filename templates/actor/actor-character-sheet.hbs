@@ -190,7 +190,7 @@
               </li>
               {{#each system.abilities as |ability key|}}
                 <li>
-                  <div class="mm-ability-name rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}" data-ability-key="{{key}}">
+                  <div class="mm-ability-name rollable" data-roll-type="ability" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}" data-ability-key="{{key}}">
                     {{#if (eq key "mle")}}
                       Melee
                     {{else if (eq key "agl")}}
@@ -212,7 +212,7 @@
                     <div>{{ability.defense}}</div>
                   </div>
                   <div>
-                    <span class="rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.noncom" data-label="{{ability.label}}" data-ability-key="{{key}}">{{numberFormat ability.noncom decimals=0 sign=true}}</span>
+                    <span class="rollable" data-roll-type="noncom" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.noncom" data-label="{{ability.label}}" data-ability-key="{{key}}">{{numberFormat ability.noncom decimals=0 sign=true}}</span>
                   </div>
                 </li>
               {{/each}}

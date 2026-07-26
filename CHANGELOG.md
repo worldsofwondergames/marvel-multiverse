@@ -2,6 +2,11 @@
 
 ## 3.0.0
 
+### Hotbar Macros
+
+- Ability scores and Non-Combat Checks can now be dragged from a character or NPC sheet onto the macro hotbar. They were never drag sources, and `hotbarDrop` had no branch for them, so the drop did nothing
+- Ability and non-combat rolls now share one implementation between the sheet and the hotbar macro, so both produce the same chat card
+
 ### FoundryVTT v14 Compatibility
 
 - **Active Effects now apply again.** `MarvelMultiverseActor.prepareBaseData()` overrode Foundry's method without calling `super`. As of v14 that method runs `_clearData()`, which initialises the state `applyActiveEffects()` depends on — so effect application threw before applying anything and **no Active Effect took effect on any actor**. Restoring the `super` call fixes every affected effect: ability modifiers, damage multipliers, damage reduction, and battle suit bonuses.

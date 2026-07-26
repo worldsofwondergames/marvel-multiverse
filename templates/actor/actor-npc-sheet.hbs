@@ -68,7 +68,7 @@
                   </li>
                   {{#each system.abilities as |ability key|}}
                     <li>
-                      <div class="mm-npc-ability-name rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}" data-ability-key="{{key}}">
+                      <div class="mm-npc-ability-name rollable" data-roll-type="ability" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}" data-ability-key="{{key}}">
                         {{#if (eq key "mle")}}
                           Melee
                         {{else if (eq key "agl")}}

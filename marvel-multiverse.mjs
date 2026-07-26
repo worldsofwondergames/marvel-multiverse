@@ -2284,7 +2284,37 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         li.setAttribute("draggable", true);
         li.addEventListener("dragstart", handler, false);
       });
+
+      // Ability and non-combat checks are not embedded documents, so core's
+      // _onDragStart has nothing to describe them with. They carry their own
+      // drag payload instead.
+      const checkHandler = (ev) => this._onDragCheckStart(ev);
+      html
+        .find('[data-roll-type="ability"], [data-roll-type="noncom"]')
+        .each((i, el) => {
+          el.setAttribute("draggable", true);
+          el.addEventListener("dragstart", checkHandler, false);
+        });
     }
+  }
+
+  /**
+   * Build the hotbar drag payload for an ability or non-combat check.
+   * @param {DragEvent} event   The originating dragstart event
+   * @private
+   */
+  _onDragCheckStart(event) {
+    const { rollType, abilityKey } = event.currentTarget.dataset;
+    if (!abilityKey) return;
+    event.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({
+        type: "MarvelMultiverseCheck",
+        actorUuid: this.actor.uuid,
+        rollType,
+        abilityKey,
+      })
+    );
   }
 
   /**
@@ -2516,6 +2546,12 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     if (dataset.rollType) {
       if (dataset.rollType === "item") {
         if (item) return item.roll();
+      }
+      // Shared with the hotbar macro so a dragged check rolls identically.
+      if (dataset.rollType === "ability" || dataset.rollType === "noncom") {
+        return rollAbilityCheck(this.actor, dataset.abilityKey, {
+          noncom: dataset.rollType === "noncom",
+        });
       }
     }
     if (dataset.formula) {
@@ -3079,7 +3115,37 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         li.setAttribute("draggable", true);
         li.addEventListener("dragstart", handler, false);
       });
+
+      // Ability and non-combat checks are not embedded documents, so core's
+      // _onDragStart has nothing to describe them with. They carry their own
+      // drag payload instead.
+      const checkHandler = (ev) => this._onDragCheckStart(ev);
+      html
+        .find('[data-roll-type="ability"], [data-roll-type="noncom"]')
+        .each((i, el) => {
+          el.setAttribute("draggable", true);
+          el.addEventListener("dragstart", checkHandler, false);
+        });
     }
+  }
+
+  /**
+   * Build the hotbar drag payload for an ability or non-combat check.
+   * @param {DragEvent} event   The originating dragstart event
+   * @private
+   */
+  _onDragCheckStart(event) {
+    const { rollType, abilityKey } = event.currentTarget.dataset;
+    if (!abilityKey) return;
+    event.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({
+        type: "MarvelMultiverseCheck",
+        actorUuid: this.actor.uuid,
+        rollType,
+        abilityKey,
+      })
+    );
   }
 
   /**
@@ -3283,6 +3349,12 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         const itemId = element.closest(".item").dataset.itemId;
         const item = this.actor.items.get(itemId);
         if (item) return item.roll();
+      }
+      // Shared with the hotbar macro so a dragged check rolls identically.
+      if (dataset.rollType === "ability" || dataset.rollType === "noncom") {
+        return rollAbilityCheck(this.actor, dataset.abilityKey, {
+          noncom: dataset.rollType === "noncom",
+        });
       }
     }
 
@@ -4873,6 +4945,7 @@ globalThis.MarvelMultiverse = {
   MarvelMultiverseActor,
   MarvelMultiverseItem: MarvelMultiverseItem$1,
   rollItemMacro,
+  rollCheckMacro,
   config: MARVEL_MULTIVERSE,
   dice,
   models,
@@ -5639,11 +5712,15 @@ Hooks.on("renderChatMessage", (message, html) => {
 Hooks.once("ready", () => {
   // Wait to register hotbar drop hook on ready so that modules could register earlier if they want to
   Hooks.on("hotbarDrop", (bar, data, slot) => {
+    // Core suppresses its own handling only on a strict `false`, and checks the
+    // return synchronously. Returning an async create*Macro() promise would
+    // never match, so core would also assign a macro to this slot.
+    if (data.type === "MarvelMultiverseCheck") {
+      createCheckMacro(data, slot);
+      return false;
+    }
     // Only Items become roll macros; let core handle Macro, RollTable, etc.
     if (data.type !== "Item") return;
-    // Core suppresses its own handling only on a strict `false`, and checks the
-    // return synchronously. Returning the async createItemMacro() promise would
-    // never match, so core would also assign a sheet-toggle macro to this slot.
     createItemMacro(data, slot);
     return false;
   });
@@ -5760,6 +5837,134 @@ async function createItemMacro(data, slot) {
 }
 
 /**
+ * Create a Macro from an ability or non-combat check dropped on the hotbar.
+ * @param {Object} data     The dropped data
+ * @param {number} slot     The hotbar slot to use
+ * @returns {Promise}
+ */
+async function createCheckMacro(data, slot) {
+  const actor = await fromUuid(data.actorUuid);
+  if (!actor) {
+    return ui.notifications.warn(
+      "Could not find the actor this check was dragged from."
+    );
+  }
+
+  const noncom = data.rollType === "noncom";
+  const abilityLabel =
+    game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[data.abilityKey]) ??
+    data.abilityKey;
+  const name = noncom
+    ? `${actor.name}: ${abilityLabel} (Non-Combat)`
+    : `${actor.name}: ${abilityLabel}`;
+  const command = `game.MarvelMultiverse.rollCheckMacro("${data.actorUuid}", "${data.abilityKey}", ${noncom});`;
+
+  let macro = game.macros.find(
+    (m) => m.name === name && m.command === command
+  );
+  if (!macro) {
+    macro = await Macro.create({
+      name: name,
+      type: "script",
+      img: actor.img,
+      command: command,
+      flags: { "marvel-multiverse.checkMacro": true },
+    });
+  }
+  game.user.assignHotbarMacro(macro, slot);
+  return false;
+}
+
+/**
+ * Roll an ability or non-combat check for an actor.
+ *
+ * Shared by the sheet click handler and the hotbar macro so both paths produce
+ * the same chat card.
+ * @param {Actor} actor             The actor making the check
+ * @param {string} abilityKey       One of the six ability keys, e.g. "mle"
+ * @param {object} [options]
+ * @param {boolean} [options.noncom=false]   Roll the non-combat check instead
+ * @returns {MarvelMultiverseRoll|null}
+ */
+function rollAbilityCheck(actor, abilityKey, { noncom = false } = {}) {
+  const abilityData = actor?.system?.abilities?.[abilityKey];
+  if (!abilityData) {
+    ui.notifications.warn(
+      `Could not find the ${abilityKey} ability on ${actor?.name ?? "this actor"}.`
+    );
+    return null;
+  }
+
+  const formula = `{1d6,1dm,1d6}+@abilities.${abilityKey}.${noncom ? "noncom" : "value"}`;
+  const abilityLabel =
+    game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[abilityKey]) ??
+    abilityKey;
+
+  let flavor = _buildRollFlavor({
+    tokenImg: _getTokenImg(actor),
+    actorName: actor.name,
+    ability: abilityLabel,
+  });
+
+  let edgeMode = MarvelMultiverseRoll.EDGE_MODE.NORMAL;
+  if (abilityData.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
+  else if (abilityData.trouble)
+    edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
+
+  const roll = new CONFIG.Dice.MarvelMultiverseRoll(
+    formula,
+    actor.getRollData(),
+    { edgeMode }
+  );
+
+  if (
+    abilityKey === "ego" &&
+    game.settings.get("marvel-multiverse", "mutantReputationEnabled")
+  ) {
+    const repOverride = actor.system.mutantReputation;
+    const repKey =
+      repOverride !== "world"
+        ? repOverride
+        : game.settings.get("marvel-multiverse", "mutantReputationLevel");
+    const repConfig = MARVEL_MULTIVERSE.mutantReputationLevels[repKey];
+    if (repConfig && repKey !== "neutral") {
+      flavor += `<div style="margin-top:4px;padding:2px 6px;background:#5c3d6e;color:#fff;border-radius:3px;font-size:11px;"><b>Mutant Reputation (${repConfig.label}):</b> ${repConfig.effect}</div>`;
+    }
+  }
+
+  const rollMode = game.settings.get("core", "rollMode");
+  const messageData = {
+    speaker: ChatMessage.getSpeaker({ actor: actor }),
+    flavor: flavor,
+    rollMode: rollMode,
+    title: "",
+  };
+  const attackTargets = _getAttackTargets(abilityKey);
+  if (attackTargets.length) {
+    messageData["flags.marvel-multiverse.targets"] = attackTargets;
+  }
+
+  roll.toMessage(messageData, { rollMode: rollMode });
+  return roll;
+}
+
+/**
+ * Execute an ability or non-combat check macro created from a hotbar drop.
+ * @param {string} actorUuid
+ * @param {string} abilityKey
+ * @param {boolean} [noncom=false]
+ */
+async function rollCheckMacro(actorUuid, abilityKey, noncom = false) {
+  const actor = await fromUuid(actorUuid);
+  if (!actor) {
+    return ui.notifications.warn(
+      "Could not find the actor for this check. You may need to delete and recreate this macro."
+    );
+  }
+  return rollAbilityCheck(actor, abilityKey, { noncom });
+}
+
+/**
  * Create a Macro from an Item drop.
  * Get an existing item macro if one exists, otherwise create a new one.
  * @param {string} itemUuid
@@ -5785,5 +5990,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, dice, models, rollItemMacro };
+export { ChatMessageMarvel, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, dice, models, rollAbilityCheck, rollCheckMacro, rollItemMacro };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

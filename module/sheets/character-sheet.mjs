@@ -286,7 +286,37 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
         li.setAttribute("draggable", true);
         li.addEventListener("dragstart", handler, false);
       });
+
+      // Ability and non-combat checks are not embedded documents, so core's
+      // _onDragStart has nothing to describe them with. They carry their own
+      // drag payload instead.
+      const checkHandler = (ev) => this._onDragCheckStart(ev);
+      html
+        .find('[data-roll-type="ability"], [data-roll-type="noncom"]')
+        .each((i, el) => {
+          el.setAttribute("draggable", true);
+          el.addEventListener("dragstart", checkHandler, false);
+        });
     }
+  }
+
+  /**
+   * Build the hotbar drag payload for an ability or non-combat check.
+   * @param {DragEvent} event   The originating dragstart event
+   * @private
+   */
+  _onDragCheckStart(event) {
+    const { rollType, abilityKey } = event.currentTarget.dataset;
+    if (!abilityKey) return;
+    event.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({
+        type: "MarvelMultiverseCheck",
+        actorUuid: this.actor.uuid,
+        rollType,
+        abilityKey,
+      })
+    );
   }
 
   /**

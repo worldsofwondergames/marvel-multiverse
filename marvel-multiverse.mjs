@@ -373,6 +373,11 @@ class MarvelMultiverseActor extends Actor {
 
   /** @override */
   prepareBaseData() {
+    // Must call super: as of v14, Actor#prepareBaseData runs _clearData(),
+    // which initialises tokenActiveEffectChanges and resets the ActiveEffect
+    // application phases. Without it applyActiveEffects() throws and NO
+    // active effect is ever applied.
+    super.prepareBaseData();
     // Data modifications in this step occur before processing embedded
     // documents or derived data.
   }
@@ -1389,14 +1394,14 @@ class ChatMessageMarvel extends ChatMessage {
       chatCard.find(".effects-tray .effect").each((i, el) => {
         if (
           !game.user.isGM &&
-          (el.dataset.transferred === "false" || this.user.id !== game.user.id)
+          (el.dataset.transferred === "false" || this.author.id !== game.user.id)
         )
           el.remove();
       });
 
       // If the user is the message author or the actor owner, proceed
       const actor = game.actors.get(this.speaker.actor);
-      if (game.user.isGM || actor?.isOwner || this.user.id === game.user.id) {
+      if (game.user.isGM || actor?.isOwner || this.author.id === game.user.id) {
         const summonsButton = chatCard[0].querySelector(
           'button[data-action="summon"]'
         );
@@ -1439,7 +1444,7 @@ class ChatMessageMarvel extends ChatMessage {
     if (this.isContentVisible) {
       nameText = this.alias;
     } else {
-      nameText = this.user.name;
+      nameText = this.author.name;
     }
 
     const avatar = document.createElement("div");
@@ -2466,7 +2471,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     if (changes.length) {
       await ActiveEffect.create({
         name: `Battle Suit: ${item.name}`,
-        icon: item.img,
+        img: item.img,
         changes: changes,
         flags: { "marvel-multiverse": { battleSuitId: item.id } }
       }, { parent: this.actor });
@@ -3282,7 +3287,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     if (changes.length) {
       await ActiveEffect.create({
         name: `Battle Suit: ${item.name}`,
-        icon: item.img,
+        img: item.img,
         changes: changes,
         flags: { "marvel-multiverse": { battleSuitId: item.id } }
       }, { parent: this.actor });
@@ -5418,10 +5423,9 @@ Hooks.once("init", () => {
     ),
   });
 
-  // Active Effects are never copied to the Actor,
-  // but will still apply to the Actor from within the Item
-  // if the transfer property on the Active Effect is true.
-  CONFIG.ActiveEffect.legacyTransferral = false;
+  // Active Effects are never copied to the Actor, but still apply to the Actor
+  // from within the Item when the effect's transfer property is true. This is
+  // core behavior as of v14 (the legacy transferral framework was removed).
 
   CONFIG.Dice.MarvelDie = MarvelDie;
   CONFIG.Dice.types.push(MarvelDie);

@@ -468,7 +468,7 @@ export class MarvelMultiverseNPCSheet extends ActorSheet {
     if (changes.length) {
       await ActiveEffect.create({
         name: `Battle Suit: ${item.name}`,
-        icon: item.img,
+        img: item.img,
         changes: changes,
         flags: { "marvel-multiverse": { battleSuitId: item.id } }
       }, { parent: this.actor });

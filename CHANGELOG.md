@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 3.0.0
+
+### FoundryVTT v14 Compatibility
+
+- **Active Effects now apply again.** `MarvelMultiverseActor.prepareBaseData()` overrode Foundry's method without calling `super`. As of v14 that method runs `_clearData()`, which initialises the state `applyActiveEffects()` depends on — so effect application threw before applying anything and **no Active Effect took effect on any actor**. Restoring the `super` call fixes every affected effect: ability modifiers, damage multipliers, damage reduction, and battle suit bonuses.
+- Replaced `ChatMessage#user` with `#author` (removed in v14)
+- Replaced `ActiveEffect#icon` with `#img` (removed in v14)
+- Removed `CONFIG.ActiveEffect.legacyTransferral` (framework removed in v14; the system already used the modern behavior)
+- **Breaking:** FoundryVTT v14 is now the minimum supported version. Compatibility declares `minimum: 14, verified: 14`; v13 and earlier are no longer supported
+- Added a guard test that scans for v14-removed APIs and for missing `super.prepareBaseData()` calls, so these cannot silently regress
+- Untracked the generated `marvel-multiverse-compiled.mjs` build artifact, which is regenerated during release
+
 ## 2.4.0
 
 ### Iconic Items & Battle Suits

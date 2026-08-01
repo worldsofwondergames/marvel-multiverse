@@ -254,6 +254,18 @@ class ClientSettings {
 global.game.settings = new ClientSettings();
 
 /**
+ * Canvas
+ *
+ * Item#roll() reads canvas.tokens.controlled to resolve the speaker token.
+ * No controlled token by default; tests that need one assign to this array.
+ */
+global.canvas = {
+    tokens: {
+        controlled: [],
+    },
+};
+
+/**
  * ChatMessage on CONFIG
  */
 global.CONFIG.ChatMessage = {

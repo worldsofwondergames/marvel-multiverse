@@ -1,4 +1,5 @@
 .claude/
+CLAUDE.md
 node_modules/
 marvel-multiverse-compiled.mjs
 packs/

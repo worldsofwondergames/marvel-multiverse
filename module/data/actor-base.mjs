@@ -209,6 +209,20 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       initial: "world",
     });
 
+    schema.alternateForms = new fields.ArrayField(new fields.SchemaField({
+      actorId: new fields.StringField({ required: true, blank: false }),
+      formType: new fields.StringField({ required: true, initial: "powerDown", choices: ["cosmetic", "powerDown", "powerSwap"] }),
+      triggers: new fields.ArrayField(new fields.SchemaField({
+        description: new fields.StringField({ required: true, blank: false }),
+        resistable: new fields.BooleanField({ initial: true }),
+        tn: new fields.NumberField({ required: true, initial: 0, integer: true, min: 0 }),
+      })),
+    }));
+
+    schema.primaryFormIds = new fields.ArrayField(
+      new fields.StringField({ required: true, blank: false })
+    );
+
     return schema;
   }
 
@@ -264,6 +278,12 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
     const hasBrawling = this.parent?.items?.some(i => i.type === "power" && i.name === "Brawling");
     if (hasBrawling && this.abilities.mle.defense > this.abilities.agl.defense) {
       this.abilities.agl.defense = this.abilities.mle.defense;
+    }
+
+    if (this.parent?.statuses?.has("asleep")) {
+      for (const key in this.abilities) {
+        this.abilities[key].defense = 10;
+      }
     }
 
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);

@@ -74,32 +74,33 @@ export const ActorDirectoryFilter = {
         value: s.abilities[key].value,
       };
     }
-    const actorTypes = {
+    const actorTypesUnsorted = {
       character: { label: "Character", checked: s.actorType.includes("character") },
       npc: { label: "NPC", checked: s.actorType.includes("npc") },
       vehicle: { label: "Vehicle", checked: s.actorType.includes("vehicle") },
+      headquarters: { label: "Headquarters", checked: s.actorType.includes("headquarters") },
     };
-    const sizes = {};
-    for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.sizes)) {
-      sizes[key] = {
+    const actorTypes = Object.fromEntries(
+      Object.entries(actorTypesUnsorted).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+    const sizes = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.sizes).map(([key, data]) => [key, {
         label: game.i18n.localize(data.label),
         checked: s.size.includes(key),
-      };
-    }
-    const movementTypes = {};
-    for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.movementTypes)) {
-      movementTypes[key] = {
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+    const movementTypes = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.movementTypes).map(([key, data]) => [key, {
         label: game.i18n.localize(data.label),
         checked: s.movementTypes.includes(key),
-      };
-    }
-    const elements = {};
-    for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.elements)) {
-      elements[key] = {
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+    const elements = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.elements).map(([key, data]) => [key, {
         label: data.label,
         checked: s.elements.includes(key),
-      };
-    }
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
     const powerSets = dynamicOpts.powerSets.map(name => ({
       name,
       checked: s.powerSets.includes(name),

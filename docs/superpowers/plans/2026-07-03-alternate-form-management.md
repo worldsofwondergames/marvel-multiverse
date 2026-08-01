@@ -15,7 +15,7 @@
 - Handlebars partials must be registered in `preloadHandlebarsTemplates()` or sheets silently crash.
 - Jest tests run with `node --experimental-vm-modules "node_modules/jest-cli/bin/jest.js"` (not bare `npx jest`).
 - E2E tests use Playwright with a custom `foundryPage` fixture (worker-scoped) connecting to a live FoundryVTT at `http://localhost:30000`.
-- Never include Co-Authored-By or Claude references in commit messages.
+- Never include Co-Authored-By or generated-by attribution lines in commit messages.
 - No Marvel IP (character names, team names) in the system repo — use generic test names.
 - Only search the `marvel-616` world for actors, not `legacy-of-heroes`.
 - Config enum keys use camelCase. Localization keys use dot-notation under `MARVEL_MULTIVERSE`.

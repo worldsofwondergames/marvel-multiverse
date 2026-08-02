@@ -262,7 +262,9 @@ test.describe('Equipment Item Type', () => {
     expect(effects).toHaveLength(1);
     expect(effects[0].name).toContain(PROTECTION_NAME);
     expect(effects[0].changes[0].key).toBe('system.healthDamageReduction');
-    expect(effects[0].changes[0].value).toBe('2');
+    // v14 coerces the change value to a number even when written as a string,
+    // and normalises `mode: 2` to `type: "add"`.
+    expect(effects[0].changes[0].value).toBe(2);
 
     // Verify DR increased
     actorData = await getActorSystemData(page, ACTOR_NAME);

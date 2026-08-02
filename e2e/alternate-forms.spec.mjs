@@ -170,16 +170,18 @@ test.describe('Alternate Forms', () => {
     await activateScene(foundryPage, SCENE_NAME);
     const tokenId = await placeToken(foundryPage, PRIMARY_NAME, 300, 300);
     await foundryPage.evaluate(async ({ primaryName, tokenId }) => {
-      await Combat.create({});
       const actor = game.actors.find(a => a.name === primaryName);
       const scene = game.scenes.active;
+      // Bind the combat to the active scene — `game.combat` is scene-scoped, so a
+      // sceneless Combat.create({}) leaves it null.
+      const combat = await Combat.create({ scene: scene.id, active: true });
       const token = scene.tokens.get(tokenId);
-      await game.combat.createEmbeddedDocuments('Combatant', [{
+      await combat.createEmbeddedDocuments('Combatant', [{
         actorId: actor.id,
         tokenId: token.id,
       }]);
-      await game.combat.startCombat();
-      const combatant = game.combat.combatants.contents[0];
+      await combat.startCombat();
+      const combatant = combat.combatants.contents[0];
       await combatant.update({ initiative: 15 });
     }, { primaryName: PRIMARY_NAME, tokenId });
     await foundryPage.waitForTimeout(1000);

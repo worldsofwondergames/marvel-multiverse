@@ -223,6 +223,12 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       new fields.StringField({ required: true, blank: false })
     );
 
+    schema.source = new fields.StringField({ required: true, blank: true });
+    schema.defaultWeaponType = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
     return schema;
   }
 

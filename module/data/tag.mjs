@@ -14,6 +14,7 @@ export default class MarvelMultiverseTag extends MarvelMultiverseItemBase {
       required: true,
       initial: false,
     });
+    schema.detail = new fields.StringField({ required: true, blank: true });
 
     return schema;
   }

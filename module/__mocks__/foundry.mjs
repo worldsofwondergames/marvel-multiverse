@@ -435,23 +435,42 @@ class TypeDataModel {
     }
 }
 
+/**
+ * Data fields keep the options they were declared with. Real Foundry fields
+ * expose `.options`, and tests compare declared initials/limits across the two
+ * source trees — discarding them here would make those comparisons vacuous.
+ */
 class SchemaField {
-    constructor(fields, options = {}) {}
+    constructor(fields, options = {}) {
+        this.fields = fields;
+        this.options = options;
+    }
 }
 class NumberField {
-    constructor(options = {}) {}
+    constructor(options = {}) {
+        this.options = options;
+    }
 }
 class BooleanField {
-    constructor(options = {}) {}
+    constructor(options = {}) {
+        this.options = options;
+    }
 }
 class StringField {
-    constructor(options = {}) {}
+    constructor(options = {}) {
+        this.options = options;
+    }
 }
 class ArrayField {
-    constructor(field, options = {}) {}
+    constructor(field, options = {}) {
+        this.element = field;
+        this.options = options;
+    }
 }
 class ObjectField {
-    constructor(options = {}) {}
+    constructor(options = {}) {
+        this.options = options;
+    }
 }
 
 class PoolTerm {
@@ -519,6 +538,25 @@ global.foundry = {
             ActorSheet,
             ItemSheet,
         },
+    },
+};
+
+/**
+ * Handlebars
+ *
+ * The shipping monolith registers helpers at module scope, so importing it
+ * needs this present before evaluation.
+ */
+global.Handlebars = {
+    registerHelper: jest.fn().mockName('Handlebars.registerHelper'),
+    registerPartial: jest.fn().mockName('Handlebars.registerPartial'),
+    SafeString: class SafeString {
+        constructor(str) {
+            this.string = str;
+        }
+        toString() {
+            return this.string;
+        }
     },
 };
 

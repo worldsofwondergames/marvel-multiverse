@@ -161,4 +161,148 @@ test.describe('Damage Calculation', () => {
     expect(msg.content).toContain(DEFENDER);
     expect(msg.content.toLowerCase()).toContain('focus');
   });
+
+  /**
+   * The damage handler prints its own inputs under the total:
+   *
+   *   <b>NAME</b> takes <b>5 damage</b>
+   *   ((Marvel Die 4 × (Multiplier - DR) 0) + Melee 5)<br><span>Multiplier 2 − DR 2 = 0</span>
+   *
+   * With no DR the middle term reads "× Multiplier 2)" instead. Parsing these
+   * out lets us check the arithmetic against a random die, which substring
+   * assertions on "damage"/"multiplier" cannot do.
+   */
+  function parseDamageBreakdown(content) {
+    return {
+      damage: Number(/takes <b[^>]*>\s*(-?\d+)/.exec(content)?.[1]),
+      marvelDie: Number(/Marvel Die\s+(-?\d+)/.exec(content)?.[1]),
+      effectiveMultiplier: Number(
+        /×\s*(?:\(Multiplier - DR\)|Multiplier)\s*(-?\d+)\)/.exec(content)?.[1],
+      ),
+      abilityScore: Number(/\+\s*\w+\s+(-?\d+)\)/.exec(content)?.[1]),
+      fantastic: /Fantastic/.test(content),
+    };
+  }
+
+  /** Read an actor's melee damage multiplier and health DR as the system derives them. */
+  async function readCombatStats(page, actorName) {
+    return page.evaluate((name) => {
+      const actor = game.actors.find(a => a.name === name);
+      return {
+        damageMultiplier: actor.system.abilities.mle.damageMultiplier,
+        healthDR: actor.system.healthDamageReduction,
+      };
+    }, actorName);
+  }
+
+  test('printed damage equals MarvelDie x effective multiplier + ability score', async ({ foundryPage }) => {
+    const page = foundryPage;
+
+    await createActorViaAPI(page, ATTACKER);
+    await updateActorData(page, ATTACKER, {
+      'system.abilities.mle.value': 5,
+      'system.attributes.rank.value': 3,
+    });
+    await createActorViaAPI(page, DEFENDER);
+
+    await createScene(page, SCENE_NAME);
+    await activateScene(page, SCENE_NAME);
+    await placeToken(page, ATTACKER, 200, 200);
+    await placeToken(page, DEFENDER, 400, 200);
+    await targetToken(page, DEFENDER);
+
+    await triggerAbilityRoll(page, ATTACKER, 'mle');
+    await clickDamageButton(page);
+
+    const msg = await getLastChatMessage(page);
+    expect(msg).not.toBeNull();
+
+    const b = parseDamageBreakdown(msg.content);
+    expect(Number.isNaN(b.damage)).toBe(false);
+    expect(Number.isNaN(b.marvelDie)).toBe(false);
+    expect(Number.isNaN(b.effectiveMultiplier)).toBe(false);
+    expect(Number.isNaN(b.abilityScore)).toBe(false);
+
+    const base = b.marvelDie * b.effectiveMultiplier + b.abilityScore;
+    expect(b.damage).toBe(b.fantastic ? base * 2 : base);
+  });
+
+  /**
+   * Rulebook: when DR meets or exceeds the damage multiplier the attack "does no
+   * damage at all, not even from the attacker's Ability score bonus". Melee is 5
+   * throughout, so a total of 0 cannot come from the ability score being added.
+   */
+  test('DR equal to the damage multiplier deals no damage', async ({ foundryPage }) => {
+    const page = foundryPage;
+
+    await createActorViaAPI(page, ATTACKER);
+    await updateActorData(page, ATTACKER, {
+      'system.abilities.mle.value': 5,
+      'system.attributes.rank.value': 2,
+    });
+    await createActorViaAPI(page, DEFENDER);
+
+    // Derive the DR from the attacker's actual multiplier rather than assuming
+    // how rank maps to it, so the DR == DM relationship holds either way.
+    const { damageMultiplier } = await readCombatStats(page, ATTACKER);
+    await createActiveEffect(page, DEFENDER, {
+      name: 'Matched DR',
+      changes: [{ key: 'system.healthDamageReduction', mode: 2, value: String(damageMultiplier) }],
+    });
+
+    const defender = await readCombatStats(page, DEFENDER);
+    expect(defender.healthDR).toBe(damageMultiplier);
+
+    await createScene(page, SCENE_NAME);
+    await activateScene(page, SCENE_NAME);
+    await placeToken(page, ATTACKER, 200, 200);
+    await placeToken(page, DEFENDER, 400, 200);
+    await targetToken(page, DEFENDER);
+
+    await triggerAbilityRoll(page, ATTACKER, 'mle');
+    await clickDamageButton(page);
+
+    const msg = await getLastChatMessage(page);
+    expect(msg).not.toBeNull();
+
+    const b = parseDamageBreakdown(msg.content);
+    expect(b.abilityScore).toBe(5);
+    expect(b.effectiveMultiplier).toBe(0);
+    expect(b.damage).toBe(0);
+  });
+
+  /** Same rule, with DR overshooting rather than matching the multiplier. */
+  test('DR above the damage multiplier deals no damage', async ({ foundryPage }) => {
+    const page = foundryPage;
+
+    await createActorViaAPI(page, ATTACKER);
+    await updateActorData(page, ATTACKER, {
+      'system.abilities.mle.value': 5,
+      'system.attributes.rank.value': 2,
+    });
+    await createActorViaAPI(page, DEFENDER);
+
+    const { damageMultiplier } = await readCombatStats(page, ATTACKER);
+    await createActiveEffect(page, DEFENDER, {
+      name: 'Overwhelming DR',
+      changes: [{ key: 'system.healthDamageReduction', mode: 2, value: String(damageMultiplier + 2) }],
+    });
+
+    await createScene(page, SCENE_NAME);
+    await activateScene(page, SCENE_NAME);
+    await placeToken(page, ATTACKER, 200, 200);
+    await placeToken(page, DEFENDER, 400, 200);
+    await targetToken(page, DEFENDER);
+
+    await triggerAbilityRoll(page, ATTACKER, 'mle');
+    await clickDamageButton(page);
+
+    const msg = await getLastChatMessage(page);
+    expect(msg).not.toBeNull();
+
+    const b = parseDamageBreakdown(msg.content);
+    expect(b.abilityScore).toBe(5);
+    expect(b.effectiveMultiplier).toBe(0);
+    expect(b.damage).toBe(0);
+  });
 });

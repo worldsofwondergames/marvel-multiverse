@@ -1750,7 +1750,13 @@ class ChatMessageMarvel extends ChatMessage {
           ? t.system.focusDamageReduction
           : t.system.healthDamageReduction;
       const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
-      let dmg = marvelDie.total * effectiveMultiplier + abilityValue;
+      // Rulebook: once DR meets or exceeds the damage multiplier the attack
+      // "does no damage at all, not even from the attacker's Ability score
+      // bonus" — so the ability score is not added to a zeroed multiplier.
+      let dmg =
+        effectiveMultiplier === 0
+          ? 0
+          : marvelDie.total * effectiveMultiplier + abilityValue;
       if (fantastic) {
         dmg = dmg * 2;
       }
@@ -1768,7 +1774,9 @@ class ChatMessageMarvel extends ChatMessage {
     });
 
     if (damageContent.length === 0) {
-      let dmg = marvelDie.total * damageMultiplier + abilityValue;
+      // Same rule with no target selected: a multiplier of 0 deals nothing.
+      let dmg =
+        damageMultiplier <= 0 ? 0 : marvelDie.total * damageMultiplier + abilityValue;
       if (fantastic) {
         dmg = dmg * 2;
       }
@@ -6747,6 +6755,31 @@ Hooks.on("updateCombat", (combat, changed, options, userId) => {
   if (prevCombatant) _processEndOfTurn(prevCombatant);
   const current = combat.combatant;
   if (current) _processStartOfTurn(current);
+});
+
+/**
+ * A headquarters derives its team rank — and from it its trait slots — from the
+ * ranks of its member actors, but those actors are separate documents. Foundry
+ * only re-prepares the document that changed, so deleting a member or changing
+ * a member's rank left the headquarters showing a stale team rank until
+ * something else happened to touch it.
+ *
+ * @param {string} actorId  The member actor that was deleted or updated.
+ */
+function _refreshHeadquartersFor(actorId) {
+  for (const hq of game.actors?.filter((a) => a.type === "headquarters") ?? []) {
+    if (!hq.system.members?.some((m) => m.actorId === actorId)) continue;
+    hq.prepareData();
+    if (hq.sheet?.rendered) hq.sheet.render(false);
+  }
+}
+
+Hooks.on("deleteActor", (actor) => _refreshHeadquartersFor(actor.id));
+
+Hooks.on("updateActor", (actor, changed) => {
+  // Only a rank change can move the team rank.
+  if (foundry.utils.getProperty(changed, "system.attributes.rank.value") === undefined) return;
+  _refreshHeadquartersFor(actor.id);
 });
 
 /* -------------------------------------------- */

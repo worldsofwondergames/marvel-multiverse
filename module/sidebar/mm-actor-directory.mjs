@@ -43,7 +43,7 @@ export const ActorDirectoryFilter = {
       this._directoryApp = app;
       const html = jqHtml instanceof jQuery ? jqHtml : $(jqHtml);
       const filterData = this._getFilterTemplateData();
-      const rendered = await renderTemplate(
+      const rendered = await foundry.applications.handlebars.renderTemplate(
         "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
         filterData
       );

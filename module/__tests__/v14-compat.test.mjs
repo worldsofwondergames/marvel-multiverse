@@ -97,3 +97,23 @@ describe('FoundryVTT v14 removed APIs', () => {
     expect(violations).toEqual([]);
   });
 });
+
+/**
+ * These still work on v14 — Foundry only logs a deprecation warning — but the
+ * bare globals are removed in v15. Each pattern uses a `(?<![.\w])` lookbehind
+ * so the namespaced replacement and our own `MarvelMultiverse*Sheet` class names
+ * don't trip it.
+ */
+describe('FoundryVTT v15 removed APIs', () => {
+  test('bare Actors/Items collection globals are not used (use foundry.documents.collections.*)', () => {
+    expect(findMatches(/(?<![.\w])(?:Actors|Items)\s*\./)).toEqual([]);
+  });
+
+  test('bare ActorSheet/ItemSheet globals are not used (use foundry.appv1.sheets.*)', () => {
+    expect(findMatches(/(?<![.\w])(?:ActorSheet|ItemSheet)\b/)).toEqual([]);
+  });
+
+  test('bare renderTemplate/loadTemplates are not used (use foundry.applications.handlebars.*)', () => {
+    expect(findMatches(/(?<![.\w])(?:renderTemplate|loadTemplates)\s*\(/)).toEqual([]);
+  });
+});

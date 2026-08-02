@@ -238,7 +238,7 @@ describe('switchForm', () => {
   test('closes current sheet and opens target sheet when switching', async () => {
     const closeSheet = jest.fn();
     const mockSheet = { actor: { id: 'actor1' }, close: closeSheet };
-    Object.setPrototypeOf(mockSheet, ActorSheet.prototype);
+    Object.setPrototypeOf(mockSheet, foundry.appv1.sheets.ActorSheet.prototype);
     global.ui.windows = { sheet1: mockSheet };
 
     await switchForm(currentActor, 'actor2');

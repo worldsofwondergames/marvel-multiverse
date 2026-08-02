@@ -111,7 +111,7 @@ export async function switchForm(currentActor, targetActorId) {
   });
 
   const openSheet = Object.values(ui.windows).find(
-    w => w instanceof ActorSheet && w.actor?.id === currentActor.id
+    w => w instanceof foundry.appv1.sheets.ActorSheet && w.actor?.id === currentActor.id
   );
   if (openSheet) {
     await openSheet.close();

@@ -1,8 +1,8 @@
 /**
- * Extend the basic ActorSheet to handle Headquarters actors.
- * @extends {ActorSheet}
+ * Extend the basic actor sheet to handle Headquarters actors.
+ * @extends {foundry.appv1.sheets.ActorSheet}
  */
-export class MarvelMultiverseHeadquartersSheet extends ActorSheet {
+export class MarvelMultiverseHeadquartersSheet extends foundry.appv1.sheets.ActorSheet {
   /** @override */
   static get defaultOptions() {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>

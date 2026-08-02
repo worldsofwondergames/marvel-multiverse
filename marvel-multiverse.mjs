@@ -285,7 +285,7 @@ class MarvelMultiverseRoll extends Roll {
     options = {}
   ) {
     // Render the Dialog inner HTML
-    const content = await renderTemplate(
+    const content = await foundry.applications.handlebars.renderTemplate(
       template ?? this.constructor.EVALUATION_TEMPLATE,
       {
         formulas: [{ formula: `${this.formula} + @bonus` }],
@@ -2195,7 +2195,7 @@ async function switchForm(currentActor, targetActorId) {
   });
 
   const openSheet = Object.values(ui.windows).find(
-    w => w instanceof ActorSheet && w.actor?.id === currentActor.id
+    w => w instanceof foundry.appv1.sheets.ActorSheet && w.actor?.id === currentActor.id
   );
   if (openSheet) {
     await openSheet.close();
@@ -2243,10 +2243,10 @@ async function handleInvoluntaryTrigger(actor, targetActorId, trigger) {
 }
 
 /**
- * Extend the basic ActorSheet with some very simple modifications
- * @extends {ActorSheet}
+ * Extend the basic actor sheet with some very simple modifications
+ * @extends {foundry.appv1.sheets.ActorSheet}
  */
-class MarvelMultiverseCharacterSheet extends ActorSheet {
+class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
   /** @override */
   static get defaultOptions() {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
@@ -2667,7 +2667,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       return true;
     });
 
-    const content = await renderTemplate(
+    const content = await foundry.applications.handlebars.renderTemplate(
       "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
       { availableActors, formTypes, triggers: [] }
     );
@@ -3091,7 +3091,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
   }
 }
 
-class MarvelMultiverseVehicleSheet extends ActorSheet {
+class MarvelMultiverseVehicleSheet extends foundry.appv1.sheets.ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "actor"],
@@ -3291,7 +3291,7 @@ class MarvelMultiverseVehicleSheet extends ActorSheet {
   }
 }
 
-class MarvelMultiverseHeadquartersSheet extends ActorSheet {
+class MarvelMultiverseHeadquartersSheet extends foundry.appv1.sheets.ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "actor"],
@@ -3411,10 +3411,10 @@ class MarvelMultiverseHeadquartersSheet extends ActorSheet {
 }
 
 /**
- * Extend the basic ActorSheet with some very simple modifications
- * @extends {ActorSheet}
+ * Extend the basic actor sheet with some very simple modifications
+ * @extends {foundry.appv1.sheets.ActorSheet}
  */
-class MarvelMultiverseNPCSheet extends ActorSheet {
+class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
   /** @override */
   static get defaultOptions() {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
@@ -3810,7 +3810,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       return true;
     });
 
-    const content = await renderTemplate(
+    const content = await foundry.applications.handlebars.renderTemplate(
       "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
       { availableActors, formTypes, triggers: [] }
     );
@@ -4197,13 +4197,13 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
 }
 
 /**
- * Extend the basic ItemSheet with some very simple modifications
- * @extends {ItemSheet}
+ * Extend the basic item sheet with some very simple modifications
+ * @extends {foundry.appv1.sheets.ItemSheet}
  */
-class MarvelMultiverseItemSheet extends ItemSheet {
+class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
   /** @override */
   static get defaultOptions() {
-    return foundry.utils.mergeObject(ItemSheet.defaultOptions, {
+    return foundry.utils.mergeObject(foundry.appv1.sheets.ItemSheet.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "item"],
       width: 520,
       height: 480,
@@ -4705,7 +4705,7 @@ class MarvelMultiverseItemSheet extends ItemSheet {
  * @return {Promise}
  */
 const preloadHandlebarsTemplates = async () =>
-  loadTemplates([
+  foundry.applications.handlebars.loadTemplates([
     // Actor partials.
     "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs",
@@ -5960,7 +5960,7 @@ const ActorDirectoryFilter = {
       this._directoryApp = app;
       const html = jqHtml instanceof jQuery ? jqHtml : $(jqHtml);
       const filterData = this._getFilterTemplateData();
-      const rendered = await renderTemplate(
+      const rendered = await foundry.applications.handlebars.renderTemplate(
         "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
         filterData
       );
@@ -6485,29 +6485,29 @@ Hooks.once("init", () => {
   _configureFonts();
 
   // Register sheet application classes
-  Actors.unregisterSheet("core", ActorSheet);
-  Actors.registerSheet("marvel-multiverse", MarvelMultiverseCharacterSheet, {
+  foundry.documents.collections.Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);
+  foundry.documents.collections.Actors.registerSheet("marvel-multiverse", MarvelMultiverseCharacterSheet, {
     types: ["character"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.Actor",
   });
-  Actors.registerSheet("marvel-multiverse", MarvelMultiverseNPCSheet, {
+  foundry.documents.collections.Actors.registerSheet("marvel-multiverse", MarvelMultiverseNPCSheet, {
     types: ["npc"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.NPC",
   });
-  Actors.registerSheet("marvel-multiverse", MarvelMultiverseVehicleSheet, {
+  foundry.documents.collections.Actors.registerSheet("marvel-multiverse", MarvelMultiverseVehicleSheet, {
     types: ["vehicle"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.Vehicle",
   });
-  Actors.registerSheet("marvel-multiverse", MarvelMultiverseHeadquartersSheet, {
+  foundry.documents.collections.Actors.registerSheet("marvel-multiverse", MarvelMultiverseHeadquartersSheet, {
     types: ["headquarters"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.Headquarters",
   });
-  Items.unregisterSheet("core", ItemSheet);
-  Items.registerSheet("marvel-multiverse", MarvelMultiverseItemSheet, {
+  foundry.documents.collections.Items.unregisterSheet("core", foundry.appv1.sheets.ItemSheet);
+  foundry.documents.collections.Items.registerSheet("marvel-multiverse", MarvelMultiverseItemSheet, {
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.Item",
   });

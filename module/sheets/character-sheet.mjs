@@ -5,10 +5,10 @@ import {
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
 
 /**
- * Extend the basic ActorSheet with some very simple modifications
- * @extends {ActorSheet}
+ * Extend the basic actor sheet with some very simple modifications
+ * @extends {foundry.appv1.sheets.ActorSheet}
  */
-export class MarvelMultiverseCharacterSheet extends ActorSheet {
+export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
   /** @override */
   static get defaultOptions() {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
@@ -376,7 +376,7 @@ export class MarvelMultiverseCharacterSheet extends ActorSheet {
       return true;
     });
 
-    const content = await renderTemplate(
+    const content = await foundry.applications.handlebars.renderTemplate(
       "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
       { availableActors, formTypes, triggers: [] }
     );

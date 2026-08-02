@@ -115,8 +115,9 @@ class ActorSheet {
         }
     }
 }
+// Deliberately not exposed as a bare `ActorSheet` global — that accessor is
+// removed in v15, so code under test must reach it via foundry.appv1.sheets.
 global.actorSheet = new ActorSheet();
-global.ActorSheet = ActorSheet;
 
 class ItemSheet {
     constructor(data, options) {
@@ -128,7 +129,6 @@ class ItemSheet {
     }
 }
 global.itemSheet = new ItemSheet();
-global.ItemSheet = ItemSheet;
 
 /**
  * Roll
@@ -511,14 +511,16 @@ global.foundry = {
     applications: {
         handlebars: {
             renderTemplate: async function (template, data) {},
+            loadTemplates: jest.fn((templateList) => {}).mockName('loadTemplates'),
+        },
+    },
+    appv1: {
+        sheets: {
+            ActorSheet,
+            ItemSheet,
         },
     },
 };
-
-/**
- * Handlebars
- */
-global.loadTemplates = jest.fn((templateList) => {}).mockName('loadTemplates');
 
 /**
  * Hooks

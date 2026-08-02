@@ -1,0 +1,44 @@
+{{#if enableAlternateForms}}
+<div class="mm-styled-container mm-alternate-forms-block">
+  <h3>{{localize "MARVEL_MULTIVERSE.AlternateForm.SectionTitle"}}</h3>
+  <div class="mm-styled-container-body">
+    {{#if formData.isAlternate}}
+      <p class="alternate-of-label">{{localize "MARVEL_MULTIVERSE.AlternateForm.AlternateOf"}}</p>
+      {{#each formData.primaryActors}}
+        <div class="alternate-form-entry">
+          <img src="{{this.img}}" class="alternate-form-img" />
+          <span class="alternate-form-name">{{this.name}}</span>
+          <span class="alternate-form-type">{{this.formTypeLabel}}</span>
+          <div class="alternate-form-controls">
+            <a class="alternate-form-switch" data-actor-id="{{this.id}}" title="{{localize 'MARVEL_MULTIVERSE.AlternateForm.SwitchForm'}}">
+              <i class="fas fa-exchange-alt"></i>
+            </a>
+          </div>
+        </div>
+      {{/each}}
+    {{else}}
+      {{#each formData.forms}}
+        <div class="alternate-form-entry">
+          <img src="{{this.actor.img}}" class="alternate-form-img" />
+          <span class="alternate-form-name">{{this.actor.name}}</span>
+          <span class="alternate-form-type">{{this.formTypeLabel}}{{#if this.triggerSummary}}  &middot;  {{this.triggerSummary}}{{/if}}</span>
+          <div class="alternate-form-controls">
+            <a class="alternate-form-switch" data-actor-id="{{this.actorId}}" title="{{localize 'MARVEL_MULTIVERSE.AlternateForm.SwitchForm'}}">
+              <i class="fas fa-exchange-alt"></i>
+            </a>
+            <a class="alternate-form-edit" data-actor-id="{{this.actorId}}" title="{{localize 'MARVEL_MULTIVERSE.AlternateForm.EditForm'}}">
+              <i class="fas fa-edit"></i>
+            </a>
+            <a class="alternate-form-unlink" data-actor-id="{{this.actorId}}" title="{{localize 'MARVEL_MULTIVERSE.AlternateForm.UnlinkForm'}}">
+              <i class="fas fa-unlink"></i>
+            </a>
+          </div>
+        </div>
+      {{/each}}
+      <a class="alternate-form-add">
+        <i class="fas fa-plus"></i> {{localize "MARVEL_MULTIVERSE.AlternateForm.AddForm"}}
+      </a>
+    {{/if}}
+  </div>
+</div>
+{{/if}}

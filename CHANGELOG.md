@@ -16,6 +16,45 @@
 - **Breaking:** FoundryVTT v14 is now the minimum supported version. Compatibility declares `minimum: 14, verified: 14`; v13 and earlier are no longer supported
 - Added a guard test that scans for v14-removed APIs and for missing `super.prepareBaseData()` calls, so these cannot silently regress
 - Untracked the generated `marvel-multiverse-compiled.mjs` build artifact, which is regenerated during release
+- Fixed the Jest `canvas` global stub so the `MarvelMultiverseItem — roll` tests run; they threw `ReferenceError` before reaching `ChatMessage.getSpeaker`
+- Equipment damage-reduction effects now set `img` instead of the `icon` removed in v14, so they render with the equipment's image. Carried in from 2.4.1, which predates the v14 work
+
+## 2.4.1
+
+### Headquarters System
+- New Headquarters actor type for team bases with dedicated sheet
+- HQ Tag and HQ Trait item types owned by headquarters actors
+- Tag incompatibility enforcement prevents conflicting tags
+- Team rank auto-calculated from top 6 member ranks (rounded up)
+- Health bar with operational/damaged/destroyed status tracking
+- Trait slots scale with team rank (3 per rank)
+- Drag-and-drop member management (characters and NPCs)
+- Downtime activity tracking on traits
+
+### Alternate Form Management
+- Alternate form system allowing characters to link and switch between multiple forms
+- Three form types: Cosmetic, Power Down, and Power Swap
+- Form switching replaces tokens in-place, preserving position, elevation, rotation, combat tracker state, and all prototype token settings
+- Actor sidebar context menu and Token HUD button for voluntary switching
+- Involuntary trigger flow with resistable Ego check
+- Forms section on character and NPC sheet Biography tabs with Add Form dialog
+- Enabled by default via "Enable Alternate Forms" world setting
+
+### Condition Automation
+- Asleep and Exhausted conditions with Active Effects
+- Turn-based condition damage via updateCombat hook with reliable turn tracking
+
+### Chat Message Styling
+- Dark red header with circular token image and white token name
+- Chat messages now display token name instead of actor/sheet name for linked tokens
+- White three-dot context menu controls on dark red header
+
+### Context Menu Improvements
+- Left-click support for three-dot context menu (Make Private / Delete)
+- Proper toggle behavior using v13 ContextMenu API
+
+### Status Effects Cleanup
+- Removed non-MMRPG status effects: Petrified, Silenced, Incapacitated
 
 ## 2.4.0
 

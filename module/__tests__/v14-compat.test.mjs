@@ -56,8 +56,11 @@ describe('FoundryVTT v14 removed APIs', () => {
     expect(findMatches(/\bthis\.user\b/)).toEqual([]);
   });
 
+  // Only ActiveEffect dropped `icon`. Dialog buttons and context-menu entries
+  // still take an `icon` key holding an <i> tag, so match image-valued icons
+  // only — those are the ActiveEffect ones.
   test('ActiveEffect#icon is not used (removed in v14, use #img)', () => {
-    expect(findMatches(/^\s*icon:/)).toEqual([]);
+    expect(findMatches(/^\s*icon:(?!\s*['"`]\s*<i[\s>])/)).toEqual([]);
   });
 
   test('Math.clamped is not used (removed in v14, use Math.clamp)', () => {

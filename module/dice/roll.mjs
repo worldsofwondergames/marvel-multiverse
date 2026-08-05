@@ -229,7 +229,7 @@ export class MarvelMultiverseRoll extends Roll {
     options = {}
   ) {
     // Render the Dialog inner HTML
-    const content = await renderTemplate(
+    const content = await foundry.applications.handlebars.renderTemplate(
       template ?? this.constructor.EVALUATION_TEMPLATE,
       {
         formulas: [{ formula: `${this.formula} + @bonus` }],

@@ -37,6 +37,14 @@
       }
     }
 
+    .mm-codename-field {
+      flex: 2 1 0;
+    }
+
+    .mm-team-maneuver-field {
+      flex: 1 1 0;
+    }
+
     .team-maneuver {
       select:first-child {
         width: 100%;
@@ -112,5 +120,120 @@
     &.mm-gear-block {
       height: 100%;
     }
+
+    &.mm-alternate-forms-block {
+      clip-path: polygon(0% 0%, 228px 0%, 259px 28px, 100% 28px, 100% 100%, 0% 100%);
+
+      h3 {
+        width: 280px;
+      }
+
+      .mm-styled-container-body {
+        color: white;
+      }
+
+      .alternate-of-label {
+        color: white;
+        margin: 0 0 $mm-spacing-sm;
+      }
+
+      .alternate-form-entry {
+        align-items: center;
+        display: grid;
+        gap: $mm-spacing-md;
+        grid-template-columns: 36px 1fr 1fr auto;
+        padding: $mm-spacing-sm 0;
+      }
+
+      .alternate-form-img {
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        height: 36px;
+        object-fit: cover;
+        width: 36px;
+      }
+
+      .alternate-form-name {
+        font-weight: 600;
+      }
+
+      .alternate-form-type {
+        opacity: 0.85;
+      }
+
+      .alternate-form-controls {
+        display: flex;
+        gap: $mm-spacing-sm;
+        justify-content: flex-end;
+
+        a {
+          color: white;
+
+          &:hover {
+            color: $mm-primary-red;
+          }
+        }
+      }
+
+      .alternate-form-add {
+        color: white;
+        display: block;
+        padding: $mm-spacing-sm 0;
+        white-space: nowrap;
+
+        &:hover {
+          color: $mm-primary-red;
+        }
+      }
+    }
   }
+}
+
+.mm-form-picker {
+  display: flex;
+  gap: 6px;
+  position: fixed;
+  transform: translate(-100%, -50%);
+  z-index: 1000;
+}
+
+.mm-form-picker-item {
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 6px;
+  position: relative;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.85);
+
+    .mm-form-picker-name {
+      opacity: 1;
+    }
+  }
+
+  img {
+    border-radius: 50%;
+    display: block;
+    height: 100px;
+    object-fit: cover;
+    width: 100px;
+  }
+}
+
+.mm-form-picker-name {
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 4px;
+  bottom: 10px;
+  color: white;
+  font-size: 11px;
+  left: 50%;
+  opacity: 0;
+  padding: 2px 6px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+  transition: opacity 0.15s;
+  white-space: nowrap;
 }

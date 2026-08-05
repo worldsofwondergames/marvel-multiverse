@@ -54,14 +54,14 @@ export class ChatMessageMarvel extends ChatMessage {
       chatCard.find(".effects-tray .effect").each((i, el) => {
         if (
           !game.user.isGM &&
-          (el.dataset.transferred === "false" || this.user.id !== game.user.id)
+          (el.dataset.transferred === "false" || this.author.id !== game.user.id)
         )
           el.remove();
       });
 
       // If the user is the message author or the actor owner, proceed
       const actor = game.actors.get(this.speaker.actor);
-      if (game.user.isGM || actor?.isOwner || this.user.id === game.user.id) {
+      if (game.user.isGM || actor?.isOwner || this.author.id === game.user.id) {
         const summonsButton = chatCard[0].querySelector(
           'button[data-action="summon"]'
         );
@@ -105,7 +105,7 @@ export class ChatMessageMarvel extends ChatMessage {
     if (this.isContentVisible) {
       nameText = this.alias;
     } else {
-      nameText = this.user.name;
+      nameText = this.author.name;
     }
 
     const avatar = document.createElement("div");
@@ -292,7 +292,11 @@ export class ChatMessageMarvel extends ChatMessage {
         damageType && damageType === "focus"
           ? t.system.focusDamageReduction
           : t.system.healthDamageReduction;
-      const dmgMultiplier = damageMultiplier - damageReduction;
+      // Rulebook: once DR meets or exceeds the damage multiplier the attack
+      // "does no damage at all, not even from the attacker's Ability score
+      // bonus". Clamping first also stops DR above the multiplier producing a
+      // negative total.
+      const dmgMultiplier = Math.max(0, damageMultiplier - damageReduction);
       let dmg =
         dmgMultiplier === 0
           ? 0
@@ -310,7 +314,9 @@ export class ChatMessageMarvel extends ChatMessage {
     });
 
     if (damageContent.length === 0) {
-      let dmg = marvelDie.total * damageMultiplier + abilityValue;
+      // Same rule with no target selected: a multiplier of 0 deals nothing.
+      let dmg =
+        damageMultiplier <= 0 ? 0 : marvelDie.total * damageMultiplier + abilityValue;
       if (fantastic) {
         dmg = dmg * 2;
       }

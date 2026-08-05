@@ -1,0 +1,135 @@
+<form class="{{cssClass}}" autocomplete="off">
+  <header class="sheet-header">
+    <div class="mm-styled-field -lg -img">
+      <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+      <div class="mm-styled-input">
+        <input name="name" type="text" value="{{item.name}}" placeholder="Name"/>
+      </div>
+    </div>
+  </header>
+
+  {{!-- Sheet Tab Navigation --}}
+  <nav class="sheet-tabs tabs mm-tabs -two" data-group="primary">
+    <a class="item" data-tab="attributes">Attributes</a>
+    <a class="item" data-tab="effects">Effects</a>
+  </nav>
+
+  {{!-- Sheet Body --}}
+  <section class="sheet-body">
+    {{!-- Attributes Tab --}}
+    <div class="tab equipment-attributes" data-group="primary" data-tab="attributes">
+      {{> "systems/marvel-multiverse/templates/item/parts/item-source.hbs"}}
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left" for="system.description"><span>Description</span></label>
+        <div class="mm-styled-input">
+          {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false editable=editable}}
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Equipment Type</span></label>
+        <div class="mm-styled-input">
+          <select name="system.equipmentType">
+            {{selectOptions equipmentTypes selected=system.equipmentType}}
+          </select>
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Equipped</span></label>
+        <div class="mm-styled-input">
+          <input type="checkbox" name="system.equipped" {{checked system.equipped}}>
+        </div>
+      </div>
+
+      {{!-- Protection Fields --}}
+      {{#if (eq system.equipmentType "protection")}}
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Ruined</span></label>
+          <div class="mm-styled-input">
+            <input type="checkbox" name="system.ruined" {{checked system.ruined}}>
+          </div>
+        </div>
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Damage Reduction</span></label>
+          <div class="mm-styled-input">
+            <input type="number" name="system.damageReduction" value="{{system.damageReduction}}" min="0" data-dtype="Number"/>
+          </div>
+        </div>
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Notes</span></label>
+          <div class="mm-styled-input">
+            <input type="text" name="system.protectionNotes" value="{{system.protectionNotes}}" data-dtype="String"/>
+          </div>
+        </div>
+      {{/if}}
+
+      {{!-- Grenade Fields --}}
+      {{#if (eq system.equipmentType "grenade")}}
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Grenade Type</span></label>
+          <div class="mm-styled-input">
+            <select name="system.grenadeType">
+              {{selectOptions grenadeTypes selected=system.grenadeType}}
+            </select>
+          </div>
+        </div>
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Effect</span></label>
+          <div class="mm-styled-input">
+            <textarea name="system.grenadeEffect" data-dtype="String">{{system.grenadeEffect}}</textarea>
+          </div>
+        </div>
+      {{/if}}
+
+      {{!-- Gadget Fields --}}
+      {{#if (eq system.equipmentType "gadget")}}
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>HP</span></label>
+          <div class="mm-styled-input">
+            <input type="number" name="system.gadgetHP" value="{{system.gadgetHP}}" min="0" data-dtype="Number"/>
+            <span>/</span>
+            <input type="number" name="system.gadgetMaxHP" value="{{system.gadgetMaxHP}}" min="0" data-dtype="Number"/>
+          </div>
+        </div>
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Effect</span></label>
+          <div class="mm-styled-input">
+            <textarea name="system.gadgetEffect" data-dtype="String">{{system.gadgetEffect}}</textarea>
+          </div>
+        </div>
+      {{/if}}
+
+      {{!-- Device Fields --}}
+      {{#if (eq system.equipmentType "device")}}
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Effect/Properties</span></label>
+          <div class="mm-styled-input">
+            <textarea name="system.gadgetEffect" data-dtype="String">{{system.gadgetEffect}}</textarea>
+          </div>
+        </div>
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>HP</span></label>
+          <div class="mm-styled-input">
+            <input type="number" name="system.gadgetHP" value="{{system.gadgetHP}}" min="0" data-dtype="Number"/>
+            <span>/</span>
+            <input type="number" name="system.gadgetMaxHP" value="{{system.gadgetMaxHP}}" min="0" data-dtype="Number"/>
+          </div>
+        </div>
+      {{/if}}
+
+      {{!-- Material Fields --}}
+      {{#if (eq system.equipmentType "material")}}
+        <div class="mm-styled-field -fill">
+          <label class="mm-styled-label -align-left"><span>Properties</span></label>
+          <div class="mm-styled-input">
+            <input type="text" name="system.protectionNotes" value="{{system.protectionNotes}}" data-dtype="String"/>
+          </div>
+        </div>
+      {{/if}}
+    </div>
+
+    {{!-- Effects Tab --}}
+    <div class="tab equipment-effects" data-group="primary" data-tab="effects">
+      {{> "systems/marvel-multiverse/templates/item/parts/item-effects.hbs"}}
+    </div>
+  </section>
+</form>

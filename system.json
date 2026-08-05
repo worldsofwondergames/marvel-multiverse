@@ -11,7 +11,7 @@
     "url": "https://github.com/worldsofwondergames/marvel-multiverse/",
     "license": "LICENSE.txt",
     "readme": "README.md",
-    "bugs": "Replace this with a link to file issues or tickets",
+    "bugs": "https://github.com/worldsofwondergames/marvel-multiverse/issues",
     "changelog": "CHANGELOG.md",
     "media": [
         {
@@ -25,11 +25,10 @@
             "thumbnail": "systems/marvel-multiverse/ui/official/mmrpg-setup-thumbnail.png"
         }
     ],
-    "version": "2.4.0",
+    "version": "3.0.0",
     "compatibility": {
-        "minimum": 13,
-        "verified": "13",
-        "maximum": 13
+        "minimum": "14",
+        "verified": "14"
     },
     "esmodules": [
         "marvel-multiverse.mjs"
@@ -107,6 +106,24 @@
             "type": "Actor",
             "private": false,
             "flags": {}
+        },
+        {
+            "name": "hq-tags",
+            "label": "HQ Tags",
+            "system": "marvel-multiverse",
+            "path": "packs/hq-tags",
+            "type": "Item",
+            "private": false,
+            "flags": {}
+        },
+        {
+            "name": "hq-traits",
+            "label": "HQ Traits",
+            "system": "marvel-multiverse",
+            "path": "packs/hq-traits",
+            "type": "Item",
+            "private": false,
+            "flags": {}
         }
     ],
     "packFolders": [
@@ -121,13 +138,15 @@
                 "occupations",
                 "items",
                 "powers",
-                "vehicles"
+                "vehicles",
+                "hq-tags",
+                "hq-traits"
             ]
         }
     ],
     "socket": true,
     "manifest": "https://raw.githubusercontent.com/worldsofwondergames/marvel-multiverse/main/system.json",
-    "download": "https://github.com/worldsofwondergames/marvel-multiverse/releases/download/release-2.4.0/marvel-multiverse-release-2.4.0.zip",
+    "download": "https://github.com/worldsofwondergames/marvel-multiverse/releases/download/release-3.0.0/marvel-multiverse-release-3.0.0.zip",
     "background": "systems/marvel-multiverse/ui/official/mmrpg-background.webp",
     "grid": {
         "distance": 5,

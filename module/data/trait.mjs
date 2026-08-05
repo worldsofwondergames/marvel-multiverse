@@ -7,7 +7,8 @@ export default class MarvelMultiverseTrait extends MarvelMultiverseItemBase {
 
         schema.restriction = new fields.StringField({ required: true, blank: true });
         schema.multiple = new fields.BooleanField({ required: true, initial: false });
-    
+        schema.detail = new fields.StringField({ required: true, blank: true });
+
         return schema;
     }
 }

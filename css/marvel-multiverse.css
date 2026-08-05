@@ -1070,10 +1070,10 @@
   margin-bottom: 0;
 }
 .mm-sidebar-filters .mm-filter-group-header {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
   color: #8b0502;
+  font-family: "Roboto", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
   margin: 0 0 2px;
   padding: 0;
   cursor: pointer;
@@ -1145,7 +1145,7 @@
   gap: 4px 8px;
 }
 .mm-sidebar-filters .mm-filter-checkbox-label {
-  font-size: 12px;
+  font-size: 11px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1675,6 +1675,14 @@
   flex: 0 0 210px;
 }
 
+.marvel-multiverse.sheet.actor .sheet-header .mm-codename-field {
+  flex: 2 1 0;
+}
+
+.marvel-multiverse.sheet.actor .sheet-header .mm-team-maneuver-field {
+  flex: 1 1 0;
+}
+
 .marvel-multiverse.sheet.actor .sheet-header .team-maneuver select:first-child {
   width: 100%;
 }
@@ -1743,6 +1751,121 @@
 
 .marvel-multiverse.sheet.actor .mm-styled-container.mm-gear-block {
   height: 100%;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block {
+  clip-path: polygon(0% 0%, 228px 0%, 259px 28px, 100% 28px, 100% 100%, 0% 100%);
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block h3 {
+  width: 280px;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .mm-styled-container-body {
+  color: white;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-of-label {
+  color: white;
+  margin: 0 0 4px;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-entry {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 36px 1fr 1fr auto;
+  padding: 4px 0;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-img {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  height: 36px;
+  object-fit: cover;
+  width: 36px;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-name {
+  font-weight: 600;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-type {
+  opacity: 0.85;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-controls {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-controls a {
+  color: white;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-controls a:hover {
+  color: #e41d18;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-add {
+  color: white;
+  display: block;
+  padding: 4px 0;
+  white-space: nowrap;
+}
+
+.marvel-multiverse.sheet.actor .mm-styled-container.mm-alternate-forms-block .alternate-form-add:hover {
+  color: #e41d18;
+}
+
+.mm-form-picker {
+  display: flex;
+  gap: 6px;
+  position: fixed;
+  transform: translate(-100%, -50%);
+  z-index: 1000;
+}
+
+.mm-form-picker-item {
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 6px;
+  position: relative;
+  transition: background 0.15s;
+}
+
+.mm-form-picker-item:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.mm-form-picker-item:hover .mm-form-picker-name {
+  opacity: 1;
+}
+
+.mm-form-picker-item img {
+  border-radius: 50%;
+  display: block;
+  height: 100px;
+  object-fit: cover;
+  width: 100px;
+}
+
+.mm-form-picker-name {
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 4px;
+  bottom: 10px;
+  color: white;
+  font-size: 11px;
+  left: 50%;
+  opacity: 0;
+  padding: 2px 6px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+  transition: opacity 0.15s;
+  white-space: nowrap;
 }
 
 .marvel-multiverse.sheet.actor .vehicle {
@@ -2199,6 +2322,244 @@
 
 .mm-vehicle-add-weapon a:hover {
   color: white;
+}
+
+.marvel-multiverse.sheet.actor .headquarters {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.marvel-multiverse.sheet.actor .headquarters .sheet-header {
+  flex: 0 0 auto;
+}
+
+.marvel-multiverse.sheet.actor .headquarters .sheet-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.mm-hq-portrait-row {
+  gap: 8px;
+}
+
+.mm-hq-portrait-block {
+  flex: 0 0 120px;
+  height: 120px;
+}
+
+.marvel-multiverse.sheet.actor .mm-hq-portrait-block .mm-hero-portrait {
+  clip-path: polygon(0 0, 70% 0%, 100% 30%, 100% 100%, 100% 100%, 30% 100%, 0% 70%, 0 0);
+  height: 100%;
+  width: 100%;
+}
+
+.marvel-multiverse.sheet.actor .mm-hq-portrait-block .mm-hero-portrait img {
+  height: 100%;
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.mm-hq-header-stats {
+  flex: 1 1 auto;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.mm-hq-stat-block {
+  background: #e41d18;
+  border-radius: 2px;
+  color: white;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px;
+  gap: 2px;
+}
+
+.mm-hq-stat-label {
+  color: white;
+  font-family: "Roboto", serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mm-hq-stat-input {
+  align-items: center;
+  background: #fff2ec;
+  border-radius: 2px;
+  color: #000101;
+  display: flex;
+  font-size: 18px;
+  font-weight: 700;
+  gap: 2px;
+  justify-content: center;
+  padding: 2px 4px;
+  width: 100%;
+}
+
+.mm-hq-stat-input input {
+  background: none;
+  border: none;
+  color: #000101;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  width: 50px;
+}
+
+.mm-hq-stat-input input:focus {
+  box-shadow: 0 0 0 1px #e41d18;
+}
+
+.mm-hq-stat-input span {
+  color: #575757;
+}
+
+.mm-hq-health-operational {
+  background: #e41d18;
+}
+
+.mm-hq-health-damaged {
+  background: #f5a623;
+}
+
+.mm-hq-health-destroyed {
+  background: #000101;
+}
+
+.mm-hq-status-badge {
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  text-transform: uppercase;
+}
+
+.mm-hq-status-badge.-warning {
+  background: #f5a623;
+  color: white;
+}
+
+.mm-hq-status-badge.-destroyed {
+  background: #000101;
+  color: white;
+}
+
+.mm-hq-info-block {
+  background: #e41d18;
+  border-radius: 2px;
+  color: white;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 2px;
+  padding: 4px;
+}
+
+.mm-hq-info-field {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.mm-hq-info-label {
+  flex: 0 0 80px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mm-hq-info-value {
+  background: #fff2ec;
+  border-radius: 2px;
+  box-sizing: border-box;
+  color: #000101;
+  flex: 1 1 auto;
+  font-size: 12px;
+  font-weight: 600;
+  height: 21px;
+  line-height: 21px;
+  padding: 0 4px;
+}
+
+.mm-hq-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.mm-hq-members-drop-zone {
+  min-height: 60px;
+}
+
+.mm-hq-members-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mm-hq-member {
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+}
+
+.mm-hq-member:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.mm-hq-member-img {
+  flex: 0 0 auto;
+}
+
+.mm-hq-member-img img {
+  border: 1px solid #e41d18;
+  border-radius: 2px;
+}
+
+.mm-hq-member-name {
+  color: #fff2ec;
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mm-hq-member-rank {
+  color: #fff2ec;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+
+.mm-hq-member-controls {
+  flex: 0 0 auto;
+}
+
+.mm-hq-member-controls a {
+  color: #fff2ec;
+  opacity: 0.7;
+}
+
+.mm-hq-member-controls a:hover {
+  opacity: 1;
+}
+
+.mm-hq-member-empty,
+.mm-hq-empty-section {
+  color: #fff2ec;
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px;
+  text-align: center;
 }
 
 .marvel-multiverse.sheet.item .window-content > form {

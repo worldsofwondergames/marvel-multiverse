@@ -49,7 +49,8 @@
       "Actor": "MarvelMultiverse Actor Sheet",
       "Item": "MarvelMultiverse Item Sheet",
       "NPC": "MarvelMultiverse NPC Sheet",
-      "Vehicle": "MarvelMultiverse Vehicle Sheet"
+      "Vehicle": "MarvelMultiverse Vehicle Sheet",
+      "Headquarters": "Headquarters Sheet"
     },
     "Item": {
       "Power": {
@@ -117,6 +118,61 @@
       "Disabled": "Disabled",
       "Destroyed": "Destroyed",
       "VehicleFull": "Vehicle is at passenger capacity"
+    },
+    "Equipment": {
+      "Protection": "Protection",
+      "Grenade": {
+        "label": "Grenade",
+        "Explosive": "Explosive",
+        "Flashbang": "Flashbang",
+        "Gas": "Gas",
+        "Smoke": "Smoke"
+      },
+      "Gadget": "Gadget",
+      "Device": "Device",
+      "Material": "Material"
+    },
+    "Headquarters": {
+      "Health": "Health",
+      "TeamRank": "Team Rank",
+      "Members": "Members",
+      "Tags": "Tags",
+      "Traits": "Traits",
+      "TraitSlots": "Trait Slots",
+      "Description": "Description",
+      "Notes": "Notes",
+      "Source": "Source",
+      "Status": {
+        "Operational": "Operational",
+        "Damaged": "Damaged",
+        "Destroyed": "Destroyed"
+      },
+      "DropMember": "Drop a character or NPC here to add a team member",
+      "MemberAlreadyAdded": "is already a team member.",
+      "IncompatibleTag": "is incompatible with",
+      "DowntimeActivity": "Downtime Activity",
+      "Rank": "Rank"
+    },
+    "AlternateForm": {
+      "Cosmetic": "Cosmetic",
+      "PowerDown": "Power Down",
+      "PowerSwap": "Power Swap",
+      "SectionTitle": "Alternate Forms",
+      "AddForm": "Add Form",
+      "EditForm": "Edit Form",
+      "UnlinkForm": "Unlink Form",
+      "SwitchForm": "Switch Form",
+      "SwitchTo": "Switch to {name}",
+      "AlternateOf": "Alternate form of:",
+      "TriggerInvoluntary": "Trigger Involuntary Change",
+      "EgoCheckPrompt": "Make an Ego check (TN {tn}) to resist transforming into {name}?",
+      "EgoCheckSuccess": "{name} resists the transformation.",
+      "EgoCheckFailure": "{name} fails to resist and transforms!",
+      "TransformMessage": "{name} transforms into {form}.",
+      "Setting": {
+        "Enable": "Enable Alternate Forms",
+        "EnableHint": "Adds alternate form management to character sheets, allowing characters to link and switch between multiple forms."
+      }
     }
   },
   "InitiativeRoll": "Initiative Roll",
@@ -124,7 +180,8 @@
     "Actor": {
       "character": "Character",
       "npc": "NPC",
-      "vehicle": "Vehicle"
+      "vehicle": "Vehicle",
+      "headquarters": "Headquarters"
     },
     "Item": {
       "item": "Item",
@@ -138,7 +195,10 @@
       "iconicItem": "Iconic Item",
       "restriction": "Restriction",
       "battleSuit": "Battlesuit",
-      "vehicleWeapon": "Vehicle Weapon"
+      "equipment": "Equipment",
+      "vehicleWeapon": "Vehicle Weapon",
+      "hqTag": "HQ Tag",
+      "hqTrait": "HQ Trait"
     }
   }
 }

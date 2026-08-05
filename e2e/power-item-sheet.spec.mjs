@@ -57,7 +57,7 @@ test.describe('Power Item Sheet (Issue #89)', () => {
 
     const sheetVisible = await page.evaluate(() => {
       return Object.values(ui.windows).some(w =>
-        w instanceof ItemSheet && w.item?.name === 'Test Telepathy'
+        w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === 'Test Telepathy'
       );
     });
     expect(sheetVisible).toBe(true);
@@ -69,7 +69,7 @@ test.describe('Power Item Sheet (Issue #89)', () => {
 
     await page.evaluate(() => {
       const sheet = Object.values(ui.windows).find(w =>
-        w instanceof ItemSheet && w.item?.name === 'Test Telepathy'
+        w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === 'Test Telepathy'
       );
       if (sheet) sheet.close();
     });
@@ -95,7 +95,7 @@ test.describe('Power Item Sheet (Issue #89)', () => {
 
     const sheetVisible = await page.evaluate(() => {
       return Object.values(ui.windows).some(w =>
-        w instanceof ItemSheet && w.item?.name === 'NPC Super Strength'
+        w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === 'NPC Super Strength'
       );
     });
     expect(sheetVisible).toBe(true);
@@ -107,7 +107,7 @@ test.describe('Power Item Sheet (Issue #89)', () => {
 
     await page.evaluate(() => {
       const sheet = Object.values(ui.windows).find(w =>
-        w instanceof ItemSheet && w.item?.name === 'NPC Super Strength'
+        w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === 'NPC Super Strength'
       );
       if (sheet) sheet.close();
     });
@@ -137,7 +137,7 @@ test.describe('Power Item Sheet (Issue #89)', () => {
 
     const sheetVisible = await page.evaluate(() => {
       return Object.values(ui.windows).some(w =>
-        w instanceof ItemSheet && w.item?.name === 'Test Blaster'
+        w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === 'Test Blaster'
       );
     });
     expect(sheetVisible).toBe(true);
@@ -149,7 +149,7 @@ test.describe('Power Item Sheet (Issue #89)', () => {
 
     await page.evaluate(() => {
       const sheet = Object.values(ui.windows).find(w =>
-        w instanceof ItemSheet && w.item?.name === 'Test Blaster'
+        w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === 'Test Blaster'
       );
       if (sheet) sheet.close();
     });
@@ -175,14 +175,14 @@ test.describe('Power Item Sheet (Issue #89)', () => {
 
     const sheetVisible = await page.evaluate(() => {
       return Object.values(ui.windows).some(w =>
-        w instanceof ItemSheet && w.item?.name === 'Test Brave'
+        w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === 'Test Brave'
       );
     });
     expect(sheetVisible).toBe(true);
 
     await page.evaluate(() => {
       const sheet = Object.values(ui.windows).find(w =>
-        w instanceof ItemSheet && w.item?.name === 'Test Brave'
+        w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === 'Test Brave'
       );
       if (sheet) sheet.close();
     });
@@ -215,14 +215,14 @@ test.describe('Power Item Sheet (Issue #89)', () => {
 
       const visible = await page.evaluate((name) => {
         return Object.values(ui.windows).some(w =>
-          w instanceof ItemSheet && w.item?.name === name
+          w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === name
         );
       }, itemName);
       expect(visible, `${itemName} sheet should be visible`).toBe(true);
 
       await page.evaluate((name) => {
         const sheet = Object.values(ui.windows).find(w =>
-          w instanceof ItemSheet && w.item?.name === name
+          w instanceof foundry.appv1.sheets.ItemSheet && w.item?.name === name
         );
         if (sheet) sheet.close();
       }, itemName);

@@ -1,5 +1,3 @@
-# MarvelMultiverse RPG System![](https://github.com/worldsofwondergames/marvel-multiverse/blob/main/ui/official/mmrpg-repo.jpg?raw=true)
-
 ## The __Unofficial__ Marvel Multiverse Role Playing Game System for Foundry VTT
 
 This is an unoffical implementation of the [Marvel Multiverse Role Playing Game](https://www.marvel.com/rpg) table top role playing game for [Foundry VTT](http://foundryvtt.com). Providing character sheet, dice and game system support.

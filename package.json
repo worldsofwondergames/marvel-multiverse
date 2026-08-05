@@ -47,7 +47,10 @@
     "defaults and fully supports es6-module",
     "maintained node versions"
   ],
-  "author": "mjording",
+  "author": "worldsofwondergames",
+  "contributors": [
+    "mjording"
+  ],
   "license": "MIT",
   "private": true,
   "devDependencies": {

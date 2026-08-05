@@ -7005,17 +7005,17 @@ Hooks.on("renderSettings", (app, html) => {
     <h2 class='mmrpg-game-title'>${game.system.title}
       <ul class="links mmrpg-ul">
         <li>
-          <a href="https://github.com/mjording/marvel-multiverse/releases/latest" target="_blank">
+          <a href="https://github.com/worldsofwondergames/marvel-multiverse/releases/latest" target="_blank">
             Marvel Multiverse RPG
           </a>
         </li>
         <li>
-          <a href="https://github.com/mjording/marvel-multiverse/issues" target="_blank">${game.i18n.localize(
+          <a href="https://github.com/worldsofwondergames/marvel-multiverse/issues" target="_blank">${game.i18n.localize(
             "MARVEL_MULTIVERSE.Issues"
           )}</a>
         </li>
         <li>
-          <a href="https://github.com/mjording/marvel-multiverse/wiki" target="_blank">${game.i18n.localize(
+          <a href="https://github.com/worldsofwondergames/marvel-multiverse/wiki" target="_blank">${game.i18n.localize(
             "MARVEL_MULTIVERSE.Wiki"
           )}</a>
         </li>

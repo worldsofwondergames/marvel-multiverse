@@ -13,13 +13,11 @@ play games of MMRPG. It is not a substitute for or contain rules or proprietary 
 
 The software component of this system is distributed under the MIT license.
 
-
+Development of the original code appears to have been abandoned in 2024. This project revived it in 2026 and continues to maintain it under that same MIT license.
 
 Support this and other projects via these platforms.
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/mjording)
-
-[Rollbones on Patreon](https://patreon.com/rollbones?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/worldsofwonder)
 
 ## Installation Instructions
 

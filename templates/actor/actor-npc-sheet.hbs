@@ -68,7 +68,7 @@
                   </li>
                   {{#each system.abilities as |ability key|}}
                     <li>
-                      <div class="mm-npc-ability-name rollable" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}" data-ability-key="{{key}}">
+                      <div class="mm-npc-ability-name rollable" data-roll-type="ability" data-formula="{1d6,1dm,1d6}+@abilities.{{key}}.value" data-label="{{ability.label}}" data-ability-key="{{key}}">
                         {{#if (eq key "mle")}}
                           Melee
                         {{else if (eq key "agl")}}
@@ -187,6 +187,14 @@
               {{> "systems/marvel-multiverse/templates/actor/parts/actor-tags.hbs"}}
             </div>
           </div>
+          {{!-- Equipment --}}
+          <div class="mm-styled-container mm-gear-block">
+            <h3>Gear</h3>
+            <div class="mm-styled-container-body">
+              {{> "systems/marvel-multiverse/templates/actor/parts/actor-equipment.hbs"}}
+            </div>
+          </div>
+          {{> "systems/marvel-multiverse/templates/actor/parts/actor-alternate-forms.hbs"}}
         </div>
       </div>
   </header>

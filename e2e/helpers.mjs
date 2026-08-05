@@ -10,6 +10,36 @@ export async function waitForGameReady(page) {
 }
 
 /**
+ * Run page.evaluate against a settled game.
+ *
+ * The worker-scoped page is shared by every test, and Foundry reloads the
+ * client on its own schedule. An evaluate issued while a reload is in flight
+ * dies with "Execution context was destroyed", which is what made
+ * createActorViaAPI and friends fail intermittently — a different test each
+ * run, never the same one twice.
+ *
+ * Waiting for game.ready first closes most of the window; retrying on the
+ * specific navigation errors closes the rest. `fn` MUST be idempotent, since
+ * a retry may run it twice.
+ */
+export async function evaluateWhenReady(page, fn, arg, { retries = 2 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await waitForGameReady(page);
+      return await page.evaluate(fn, arg);
+    } catch (error) {
+      const message = String(error?.message ?? error);
+      const isNavigationRace =
+        message.includes('Execution context was destroyed') ||
+        message.includes('Cannot find context with specified id') ||
+        message.includes('Target closed');
+      if (!isNavigationRace || attempt >= retries) throw error;
+      await page.waitForLoadState('domcontentloaded').catch(() => {});
+    }
+  }
+}
+
+/**
  * Dismiss any FoundryVTT notification banners that block pointer events.
  */
 export async function dismissNotifications(page) {
@@ -100,46 +130,6 @@ export async function setSelectField(sheet, fieldName, value) {
   const select = sheet.locator(`select[name="${fieldName}"]`);
   await select.selectOption(value);
   await sheet.page().waitForTimeout(800);
-}
-
-/**
- * Drop a compendium item onto the currently open character sheet
- * by using FoundryVTT's API to find the item and call the sheet's drop handler.
- *
- * Searches the marvel-multiverse-data module's combined items pack,
- * falling back to the system's own packs if not found.
- */
-export async function dragCompendiumItem(page, packName, itemName, sheet) {
-  await page.evaluate(async ({ packName, itemName }) => {
-    // Primary source: the module's combined items pack
-    const modulePack = game.packs.get('marvel-multiverse-data.marvel-multiverse-items');
-    // Fallback: the system's per-type packs
-    const systemPack = game.packs.get(`marvel-multiverse.${packName}`);
-
-    let item = null;
-
-    for (const pack of [modulePack, systemPack].filter(Boolean)) {
-      const index = await pack.getIndex({ fields: ['name', 'type'] });
-      const entry = index.find(e => e.name === itemName);
-      if (entry) {
-        item = await pack.getDocument(entry._id);
-        break;
-      }
-    }
-
-    if (!item) {
-      throw new Error(`Item "${itemName}" not found in any compendium pack.`);
-    }
-
-    const itemData = item.toObject();
-
-    const actorSheet = Object.values(ui.windows).find(w => w instanceof ActorSheet);
-    if (!actorSheet) throw new Error('No actor sheet is currently open');
-
-    await actorSheet._onDropItemCreate(itemData);
-  }, { packName, itemName });
-
-  await page.waitForTimeout(500);
 }
 
 /**
@@ -398,7 +388,11 @@ export async function deleteCombat(page) {
  * Useful for tests that don't need the sheet open.
  */
 export async function createActorViaAPI(page, name, type = 'character') {
-  await page.evaluate(async ({ name, type }) => {
+  // Delete-then-create so a retry inside evaluateWhenReady cannot leave two
+  // actors with the same name behind.
+  await evaluateWhenReady(page, async ({ name, type }) => {
+    const existing = game.actors.filter(a => a.name === name);
+    if (existing.length) await Actor.deleteDocuments(existing.map(a => a.id));
     await Actor.create({ name, type });
   }, { name, type });
   await page.waitForTimeout(500);

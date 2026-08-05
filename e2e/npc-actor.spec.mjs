@@ -69,4 +69,41 @@ test.describe('NPC Actor Calculations', () => {
     const sys = await getActorSystemData(page, ACTOR_NAME);
     expect(sys.attributes.init.value).toBe(5);
   });
+
+  // Regression guard for #92: the NPC sheet's getData() read
+  // context.system.teamManeuver, which only exists on the character data model,
+  // so opening any NPC sheet threw and rendered nothing. Every other NPC test
+  // here goes through the API and never renders, which is how an entire actor
+  // type stayed broken without a red test.
+  test('NPC sheet renders without throwing', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createActorViaAPI(page, ACTOR_NAME, 'npc');
+
+    const result = await page.evaluate(async (name) => {
+      const actor = game.actors.find(a => a.name === name);
+      if (!actor) return { error: `Actor "${name}" not found`, rendered: false };
+
+      // ApplicationV1 swallows render errors through Hooks.onError, so a
+      // try/catch alone can report success while nothing reached the DOM.
+      // Capture both: any thrown error, and whether the app element exists.
+      let error = null;
+      try {
+        await actor.sheet.render(true);
+      } catch (err) {
+        error = `${err.name}: ${err.message}`;
+      }
+      await new Promise(r => setTimeout(r, 500));
+
+      const el = actor.sheet.element instanceof HTMLElement
+        ? actor.sheet.element
+        : actor.sheet.element?.[0] ?? null;
+      const rendered = el instanceof Node && document.body.contains(el);
+
+      try { await actor.sheet.close(); } catch { /* nothing to close */ }
+      return { error, rendered };
+    }, ACTOR_NAME);
+
+    expect(result.error).toBeNull();
+    expect(result.rendered).toBe(true);
+  });
 });

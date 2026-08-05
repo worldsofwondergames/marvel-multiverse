@@ -14,7 +14,8 @@ export default class MarvelMultiverseItemBase extends foundry.abstract.TypeDataM
     schema.ability = new fields.StringField({required: true, blank: true});
     schema.attack = new fields.BooleanField({ required: true, initial: false });
     schema.formula = new fields.StringField({required: true,  initial: "{1d6,1dm,1d6}" });
-    
+    schema.source = new fields.StringField({ required: true, blank: true });
+
     return schema;
   }
 }

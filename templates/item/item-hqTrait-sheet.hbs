@@ -1,0 +1,33 @@
+<form class="{{cssClass}}" autocomplete="off">
+  <header class="sheet-header">
+    <div class="mm-styled-field -lg -img">
+      <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+      <div class="mm-styled-input">
+        <input name="name" type="text" value="{{item.name}}" placeholder="Name"/>
+      </div>
+    </div>
+  </header>
+
+  <section class="sheet-body">
+    <div class="flexcol -gap-sm">
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Description</span></label>
+        <div class="mm-styled-input">
+          {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false editable=editable}}
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>{{localize "MARVEL_MULTIVERSE.Headquarters.DowntimeActivity"}}</span></label>
+        <div class="mm-styled-input">
+          {{editor system.downtimeActivity target="system.downtimeActivity" button=false engine="prosemirror" collaborate=false editable=editable}}
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Max Count (0 = unlimited)</span></label>
+        <div class="mm-styled-input">
+          <input type="number" name="system.maxCount" value="{{system.maxCount}}" data-dtype="Number" min="0"/>
+        </div>
+      </div>
+    </div>
+  </section>
+</form>

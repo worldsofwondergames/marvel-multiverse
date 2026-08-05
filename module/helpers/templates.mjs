@@ -4,7 +4,7 @@
  * @return {Promise}
  */
 export const preloadHandlebarsTemplates = async () =>
-  loadTemplates([
+  foundry.applications.handlebars.loadTemplates([
     // Actor partials.
     "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs",
@@ -15,9 +15,13 @@ export const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-tags.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-traits.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-equipment.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-weapons.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-alternate-forms.hbs",
     // Item partials
     "systems/marvel-multiverse/templates/item/parts/item-effects.hbs",
+    // Dialog partials
+    "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
     // Sidebar partials
     "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
   ]);

@@ -19,9 +19,18 @@ function _toTitleCase(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+function _getTokenDoc(actor) {
+  if (actor?.token) return actor.token;
+  const controlled = canvas.tokens?.controlled?.find(t => t.actor?.id === actor?.id);
+  if (controlled) return controlled.document;
+  const active = actor?.getActiveTokens?.()?.[0];
+  if (active) return active.document;
+  return null;
+}
+
 function _getTokenImg(actor) {
-  const activeToken = actor?.getActiveTokens?.()?.[0];
-  if (activeToken?.document?.texture?.src) return activeToken.document.texture.src;
+  const tokenDoc = _getTokenDoc(actor);
+  if (tokenDoc?.texture?.src) return tokenDoc.texture.src;
   const protoSrc = actor?.prototypeToken?.texture?.src;
   if (protoSrc && !protoSrc.includes("*")) return protoSrc;
   return actor?.img || "";
@@ -276,7 +285,7 @@ class MarvelMultiverseRoll extends Roll {
     options = {}
   ) {
     // Render the Dialog inner HTML
-    const content = await renderTemplate(
+    const content = await foundry.applications.handlebars.renderTemplate(
       template ?? this.constructor.EVALUATION_TEMPLATE,
       {
         formulas: [{ formula: `${this.formula} + @bonus` }],
@@ -361,7 +370,19 @@ class MarvelMultiverseRoll extends Roll {
  * Extend the base Actor document by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
  */
+const ACTOR_DEFAULT_ICONS = {
+  headquarters: "systems/marvel-multiverse/icons/headquarters.svg",
+};
+
 class MarvelMultiverseActor extends Actor {
+  async _preCreate(data, options, user) {
+    await super._preCreate(data, options, user);
+    const defaultIcon = ACTOR_DEFAULT_ICONS[data.type];
+    if (defaultIcon && (!data.img || data.img === Actor.DEFAULT_ICON)) {
+      this.updateSource({ img: defaultIcon });
+    }
+  }
+
   /** @override */
   prepareData() {
     // Prepare data for the actor. Calling the super version of this executes
@@ -373,6 +394,11 @@ class MarvelMultiverseActor extends Actor {
 
   /** @override */
   prepareBaseData() {
+    // Must call super: as of v14, Actor#prepareBaseData runs _clearData(),
+    // which initialises tokenActiveEffectChanges and resets the ActiveEffect
+    // application phases. Without it applyActiveEffects() throws and NO
+    // active effect is ever applied.
+    super.prepareBaseData();
     // Data modifications in this step occur before processing embedded
     // documents or derived data.
   }
@@ -457,7 +483,9 @@ const ITEM_DEFAULT_ICONS = {
   origin: "systems/marvel-multiverse/icons/origin.svg",
   powerSet: "icons/svg/card-hand.svg",
   power: "systems/marvel-multiverse/icons/super-powers.svg",
-  tag: "systems/marvel-multiverse/icons/tags.svg"
+  tag: "systems/marvel-multiverse/icons/tags.svg",
+  hqTag: "systems/marvel-multiverse/icons/tags.svg",
+  hqTrait: "systems/marvel-multiverse/icons/trait.svg"
 };
 
 let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
@@ -511,7 +539,7 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
    */
   async roll() {
     // Initialize chat data.
-    const speaker = ChatMessage.getSpeaker({ actor: this.actor });
+    const speaker = ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) });
     const rollMode = game.settings.get("core", "rollMode");
     const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
     const tokenImg = _getTokenImg(this.actor);
@@ -776,10 +804,31 @@ MARVEL_MULTIVERSE.vehicleSpeedLabels = {
   swim: { label: "MARVEL_MULTIVERSE.Vehicle.NauticalSpeed" },
 };
 
+MARVEL_MULTIVERSE.equipmentTypes = {
+  protection: "MARVEL_MULTIVERSE.Equipment.Protection",
+  grenade: "MARVEL_MULTIVERSE.Equipment.Grenade.label",
+  gadget: "MARVEL_MULTIVERSE.Equipment.Gadget",
+  device: "MARVEL_MULTIVERSE.Equipment.Device",
+  material: "MARVEL_MULTIVERSE.Equipment.Material",
+};
+
+MARVEL_MULTIVERSE.grenadeTypes = {
+  explosive: "MARVEL_MULTIVERSE.Equipment.Grenade.Explosive",
+  flashbang: "MARVEL_MULTIVERSE.Equipment.Grenade.Flashbang",
+  gas: "MARVEL_MULTIVERSE.Equipment.Grenade.Gas",
+  smoke: "MARVEL_MULTIVERSE.Equipment.Grenade.Smoke",
+};
+
+MARVEL_MULTIVERSE.alternateFormTypes = {
+  cosmetic: "MARVEL_MULTIVERSE.AlternateForm.Cosmetic",
+  powerDown: "MARVEL_MULTIVERSE.AlternateForm.PowerDown",
+  powerSwap: "MARVEL_MULTIVERSE.AlternateForm.PowerSwap",
+};
+
 MARVEL_MULTIVERSE.elements = {
   air: { label: "Air", fantasticEffect: "Target is knocked prone for one round.", statusId: "prone" },
   chemical: { label: "Chemical", fantasticEffect: "The target is corroding.", statusId: "corroding" },
-  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round.", statusId: "exhaustion" },
+  earth: { label: "Earth", fantasticEffect: "Target moves at half speed for one round.", statusId: "exhausted" },
   electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round.", statusId: "stunned" },
   energy: { label: "Energy", fantasticEffect: "Blinds target for one round.", statusId: "blinded" },
   fire: { label: "Fire", fantasticEffect: "Sets target ablaze.", statusId: "ablaze" },
@@ -1270,24 +1319,60 @@ MARVEL_MULTIVERSE.sizeEffects = {
 };
 
 MARVEL_MULTIVERSE.conditionEffects = {
+  ablaze: {
+    name: "Ablaze",
+    disabled: false,
+    changes: [],
+    description:
+      "Loses 5 Health at end of each turn until death or condition ends. Smother by rolling on ground: Agility vs TN 10 (costs an action).",
+    transfer: true,
+    statuses: ["ablaze"],
+    flags: {},
+    turnDamage: 5,
+    timing: "end",
+  },
+  asleep: {
+    name: "Asleep",
+    disabled: false,
+    changes: [],
+    description:
+      "Cannot take any actions. All defenses reduced to 10. Melee attacks automatically hit. Wake up: Challenging check using resisted ability (Resilience for drugs, Vigilance for magic). Someone helping gives edge on the check.",
+    transfer: true,
+    statuses: ["asleep"],
+    flags: {},
+  },
+  bleeding: {
+    name: "Bleeding",
+    disabled: false,
+    changes: [],
+    description:
+      "Loses 5 Health at end of each turn until death or condition ends. Stop with Logic vs TN 10 (costs an action). Also ends when victim recovers 1+ Health.",
+    transfer: true,
+    statuses: ["bleeding"],
+    flags: {},
+    turnDamage: 5,
+    timing: "end",
+  },
   corroding: {
     name: "Corroding",
     disabled: false,
     changes: [],
     description:
-      "Character loses 5 Health at end of each of their turns. Ends on death or removal of corrosive chemical. Washed off with copious water.",
+      "Loses 5 Health at end of each turn until death or condition ends. Wash with copious water to remove.",
     transfer: true,
     statuses: ["corroding"],
     flags: {},
+    turnDamage: 5,
+    timing: "end",
   },
-  poisoned: {
-    name: "Poisoned",
+  exhausted: {
+    name: "Exhausted",
     disabled: false,
     changes: [],
     description:
-      "Resilience vs. TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+      "+5 to Focus cost of any powers with a Focus cost. Stacks +5 per additional 24 hours awake or exhausting influence. Penalty ignores Focus spending cap. Trouble on all actions. Ends after a good night's sleep.",
     transfer: true,
-    statuses: ["poisoned"],
+    statuses: ["exhausted"],
     flags: {},
   },
   infected: {
@@ -1299,6 +1384,18 @@ MARVEL_MULTIVERSE.conditionEffects = {
     transfer: true,
     statuses: ["infected"],
     flags: {},
+  },
+  poisoned: {
+    name: "Poisoned",
+    disabled: false,
+    changes: [],
+    description:
+      "Resilience vs TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+    transfer: true,
+    statuses: ["poisoned"],
+    flags: {},
+    turnCheck: { ability: "res", tn: 18 },
+    timing: "start",
   },
 };
 
@@ -1389,14 +1486,14 @@ class ChatMessageMarvel extends ChatMessage {
       chatCard.find(".effects-tray .effect").each((i, el) => {
         if (
           !game.user.isGM &&
-          (el.dataset.transferred === "false" || this.user.id !== game.user.id)
+          (el.dataset.transferred === "false" || this.author.id !== game.user.id)
         )
           el.remove();
       });
 
       // If the user is the message author or the actor owner, proceed
       const actor = game.actors.get(this.speaker.actor);
-      if (game.user.isGM || actor?.isOwner || this.user.id === game.user.id) {
+      if (game.user.isGM || actor?.isOwner || this.author.id === game.user.id) {
         const summonsButton = chatCard[0].querySelector(
           'button[data-action="summon"]'
         );
@@ -1439,7 +1536,7 @@ class ChatMessageMarvel extends ChatMessage {
     if (this.isContentVisible) {
       nameText = this.alias;
     } else {
-      nameText = this.user.name;
+      nameText = this.author.name;
     }
 
     const avatar = document.createElement("div");
@@ -1653,7 +1750,13 @@ class ChatMessageMarvel extends ChatMessage {
           ? t.system.focusDamageReduction
           : t.system.healthDamageReduction;
       const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
-      let dmg = marvelDie.total * effectiveMultiplier + abilityValue;
+      // Rulebook: once DR meets or exceeds the damage multiplier the attack
+      // "does no damage at all, not even from the attacker's Ability score
+      // bonus" — so the ability score is not added to a zeroed multiplier.
+      let dmg =
+        effectiveMultiplier === 0
+          ? 0
+          : marvelDie.total * effectiveMultiplier + abilityValue;
       if (fantastic) {
         dmg = dmg * 2;
       }
@@ -1671,7 +1774,9 @@ class ChatMessageMarvel extends ChatMessage {
     });
 
     if (damageContent.length === 0) {
-      let dmg = marvelDie.total * damageMultiplier + abilityValue;
+      // Same rule with no target selected: a multiplier of 0 deals nothing.
+      let dmg =
+        damageMultiplier <= 0 ? 0 : marvelDie.total * damageMultiplier + abilityValue;
       if (fantastic) {
         dmg = dmg * 2;
       }
@@ -1961,11 +2066,195 @@ function prepareActiveEffectCategories(effects) {
   return categories;
 }
 
+function validateFormLink(primaryActor, alternateActor) {
+  if (primaryActor.id === alternateActor.id) {
+    return { valid: false, reason: "An actor cannot link to itself." };
+  }
+
+  const existingIds = (primaryActor.system.alternateForms ?? []).map(f => f.actorId);
+  if (existingIds.includes(alternateActor.id)) {
+    return { valid: false, reason: "This actor is already linked as an alternate form." };
+  }
+
+  if ((alternateActor.system.alternateForms ?? []).length > 0) {
+    return { valid: false, reason: "This actor already has its own alternate forms and cannot be an alternate." };
+  }
+
+  return { valid: true };
+}
+
+function getLinkedForms(actor) {
+  const alternateForms = actor.system.alternateForms ?? [];
+  const primaryFormIds = actor.system.primaryFormIds ?? [];
+
+  const isPrimary = alternateForms.length > 0;
+  const isAlternate = primaryFormIds.length > 0;
+
+  return {
+    isPrimary,
+    isAlternate,
+    forms: alternateForms,
+    primaryIds: primaryFormIds,
+  };
+}
+
+async function linkForm(primaryActor, alternateActorId, formType, triggers = []) {
+  const currentForms = foundry.utils.deepClone(primaryActor.system.alternateForms ?? []);
+  currentForms.push({ actorId: alternateActorId, formType, triggers });
+  await primaryActor.update({ "system.alternateForms": currentForms });
+
+  const alternateActor = game.actors.get(alternateActorId);
+  if (alternateActor) {
+    const currentPrimaryIds = [...(alternateActor.system.primaryFormIds ?? [])];
+    if (!currentPrimaryIds.includes(primaryActor.id)) {
+      currentPrimaryIds.push(primaryActor.id);
+      await alternateActor.update({ "system.primaryFormIds": currentPrimaryIds });
+    }
+  }
+}
+
+async function unlinkForm(primaryActor, alternateActorId) {
+  const currentForms = (primaryActor.system.alternateForms ?? [])
+    .filter(f => f.actorId !== alternateActorId);
+  await primaryActor.update({ "system.alternateForms": currentForms });
+
+  const alternateActor = game.actors.get(alternateActorId);
+  if (alternateActor) {
+    const currentPrimaryIds = (alternateActor.system.primaryFormIds ?? [])
+      .filter(id => id !== primaryActor.id);
+    await alternateActor.update({ "system.primaryFormIds": currentPrimaryIds });
+  }
+}
+
+function _waitForPlaceable(tokenDoc, timeout = 2000) {
+  return new Promise(resolve => {
+    if (tokenDoc?.object) return resolve(tokenDoc.object);
+    const start = Date.now();
+    const id = setInterval(() => {
+      if (tokenDoc?.object) { clearInterval(id); resolve(tokenDoc.object); }
+      else if (Date.now() - start > timeout) { clearInterval(id); resolve(null); }
+    }, 16);
+  });
+}
+
+function _animateAlpha(placeable, from, to, duration) {
+  return new Promise(resolve => {
+    const start = performance.now();
+    function step(now) {
+      const t = Math.min((now - start) / duration, 1);
+      placeable.alpha = from + (to - from) * t;
+      if (t < 1) requestAnimationFrame(step);
+      else resolve();
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+async function switchForm(currentActor, targetActorId) {
+  const targetActor = game.actors.get(targetActorId);
+  if (!targetActor) {
+    ui.notifications.warn("Target form actor not found.");
+    return;
+  }
+
+  const scene = game.scenes.active;
+  const currentToken = scene?.tokens.find(t => t.actorId === currentActor.id);
+  if (currentToken) {
+    const { x, y, elevation, rotation } = currentToken;
+
+    const combatant = game.combat?.combatants?.find(c => c.tokenId === currentToken.id);
+    const initiative = combatant?.initiative;
+
+    const oldPlaceable = currentToken.object;
+
+    const protoData = targetActor.prototypeToken?.toObject?.() ?? {};
+    const [newToken] = await scene.createEmbeddedDocuments("Token", [{
+      ...protoData,
+      actorId: targetActor.id,
+      x, y, elevation, rotation,
+      hidden: false,
+    }]);
+
+    const newPlaceable = await _waitForPlaceable(newToken);
+    const duration = 1000;
+
+    if (oldPlaceable?.mesh && newPlaceable?.mesh) {
+      newPlaceable.mesh.alpha = 0;
+      await Promise.all([
+        _animateAlpha(oldPlaceable.mesh, 1, 0, duration),
+        _animateAlpha(newPlaceable.mesh, 0, 1, duration),
+      ]);
+    }
+
+    await scene.deleteEmbeddedDocuments("Token", [currentToken.id]);
+
+    if (combatant && game.combat && newToken) {
+      const updateData = { actorId: targetActor.id, tokenId: newToken.id };
+      if (initiative !== null && initiative !== undefined) {
+        updateData.initiative = initiative;
+      }
+      await combatant.update(updateData);
+    }
+  }
+
+  ChatMessage.create({
+    content: `<em>${game.i18n.format("MARVEL_MULTIVERSE.AlternateForm.TransformMessage", { name: currentActor.name, form: targetActor.name })}</em>`,
+    speaker: ChatMessage.getSpeaker({ actor: targetActor }),
+  });
+
+  const openSheet = Object.values(ui.windows).find(
+    w => w instanceof foundry.appv1.sheets.ActorSheet && w.actor?.id === currentActor.id
+  );
+  if (openSheet) {
+    await openSheet.close();
+    targetActor.sheet.render(true);
+  }
+}
+
+async function handleInvoluntaryTrigger(actor, targetActorId, trigger) {
+  const targetActor = game.actors.get(targetActorId);
+  if (!targetActor) return;
+
+  if (!trigger.resistable || trigger.tn === 0) {
+    await switchForm(actor, targetActorId);
+    return;
+  }
+
+  const confirmed = await Dialog.confirm({
+    title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.TriggerInvoluntary"),
+    content: `<p>${game.i18n.format("MARVEL_MULTIVERSE.AlternateForm.EgoCheckPrompt", { tn: trigger.tn, name: targetActor.name })}</p>`,
+    yes: () => true,
+    no: () => false,
+  });
+
+  if (!confirmed) return;
+
+  const roll = new CONFIG.Dice.MarvelMultiverseRoll(
+    "{1d6,1dm,1d6}+@abilities.ego.value",
+    actor.getRollData()
+  );
+  await roll.evaluate();
+
+  const speaker = ChatMessage.getSpeaker({ actor });
+  if (roll.total >= trigger.tn) {
+    await roll.toMessage({
+      speaker,
+      flavor: `<em>${game.i18n.format("MARVEL_MULTIVERSE.AlternateForm.EgoCheckSuccess", { name: actor.name })}</em>`,
+    });
+  } else {
+    await roll.toMessage({
+      speaker,
+      flavor: `<em>${game.i18n.format("MARVEL_MULTIVERSE.AlternateForm.EgoCheckFailure", { name: actor.name })}</em>`,
+    });
+    await switchForm(actor, targetActorId);
+  }
+}
+
 /**
- * Extend the basic ActorSheet with some very simple modifications
- * @extends {ActorSheet}
+ * Extend the basic actor sheet with some very simple modifications
+ * @extends {foundry.appv1.sheets.ActorSheet}
  */
-class MarvelMultiverseCharacterSheet extends ActorSheet {
+class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
   /** @override */
   static get defaultOptions() {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
@@ -2090,6 +2379,46 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       this.actor.allApplicableEffects()
     );
 
+    context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
+    if (context.enableAlternateForms) {
+      const alternateForms = this.actor.system.alternateForms ?? [];
+      const primaryFormIds = this.actor.system.primaryFormIds ?? [];
+      const isPrimary = alternateForms.length > 0;
+      const isAlternate = primaryFormIds.length > 0;
+
+      const formTypeLabels = {
+        cosmetic: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.Cosmetic"),
+        powerDown: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerDown"),
+        powerSwap: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerSwap"),
+      };
+
+      const forms = alternateForms.map(f => {
+        const actor = game.actors.get(f.actorId);
+        const triggerSummary = f.triggers?.length
+          ? "Triggers: " + f.triggers.map(t => t.description).join(", ")
+          : "";
+        return {
+          ...f,
+          actor: actor ? { id: actor.id, name: actor.name, img: actor.img } : { id: f.actorId, name: "(Deleted)", img: "icons/svg/mystery-man.svg" },
+          formTypeLabel: formTypeLabels[f.formType] ?? f.formType,
+          triggerSummary,
+        };
+      });
+
+      const primaryActors = primaryFormIds.map(id => {
+        const actor = game.actors.get(id);
+        const formEntry = actor?.system.alternateForms?.find(f => f.actorId === this.actor.id);
+        return {
+          id,
+          name: actor?.name ?? "(Deleted)",
+          img: actor?.img ?? "icons/svg/mystery-man.svg",
+          formTypeLabel: formTypeLabels[formEntry?.formType] ?? "",
+        };
+      });
+
+      context.formData = { isPrimary, isAlternate, forms, primaryActors };
+    }
+
     return context;
   }
 
@@ -2111,6 +2440,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     const traits = [];
     const tags = [];
     const powers = {};
+    const equipment = [];
 
     // Iterate through items, allocating to containers
     for (const i of context.items) {
@@ -2155,6 +2485,16 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
           : (i.system.powerSet?.split(",")[0]?.trim() || "Basic");
         if (!powers[firstSet]) powers[firstSet] = [];
         powers[firstSet].push(i);
+      } else if (i.type === "equipment") {
+        i.equipmentTypeLabel = game.i18n.localize(
+          CONFIG.MARVEL_MULTIVERSE.equipmentTypes[i.system.equipmentType] ?? ""
+        );
+        if (i.system.grenadeType) {
+          i.grenadeTypeLabel = game.i18n.localize(
+            CONFIG.MARVEL_MULTIVERSE.grenadeTypes[i.system.grenadeType] ?? ""
+          );
+        }
+        equipment.push(i);
       }
 
       // Assign and return
@@ -2176,6 +2516,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       }, 0), 0);
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
+      context.equipment = equipment;
     }
   }
 
@@ -2234,6 +2575,9 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       if (item?.type === "battleSuit" && item.system.equipped) {
         await this._removeBattleSuitEffects(itemId);
       }
+      if (item?.type === "equipment" && item.system.equipped) {
+        await this._removeEquipmentEffects(itemId);
+      }
       this.actor.deleteEmbeddedDocuments("Item", [itemId]);
       li.slideUp(200, () => this.render(false));
     });
@@ -2247,6 +2591,9 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
 
     // Battle suit equip toggle
     html.on("click", ".battlesuit-equip-toggle", this._onToggleBattleSuitEquip.bind(this));
+
+    // Equipment equip toggle
+    html.on("click", ".equipment-equip-toggle", this._onToggleEquipmentEquip.bind(this));
 
     // Active Effect management
     html.on("click", ".effect-control", (ev) => {
@@ -2279,7 +2626,134 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         li.setAttribute("draggable", true);
         li.addEventListener("dragstart", handler, false);
       });
+
+      // Ability and non-combat checks are not embedded documents, so core's
+      // _onDragStart has nothing to describe them with. They carry their own
+      // drag payload instead.
+      const checkHandler = (ev) => this._onDragCheckStart(ev);
+      html
+        .find('[data-roll-type="ability"], [data-roll-type="noncom"]')
+        .each((i, el) => {
+          el.setAttribute("draggable", true);
+          el.addEventListener("dragstart", checkHandler, false);
+        });
     }
+
+    // Alternate Forms
+    html.on("click", ".alternate-form-switch", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await switchForm(this.actor, targetActorId);
+    });
+
+    html.on("click", ".alternate-form-unlink", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await unlinkForm(this.actor, targetActorId);
+      this.render(false);
+    });
+
+    html.on("click", ".alternate-form-edit", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      const targetActor = game.actors.get(targetActorId);
+      if (targetActor) targetActor.sheet.render(true);
+    });
+
+    html.on("click", ".alternate-form-add", async () => {
+      this._onAddAlternateForm();
+    });
+  }
+
+  async _onAddAlternateForm() {
+    const formTypes = {};
+    for (const [key, label] of Object.entries(CONFIG.MARVEL_MULTIVERSE.alternateFormTypes)) {
+      formTypes[key] = game.i18n.localize(label);
+    }
+
+    const availableActors = game.actors.filter(a => {
+      if (a.id === this.actor.id) return false;
+      if (!["character", "npc"].includes(a.type)) return false;
+      if ((a.system.alternateForms ?? []).length > 0) return false;
+      return true;
+    });
+
+    const content = await foundry.applications.handlebars.renderTemplate(
+      "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
+      { availableActors, formTypes, triggers: [] }
+    );
+
+    new Dialog({
+      title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+      content,
+      buttons: {
+        add: {
+          icon: '<i class="fas fa-plus"></i>',
+          label: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+          callback: async (html) => {
+            const actorId = html.find('select[name="actorId"]').val();
+            const formType = html.find('select[name="formType"]').val();
+            if (!actorId) return;
+
+            const triggers = [];
+            html.find(".trigger-row").each((i, row) => {
+              const desc = $(row).find('input[name^="triggers"][name$=".description"]').val();
+              const resistable = $(row).find('input[name^="triggers"][name$=".resistable"]').is(":checked");
+              const tn = Number($(row).find('input[name^="triggers"][name$=".tn"]').val()) || 0;
+              if (desc) triggers.push({ description: desc, resistable, tn });
+            });
+
+            const alternateActor = game.actors.get(actorId);
+            const validation = validateFormLink(this.actor, alternateActor);
+            if (!validation.valid) {
+              ui.notifications.warn(validation.reason);
+              return;
+            }
+
+            await linkForm(this.actor, actorId, formType, triggers);
+            this.render(false);
+          },
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel",
+        },
+      },
+      default: "add",
+      render: (html) => {
+        html.find(".trigger-add").on("click", () => {
+          const list = html.find(".trigger-list");
+          const idx = list.find(".trigger-row").length;
+          list.append(`
+            <div class="trigger-row flexrow" data-index="${idx}">
+              <input type="text" name="triggers.${idx}.description" value="" placeholder="e.g., Anger, Full Moon" />
+              <label><input type="checkbox" name="triggers.${idx}.resistable" checked /> Resistable</label>
+              <input type="number" name="triggers.${idx}.tn" value="0" min="0" placeholder="TN" style="width:60px" />
+              <a class="trigger-remove" data-index="${idx}"><i class="fas fa-trash"></i></a>
+            </div>
+          `);
+        });
+        html.on("click", ".trigger-remove", (ev) => {
+          $(ev.currentTarget).closest(".trigger-row").remove();
+        });
+      },
+    }).render(true);
+  }
+
+  /**
+   * Build the hotbar drag payload for an ability or non-combat check.
+   * @param {DragEvent} event   The originating dragstart event
+   * @private
+   */
+  _onDragCheckStart(event) {
+    const { rollType, abilityKey } = event.currentTarget.dataset;
+    if (!abilityKey) return;
+    event.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({
+        type: "MarvelMultiverseCheck",
+        actorUuid: this.actor.uuid,
+        rollType,
+        abilityKey,
+      })
+    );
   }
 
   /**
@@ -2466,11 +2940,49 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
     if (changes.length) {
       await ActiveEffect.create({
         name: `Battle Suit: ${item.name}`,
-        icon: item.img,
+        img: item.img,
         changes: changes,
         flags: { "marvel-multiverse": { battleSuitId: item.id } }
       }, { parent: this.actor });
     }
+  }
+
+  async _onToggleEquipmentEquip(event) {
+    event.preventDefault();
+    const itemId = event.currentTarget.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    if (item.system.equipped) {
+      await this._removeEquipmentEffects(itemId);
+      await item.update({ "system.equipped": false });
+    } else {
+      await item.update({ "system.equipped": true });
+      if (item.system.equipmentType === "protection" && !item.system.ruined && item.system.damageReduction > 0) {
+        await this._applyEquipmentEffects(item);
+      }
+    }
+  }
+
+  async _removeEquipmentEffects(itemId) {
+    const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.equipmentId === itemId);
+    if (effects.length) {
+      await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
+    }
+  }
+
+  async _applyEquipmentEffects(item) {
+    const changes = [{
+      key: "system.healthDamageReduction",
+      mode: 2,
+      value: item.system.damageReduction.toString(),
+    }];
+    await ActiveEffect.create({
+      name: `Equipment: ${item.name}`,
+      img: item.img,
+      changes: changes,
+      flags: { "marvel-multiverse": { equipmentId: item.id } },
+    }, { parent: this.actor });
   }
 
   async _updateObject(event, formData) {
@@ -2512,6 +3024,12 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
       if (dataset.rollType === "item") {
         if (item) return item.roll();
       }
+      // Shared with the hotbar macro so a dragged check rolls identically.
+      if (dataset.rollType === "ability" || dataset.rollType === "noncom") {
+        return rollAbilityCheck(this.actor, dataset.abilityKey, {
+          noncom: dataset.rollType === "noncom",
+        });
+      }
     }
     if (dataset.formula) {
       const ability =
@@ -2528,7 +3046,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
         element: elementKey,
       });
 
-      const speaker = ChatMessage.getSpeaker({ actor: this.actor });
+      const speaker = ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) });
       const rollMode = game.settings.get("core", "rollMode");
 
       if (item?.system?.description) {
@@ -2581,7 +3099,7 @@ class MarvelMultiverseCharacterSheet extends ActorSheet {
   }
 }
 
-class MarvelMultiverseVehicleSheet extends ActorSheet {
+class MarvelMultiverseVehicleSheet extends foundry.appv1.sheets.ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "actor"],
@@ -2781,11 +3299,130 @@ class MarvelMultiverseVehicleSheet extends ActorSheet {
   }
 }
 
+class MarvelMultiverseHeadquartersSheet extends foundry.appv1.sheets.ActorSheet {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      classes: ["marvel-multiverse", "sheet", "actor"],
+      width: 690,
+      height: 700,
+      tabs: [],
+    });
+  }
+
+  get template() {
+    return "systems/marvel-multiverse/templates/actor/actor-headquarters-sheet.hbs";
+  }
+
+  getData() {
+    const context = super.getData();
+    const actorData = context.data;
+    context.system = this.actor.system;
+    context.flags = actorData.flags;
+    this._prepareItems(context);
+    this._prepareMembers(context);
+    context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
+    context.rollData = context.actor.getRollData();
+    return context;
+  }
+
+  _prepareItems(context) {
+    const hqTags = [];
+    const hqTraits = [];
+    for (const i of context.items) {
+      i.img = i.img || Item.DEFAULT_ICON;
+      if (i.type === "hqTag") hqTags.push(i);
+      else if (i.type === "hqTrait") hqTraits.push(i);
+    }
+    hqTags.sort((a, b) => a.name.localeCompare(b.name));
+    hqTraits.sort((a, b) => a.name.localeCompare(b.name));
+    context.hqTags = hqTags;
+    context.hqTraits = hqTraits;
+  }
+
+  _prepareMembers(context) {
+    context.members = context.system.members.map(m => {
+      const actor = game.actors?.get(m.actorId);
+      return {
+        actorId: m.actorId,
+        name: actor?.name ?? m.name,
+        img: actor?.img ?? m.img,
+        rank: actor?.system?.attributes?.rank?.value ?? "?",
+      };
+    });
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    html.on("click", ".item-edit", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      const item = this.actor.items.get(li.data("itemId"));
+      item.sheet.render(true);
+    });
+    if (!this.isEditable) return;
+    html.on("click", ".item-delete", (ev) => {
+      const li = $(ev.currentTarget).parents(".item");
+      this.actor.deleteEmbeddedDocuments("Item", [li.data("itemId")]);
+      li.slideUp(200, () => this.render(false));
+    });
+    html.on("click", ".member-delete", this._onMemberDelete.bind(this));
+  }
+
+  async _onMemberDelete(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.dataset.index);
+    const members = foundry.utils.deepClone(this.actor.system.members);
+    members.splice(index, 1);
+    await this.actor.update({ "system.members": members });
+  }
+
+  async _onDropActor(event, data) {
+    if (!this.isEditable) return;
+    const actor = await Actor.implementation.fromDropData(data);
+    if (!actor) return;
+    if (!["character", "npc"].includes(actor.type)) {
+      ui.notifications.warn("Only characters and NPCs can be added as team members.");
+      return;
+    }
+    const members = foundry.utils.deepClone(this.actor.system.members);
+    if (members.some(m => m.actorId === actor.id)) {
+      ui.notifications.warn(`${actor.name} ${game.i18n.localize("MARVEL_MULTIVERSE.Headquarters.MemberAlreadyAdded")}`);
+      return;
+    }
+    members.push({ actorId: actor.id, name: actor.name, img: actor.img });
+    await this.actor.update({ "system.members": members });
+  }
+
+  async _onDropItemCreate(itemData) {
+    const allowedTypes = ["hqTag", "hqTrait"];
+    const items = Array.isArray(itemData) ? itemData : [itemData];
+    for (const item of items) {
+      if (!allowedTypes.includes(item.type)) {
+        ui.notifications.warn(`Headquarters cannot hold ${item.type} items.`);
+        return;
+      }
+      if (item.type === "hqTag") {
+        const incomingIncompat = (item.system?.incompatible ?? "").split(",").map(s => s.trim()).filter(Boolean);
+        const existingTags = this.actor.items.filter(i => i.type === "hqTag");
+        for (const existing of existingTags) {
+          const existingIncompat = (existing.system?.incompatible ?? "").split(",").map(s => s.trim()).filter(Boolean);
+          if (incomingIncompat.includes(existing.name) || existingIncompat.includes(item.name)) {
+            ui.notifications.warn(
+              `${item.name} ${game.i18n.localize("MARVEL_MULTIVERSE.Headquarters.IncompatibleTag")} ${existing.name}.`
+            );
+            return;
+          }
+        }
+      }
+    }
+    return super._onDropItemCreate(itemData);
+  }
+}
+
 /**
- * Extend the basic ActorSheet with some very simple modifications
- * @extends {ActorSheet}
+ * Extend the basic actor sheet with some very simple modifications
+ * @extends {foundry.appv1.sheets.ActorSheet}
  */
-class MarvelMultiverseNPCSheet extends ActorSheet {
+class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
   /** @override */
   static get defaultOptions() {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
@@ -2863,33 +3500,6 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       ])
     );
 
-    const named = CONFIG.MARVEL_MULTIVERSE.namedTeamManeuvers;
-    const sources = [...new Set(named.map(m => m.source))];
-
-    context.teamManeuverOptions = {
-      generic: CONFIG.MARVEL_MULTIVERSE.teamManeuvers.map(tm => ({
-        value: `generic:${tm.maneuverType.toLowerCase()}`,
-        label: tm.maneuverType,
-      })),
-      groups: sources.map(source => ({
-        label: named.find(m => m.source === source)?.sourceLabel || source,
-        options: named.filter(m => m.source === source)
-          .map(m => ({ value: `named:${m.key}`, label: `${m.team}: ${m.name}` })),
-      })),
-    };
-
-    const tm = context.system.teamManeuver;
-    context.teamManeuverSelected = tm.named
-      ? `named:${tm.named}`
-      : tm.maneuverType
-        ? `generic:${tm.maneuverType}`
-        : "";
-
-    context.teamManeuverLevels = Object.fromEntries(
-      [1, 2, 3].map((tml) => [tml, tml.toString()])
-    );
-    context.showLevelPicker = !tm.named && !!tm.maneuverType;
-
     context.elements = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.elements).map((k) => [
         k,
@@ -2910,6 +3520,46 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       // as well as any items
       this.actor.allApplicableEffects()
     );
+
+    context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
+    if (context.enableAlternateForms) {
+      const alternateForms = this.actor.system.alternateForms ?? [];
+      const primaryFormIds = this.actor.system.primaryFormIds ?? [];
+      const isPrimary = alternateForms.length > 0;
+      const isAlternate = primaryFormIds.length > 0;
+
+      const formTypeLabels = {
+        cosmetic: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.Cosmetic"),
+        powerDown: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerDown"),
+        powerSwap: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.PowerSwap"),
+      };
+
+      const forms = alternateForms.map(f => {
+        const actor = game.actors.get(f.actorId);
+        const triggerSummary = f.triggers?.length
+          ? "Triggers: " + f.triggers.map(t => t.description).join(", ")
+          : "";
+        return {
+          ...f,
+          actor: actor ? { id: actor.id, name: actor.name, img: actor.img } : { id: f.actorId, name: "(Deleted)", img: "icons/svg/mystery-man.svg" },
+          formTypeLabel: formTypeLabels[f.formType] ?? f.formType,
+          triggerSummary,
+        };
+      });
+
+      const primaryActors = primaryFormIds.map(id => {
+        const actor = game.actors.get(id);
+        const formEntry = actor?.system.alternateForms?.find(f => f.actorId === this.actor.id);
+        return {
+          id,
+          name: actor?.name ?? "(Deleted)",
+          img: actor?.img ?? "icons/svg/mystery-man.svg",
+          formTypeLabel: formTypeLabels[formEntry?.formType] ?? "",
+        };
+      });
+
+      context.formData = { isPrimary, isAlternate, forms, primaryActors };
+    }
 
     return context;
   }
@@ -2932,6 +3582,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     const tags = [];
     const weapons = [];
     const powers = {};
+    const equipment = [];
 
     // Iterate through items, allocating to containers
     for (const i of context.items) {
@@ -2980,6 +3631,16 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         gear.push(i);
       } else if (i.type === "weapon") {
         weapons.push(i);
+      } else if (i.type === "equipment") {
+        i.equipmentTypeLabel = game.i18n.localize(
+          CONFIG.MARVEL_MULTIVERSE.equipmentTypes[i.system.equipmentType] ?? ""
+        );
+        if (i.system.grenadeType) {
+          i.grenadeTypeLabel = game.i18n.localize(
+            CONFIG.MARVEL_MULTIVERSE.grenadeTypes[i.system.grenadeType] ?? ""
+          );
+        }
+        equipment.push(i);
       }
 
       // Assign and return
@@ -2997,6 +3658,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       context.origins = origins;
       context.occupations = occupations;
       context.weapons = weapons;
+      context.equipment = equipment;
     }
   }
 
@@ -3056,6 +3718,9 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       if (item?.type === "battleSuit" && item.system.equipped) {
         await this._removeBattleSuitEffects(itemId);
       }
+      if (item?.type === "equipment" && item.system.equipped) {
+        await this._removeEquipmentEffects(itemId);
+      }
       this.actor.deleteEmbeddedDocuments("Item", [itemId]);
       li.slideUp(200, () => this.render(false));
     });
@@ -3069,6 +3734,9 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
 
     // Battle suit equip toggle
     html.on("click", ".battlesuit-equip-toggle", this._onToggleBattleSuitEquip.bind(this));
+
+    // Equipment equip toggle
+    html.on("click", ".equipment-equip-toggle", this._onToggleEquipmentEquip.bind(this));
 
     // Active Effect management
     html.on("click", ".effect-control", (ev) => {
@@ -3101,7 +3769,134 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         li.setAttribute("draggable", true);
         li.addEventListener("dragstart", handler, false);
       });
+
+      // Ability and non-combat checks are not embedded documents, so core's
+      // _onDragStart has nothing to describe them with. They carry their own
+      // drag payload instead.
+      const checkHandler = (ev) => this._onDragCheckStart(ev);
+      html
+        .find('[data-roll-type="ability"], [data-roll-type="noncom"]')
+        .each((i, el) => {
+          el.setAttribute("draggable", true);
+          el.addEventListener("dragstart", checkHandler, false);
+        });
     }
+
+    // Alternate Forms
+    html.on("click", ".alternate-form-switch", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await switchForm(this.actor, targetActorId);
+    });
+
+    html.on("click", ".alternate-form-unlink", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      await unlinkForm(this.actor, targetActorId);
+      this.render(false);
+    });
+
+    html.on("click", ".alternate-form-edit", async (ev) => {
+      const targetActorId = ev.currentTarget.dataset.actorId;
+      const targetActor = game.actors.get(targetActorId);
+      if (targetActor) targetActor.sheet.render(true);
+    });
+
+    html.on("click", ".alternate-form-add", async () => {
+      this._onAddAlternateForm();
+    });
+  }
+
+  async _onAddAlternateForm() {
+    const formTypes = {};
+    for (const [key, label] of Object.entries(CONFIG.MARVEL_MULTIVERSE.alternateFormTypes)) {
+      formTypes[key] = game.i18n.localize(label);
+    }
+
+    const availableActors = game.actors.filter(a => {
+      if (a.id === this.actor.id) return false;
+      if (!["character", "npc"].includes(a.type)) return false;
+      if ((a.system.alternateForms ?? []).length > 0) return false;
+      return true;
+    });
+
+    const content = await foundry.applications.handlebars.renderTemplate(
+      "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
+      { availableActors, formTypes, triggers: [] }
+    );
+
+    new Dialog({
+      title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+      content,
+      buttons: {
+        add: {
+          icon: '<i class="fas fa-plus"></i>',
+          label: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.AddForm"),
+          callback: async (html) => {
+            const actorId = html.find('select[name="actorId"]').val();
+            const formType = html.find('select[name="formType"]').val();
+            if (!actorId) return;
+
+            const triggers = [];
+            html.find(".trigger-row").each((i, row) => {
+              const desc = $(row).find('input[name^="triggers"][name$=".description"]').val();
+              const resistable = $(row).find('input[name^="triggers"][name$=".resistable"]').is(":checked");
+              const tn = Number($(row).find('input[name^="triggers"][name$=".tn"]').val()) || 0;
+              if (desc) triggers.push({ description: desc, resistable, tn });
+            });
+
+            const alternateActor = game.actors.get(actorId);
+            const validation = validateFormLink(this.actor, alternateActor);
+            if (!validation.valid) {
+              ui.notifications.warn(validation.reason);
+              return;
+            }
+
+            await linkForm(this.actor, actorId, formType, triggers);
+            this.render(false);
+          },
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel",
+        },
+      },
+      default: "add",
+      render: (html) => {
+        html.find(".trigger-add").on("click", () => {
+          const list = html.find(".trigger-list");
+          const idx = list.find(".trigger-row").length;
+          list.append(`
+            <div class="trigger-row flexrow" data-index="${idx}">
+              <input type="text" name="triggers.${idx}.description" value="" placeholder="e.g., Anger, Full Moon" />
+              <label><input type="checkbox" name="triggers.${idx}.resistable" checked /> Resistable</label>
+              <input type="number" name="triggers.${idx}.tn" value="0" min="0" placeholder="TN" style="width:60px" />
+              <a class="trigger-remove" data-index="${idx}"><i class="fas fa-trash"></i></a>
+            </div>
+          `);
+        });
+        html.on("click", ".trigger-remove", (ev) => {
+          $(ev.currentTarget).closest(".trigger-row").remove();
+        });
+      },
+    }).render(true);
+  }
+
+  /**
+   * Build the hotbar drag payload for an ability or non-combat check.
+   * @param {DragEvent} event   The originating dragstart event
+   * @private
+   */
+  _onDragCheckStart(event) {
+    const { rollType, abilityKey } = event.currentTarget.dataset;
+    if (!abilityKey) return;
+    event.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({
+        type: "MarvelMultiverseCheck",
+        actorUuid: this.actor.uuid,
+        rollType,
+        abilityKey,
+      })
+    );
   }
 
   /**
@@ -3282,11 +4077,49 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
     if (changes.length) {
       await ActiveEffect.create({
         name: `Battle Suit: ${item.name}`,
-        icon: item.img,
+        img: item.img,
         changes: changes,
         flags: { "marvel-multiverse": { battleSuitId: item.id } }
       }, { parent: this.actor });
     }
+  }
+
+  async _onToggleEquipmentEquip(event) {
+    event.preventDefault();
+    const itemId = event.currentTarget.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    if (item.system.equipped) {
+      await this._removeEquipmentEffects(itemId);
+      await item.update({ "system.equipped": false });
+    } else {
+      await item.update({ "system.equipped": true });
+      if (item.system.equipmentType === "protection" && !item.system.ruined && item.system.damageReduction > 0) {
+        await this._applyEquipmentEffects(item);
+      }
+    }
+  }
+
+  async _removeEquipmentEffects(itemId) {
+    const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.equipmentId === itemId);
+    if (effects.length) {
+      await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
+    }
+  }
+
+  async _applyEquipmentEffects(item) {
+    const changes = [{
+      key: "system.healthDamageReduction",
+      mode: 2,
+      value: item.system.damageReduction.toString(),
+    }];
+    await ActiveEffect.create({
+      name: `Equipment: ${item.name}`,
+      img: item.img,
+      changes: changes,
+      flags: { "marvel-multiverse": { equipmentId: item.id } },
+    }, { parent: this.actor });
   }
 
   /**
@@ -3305,6 +4138,12 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
         const itemId = element.closest(".item").dataset.itemId;
         const item = this.actor.items.get(itemId);
         if (item) return item.roll();
+      }
+      // Shared with the hotbar macro so a dragged check rolls identically.
+      if (dataset.rollType === "ability" || dataset.rollType === "noncom") {
+        return rollAbilityCheck(this.actor, dataset.abilityKey, {
+          noncom: dataset.rollType === "noncom",
+        });
       }
     }
 
@@ -3349,7 +4188,7 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
       }
 
       const messageData = {
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        speaker: ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) }),
         flavor: npcFlavor,
         rollMode: game.settings.get("core", "rollMode"),
         title: title,
@@ -3366,13 +4205,13 @@ class MarvelMultiverseNPCSheet extends ActorSheet {
 }
 
 /**
- * Extend the basic ItemSheet with some very simple modifications
- * @extends {ItemSheet}
+ * Extend the basic item sheet with some very simple modifications
+ * @extends {foundry.appv1.sheets.ItemSheet}
  */
-class MarvelMultiverseItemSheet extends ItemSheet {
+class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
   /** @override */
   static get defaultOptions() {
-    return foundry.utils.mergeObject(ItemSheet.defaultOptions, {
+    return foundry.utils.mergeObject(foundry.appv1.sheets.ItemSheet.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "item"],
       width: 520,
       height: 480,
@@ -3508,6 +4347,20 @@ class MarvelMultiverseItemSheet extends ItemSheet {
       context.sortedRestrictions = (context.system.restrictions ?? [])
         .map((r, idx) => ({ ...r, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    }
+    if (itemData.type === "equipment") {
+      context.equipmentTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.equipmentTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.equipmentTypes[k]),
+        ])
+      );
+      context.grenadeTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.grenadeTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.grenadeTypes[k]),
+        ])
+      );
     }
     if (itemData.type === "restriction") {
       context.restrictionKinds = Object.fromEntries(
@@ -3860,7 +4713,7 @@ class MarvelMultiverseItemSheet extends ItemSheet {
  * @return {Promise}
  */
 const preloadHandlebarsTemplates = async () =>
-  loadTemplates([
+  foundry.applications.handlebars.loadTemplates([
     // Actor partials.
     "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs",
@@ -3871,10 +4724,14 @@ const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-tags.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-traits.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-equipment.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-weapons.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-alternate-forms.hbs",
     // Item partials
     "systems/marvel-multiverse/templates/item/parts/item-effects.hbs",
     "systems/marvel-multiverse/templates/item/parts/item-source.hbs",
+    // Dialog partials
+    "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
     // Sidebar partials
     "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
     // Vehicle partials
@@ -4098,6 +4955,20 @@ class MarvelMultiverseActorBase extends foundry.abstract
       initial: "world",
     });
 
+    schema.alternateForms = new fields.ArrayField(new fields.SchemaField({
+      actorId: new fields.StringField({ required: true, blank: false }),
+      formType: new fields.StringField({ required: true, initial: "powerDown", choices: ["cosmetic", "powerDown", "powerSwap"] }),
+      triggers: new fields.ArrayField(new fields.SchemaField({
+        description: new fields.StringField({ required: true, blank: false }),
+        resistable: new fields.BooleanField({ initial: true }),
+        tn: new fields.NumberField({ required: true, initial: 0, integer: true, min: 0 }),
+      })),
+    }));
+
+    schema.primaryFormIds = new fields.ArrayField(
+      new fields.StringField({ required: true, blank: false })
+    );
+
     return schema;
   }
 
@@ -4154,6 +5025,12 @@ class MarvelMultiverseActorBase extends foundry.abstract
     const hasBrawling = this.parent?.items?.some(i => i.type === "power" && i.name === "Brawling");
     if (hasBrawling && this.abilities.mle.defense > this.abilities.agl.defense) {
       this.abilities.agl.defense = this.abilities.mle.defense;
+    }
+
+    if (this.parent?.statuses?.has("asleep")) {
+      for (const key in this.abilities) {
+        this.abilities[key].defense = 10;
+      }
     }
 
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
@@ -4278,6 +5155,12 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
     const hasBrawling = this.parent?.items?.some(i => i.type === "power" && i.name === "Brawling");
     if (hasBrawling && this.abilities.mle.defense > this.abilities.agl.defense) {
       this.abilities.agl.defense = this.abilities.mle.defense;
+    }
+
+    if (this.parent?.statuses?.has("asleep")) {
+      for (const key in this.abilities) {
+        this.abilities[key].defense = 10;
+      }
     }
 
     this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
@@ -4416,6 +5299,53 @@ class MarvelMultiverseVehicle extends foundry.abstract.TypeDataModel {
     } else {
       this.defense = { melee: 10, agility: 10, pilotName: null };
     }
+  }
+}
+
+class MarvelMultiverseHeadquarters extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = {};
+
+    schema.health = new fields.SchemaField({
+      value: new fields.NumberField({ required: true, nullable: false, initial: 0, min: 0 }),
+      max: new fields.NumberField({ required: true, nullable: false, initial: 0, min: 0 }),
+    });
+
+    schema.members = new fields.ArrayField(new fields.SchemaField({
+      actorId: new fields.StringField({ required: true, blank: false }),
+      name: new fields.StringField({ required: true, blank: true }),
+      img: new fields.StringField({ required: true, blank: true }),
+    }));
+
+    schema.description = new fields.StringField({ required: true, blank: true });
+    schema.notes = new fields.StringField({ required: true, blank: true });
+    schema.source = new fields.StringField({ required: true, blank: true });
+
+    return schema;
+  }
+
+  prepareDerivedData() {
+    const hqTraits = this.parent?.items?.filter(i => i.type === "hqTrait") ?? [];
+    this.traitCount = hqTraits.length;
+    this.health.max = this.traitCount * 2;
+
+    const ranks = this.members
+      .map(m => game.actors?.get(m.actorId)?.system?.attributes?.rank?.value)
+      .filter(r => r != null)
+      .sort((a, b) => b - a)
+      .slice(0, 6);
+
+    this.teamRank = ranks.length > 0 ? Math.ceil(ranks.reduce((s, r) => s + r, 0) / ranks.length) : 1;
+    this.traitSlots = this.teamRank * 3;
+
+    this.health.damaged = this.health.max > 0 && this.health.value > 0 && this.health.value <= this.health.max / 2;
+    this.health.destroyed = this.health.max > 0 && this.health.value <= 0;
+
+    let healthStatus = "operational";
+    if (this.health.destroyed) healthStatus = "destroyed";
+    else if (this.health.damaged) healthStatus = "damaged";
+    this.health.status = healthStatus;
   }
 }
 
@@ -4641,6 +5571,31 @@ class MarvelMultiverseTrait extends MarvelMultiverseItemBase {
     }
 }
 
+class MarvelMultiverseHqTag extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = {};
+
+    schema.description = new fields.StringField({ required: true, blank: true });
+    schema.incompatible = new fields.StringField({ required: true, blank: true });
+
+    return schema;
+  }
+}
+
+class MarvelMultiverseHqTrait extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = {};
+
+    schema.description = new fields.StringField({ required: true, blank: true });
+    schema.downtimeActivity = new fields.StringField({ required: true, blank: true });
+    schema.maxCount = new fields.NumberField({ required: true, nullable: false, integer: true, initial: 0, min: 0 });
+
+    return schema;
+  }
+}
+
 class MarvelMultiverseRestriction extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
@@ -4708,6 +5663,65 @@ class MarvelMultiverseBattleSuit extends MarvelMultiverseItemBase {
     const restrictionsCount = this.restrictions?.length ?? 0;
     if (powersCount === 0 && restrictionsCount === 0) return 0;
     return Math.max(1, powersCount - restrictionsCount);
+  }
+}
+
+class MarvelMultiverseEquipment extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const requiredInteger = { required: true, nullable: false, integer: true };
+    const schema = super.defineSchema();
+
+    schema.equipmentType = new fields.StringField({
+      required: true,
+      initial: "protection",
+    });
+    schema.equipped = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+    schema.ruined = new fields.BooleanField({
+      required: true,
+      initial: false,
+    });
+
+    schema.damageReduction = new fields.NumberField({
+      ...requiredInteger,
+      initial: 0,
+      min: 0,
+    });
+    schema.protectionNotes = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.grenadeType = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+    schema.grenadeEffect = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.gadgetHP = new fields.NumberField({
+      ...requiredInteger,
+      initial: 10,
+      min: 0,
+    });
+    schema.gadgetMaxHP = new fields.NumberField({
+      ...requiredInteger,
+      initial: 10,
+      min: 0,
+    });
+    schema.gadgetEffect = new fields.StringField({
+      required: true,
+      blank: true,
+    });
+
+    schema.source = new fields.StringField({ required: true, blank: true });
+
+    return schema;
   }
 }
 
@@ -4895,6 +5909,7 @@ globalThis.MarvelMultiverse = {
   MarvelMultiverseActor,
   MarvelMultiverseItem: MarvelMultiverseItem$1,
   rollItemMacro,
+  rollCheckMacro,
   config: MARVEL_MULTIVERSE,
   dice,
   models,
@@ -4953,7 +5968,7 @@ const ActorDirectoryFilter = {
       this._directoryApp = app;
       const html = jqHtml instanceof jQuery ? jqHtml : $(jqHtml);
       const filterData = this._getFilterTemplateData();
-      const rendered = await renderTemplate(
+      const rendered = await foundry.applications.handlebars.renderTemplate(
         "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
         filterData
       );
@@ -4984,32 +5999,33 @@ const ActorDirectoryFilter = {
         value: s.abilities[key].value,
       };
     }
-    const actorTypes = {
+    const actorTypesUnsorted = {
       character: { label: "Character", checked: s.actorType.includes("character") },
       npc: { label: "NPC", checked: s.actorType.includes("npc") },
       vehicle: { label: "Vehicle", checked: s.actorType.includes("vehicle") },
+      headquarters: { label: "Headquarters", checked: s.actorType.includes("headquarters") },
     };
-    const sizes = {};
-    for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.sizes)) {
-      sizes[key] = {
+    const actorTypes = Object.fromEntries(
+      Object.entries(actorTypesUnsorted).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+    const sizes = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.sizes).map(([key, data]) => [key, {
         label: game.i18n.localize(data.label),
         checked: s.size.includes(key),
-      };
-    }
-    const movementTypes = {};
-    for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.movementTypes)) {
-      movementTypes[key] = {
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+    const movementTypes = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.movementTypes).map(([key, data]) => [key, {
         label: game.i18n.localize(data.label),
         checked: s.movementTypes.includes(key),
-      };
-    }
-    const elements = {};
-    for (const [key, data] of Object.entries(CONFIG.MARVEL_MULTIVERSE.elements)) {
-      elements[key] = {
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+    const elements = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.elements).map(([key, data]) => [key, {
         label: data.label,
         checked: s.elements.includes(key),
-      };
-    }
+      }]).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
     const powerSets = dynamicOpts.powerSets.map(name => ({
       name,
       checked: s.powerSets.includes(name),
@@ -5370,6 +6386,7 @@ Hooks.once("init", () => {
     character: MarvelMultiverseCharacter,
     npc: MarvelMultiverseNPC,
     vehicle: MarvelMultiverseVehicle,
+    headquarters: MarvelMultiverseHeadquarters,
   };
   CONFIG.ChatMessage.documentClass = ChatMessageMarvel;
   CONFIG.Item.documentClass = MarvelMultiverseItem$1;
@@ -5385,7 +6402,10 @@ Hooks.once("init", () => {
     powerSet: MarvelMultiversePowerSet,
     restriction: MarvelMultiverseRestriction,
     battleSuit: MarvelMultiverseBattleSuit,
+    equipment: MarvelMultiverseEquipment,
     vehicleWeapon: MarvelMultiverseVehicleWeapon,
+    hqTag: MarvelMultiverseHqTag,
+    hqTrait: MarvelMultiverseHqTrait,
   };
 
   game.settings.register("marvel-multiverse", "autoPopulateOrigin", {
@@ -5418,10 +6438,18 @@ Hooks.once("init", () => {
     ),
   });
 
-  // Active Effects are never copied to the Actor,
-  // but will still apply to the Actor from within the Item
-  // if the transfer property on the Active Effect is true.
-  CONFIG.ActiveEffect.legacyTransferral = false;
+  game.settings.register("marvel-multiverse", "enableAlternateForms", {
+    name: "MARVEL_MULTIVERSE.AlternateForm.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.AlternateForm.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+  });
+
+  // Active Effects are never copied to the Actor, but still apply to the Actor
+  // from within the Item when the effect's transfer property is true. This is
+  // core behavior as of v14 (the legacy transferral framework was removed).
 
   CONFIG.Dice.MarvelDie = MarvelDie;
   CONFIG.Dice.types.push(MarvelDie);
@@ -5437,24 +6465,22 @@ Hooks.once("init", () => {
   // Replace Foundry defaults with only MMRPG-valid status effects
   const mmrpgStatuses = [
     { id: "ablaze", name: "Ablaze", img: "icons/svg/fire.svg" },
+    { id: "asleep", name: "Asleep", img: "icons/svg/sleep.svg" },
     { id: "bleeding", name: "Bleeding", img: "systems/marvel-multiverse/icons/statuses/bleeding.svg" },
     { id: "blinded", name: "Blinded", img: "systems/marvel-multiverse/icons/statuses/blinded.svg" },
     { id: "corroding", name: "Corroding", img: "icons/svg/acid.svg" },
     { id: "deafened", name: "Deafened", img: "systems/marvel-multiverse/icons/statuses/deafened.svg" },
     { id: "encumbered", name: "Encumbered", img: "systems/marvel-multiverse/icons/statuses/encumbered.svg" },
-    { id: "exhaustion", name: "Exhaustion", img: "systems/marvel-multiverse/icons/statuses/exhaustion.svg" },
+    { id: "exhausted", name: "Exhausted", img: "systems/marvel-multiverse/icons/statuses/exhaustion.svg" },
     { id: "flying", name: "Flying", img: "systems/marvel-multiverse/icons/statuses/flying.svg" },
     { id: "frightened", name: "Frightened", img: "systems/marvel-multiverse/icons/statuses/frightened.svg" },
     { id: "grappled", name: "Grappled", img: "systems/marvel-multiverse/icons/statuses/grappled.svg" },
-    { id: "incapacitated", name: "Incapacitated", img: "systems/marvel-multiverse/icons/statuses/incapacitated.svg" },
     { id: "infected", name: "Infected", img: "icons/svg/biohazard.svg" },
     { id: "invisible", name: "Invisible", img: "systems/marvel-multiverse/icons/statuses/invisible.svg" },
     { id: "paralyzed", name: "Paralyzed", img: "systems/marvel-multiverse/icons/statuses/paralyzed.svg" },
-    { id: "petrified", name: "Petrified", img: "systems/marvel-multiverse/icons/statuses/petrified.svg" },
     { id: "poisoned", name: "Poisoned", img: "icons/svg/poison.svg" },
     { id: "prone", name: "Prone", img: "systems/marvel-multiverse/icons/statuses/prone.svg" },
     { id: "restrained", name: "Restrained", img: "systems/marvel-multiverse/icons/statuses/restrained.svg" },
-    { id: "silenced", name: "Silenced", img: "systems/marvel-multiverse/icons/statuses/silenced.svg" },
     { id: "stunned", name: "Stunned", img: "systems/marvel-multiverse/icons/statuses/stunned.svg" },
     { id: "surprised", name: "Surprised", img: "systems/marvel-multiverse/icons/statuses/surprised.svg" },
     { id: "unconscious", name: "Unconscious", img: "icons/svg/unconscious.svg" },
@@ -5467,24 +6493,29 @@ Hooks.once("init", () => {
   _configureFonts();
 
   // Register sheet application classes
-  Actors.unregisterSheet("core", ActorSheet);
-  Actors.registerSheet("marvel-multiverse", MarvelMultiverseCharacterSheet, {
+  foundry.documents.collections.Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);
+  foundry.documents.collections.Actors.registerSheet("marvel-multiverse", MarvelMultiverseCharacterSheet, {
     types: ["character"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.Actor",
   });
-  Actors.registerSheet("marvel-multiverse", MarvelMultiverseNPCSheet, {
+  foundry.documents.collections.Actors.registerSheet("marvel-multiverse", MarvelMultiverseNPCSheet, {
     types: ["npc"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.NPC",
   });
-  Actors.registerSheet("marvel-multiverse", MarvelMultiverseVehicleSheet, {
+  foundry.documents.collections.Actors.registerSheet("marvel-multiverse", MarvelMultiverseVehicleSheet, {
     types: ["vehicle"],
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.Vehicle",
   });
-  Items.unregisterSheet("core", ItemSheet);
-  Items.registerSheet("marvel-multiverse", MarvelMultiverseItemSheet, {
+  foundry.documents.collections.Actors.registerSheet("marvel-multiverse", MarvelMultiverseHeadquartersSheet, {
+    types: ["headquarters"],
+    makeDefault: true,
+    label: "MARVEL_MULTIVERSE.SheetLabels.Headquarters",
+  });
+  foundry.documents.collections.Items.unregisterSheet("core", foundry.appv1.sheets.ItemSheet);
+  foundry.documents.collections.Items.registerSheet("marvel-multiverse", MarvelMultiverseItemSheet, {
     makeDefault: true,
     label: "MARVEL_MULTIVERSE.SheetLabels.Item",
   });
@@ -5492,8 +6523,263 @@ Hooks.once("init", () => {
   // Initialize Actor Directory Filters
   ActorDirectoryFilter.init();
 
+  // Add context menu for actor sidebar
+  Hooks.on("getActorContextOptions", (app, options) => {
+    if (!game.settings.get("marvel-multiverse", "enableAlternateForms")) return;
+
+    options.push({
+      name: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
+      icon: '<i class="fas fa-exchange-alt"></i>',
+      condition: (li) => {
+        const actorId = li.dataset.entryId;
+        const actor = game.actors.get(actorId);
+        if (!actor) return false;
+        const forms = actor.system.alternateForms ?? [];
+        const primaryIds = actor.system.primaryFormIds ?? [];
+        return forms.length > 0 || primaryIds.length > 0;
+      },
+      callback: (li) => {
+        const actorId = li.dataset.entryId;
+        const actor = game.actors.get(actorId);
+        if (!actor) return;
+
+        const forms = actor.system.alternateForms ?? [];
+        const primaryIds = actor.system.primaryFormIds ?? [];
+        const targets = [];
+
+        for (const f of forms) {
+          const a = game.actors.get(f.actorId);
+          if (a) targets.push({ id: a.id, name: a.name });
+        }
+        for (const id of primaryIds) {
+          const a = game.actors.get(id);
+          if (a) targets.push({ id: a.id, name: a.name });
+        }
+
+        if (targets.length === 1) {
+          switchForm(actor, targets[0].id);
+        } else if (targets.length > 1) {
+          const buttons = {};
+          for (const t of targets) {
+            buttons[t.id] = { label: t.name, callback: () => switchForm(actor, t.id) };
+          }
+          new Dialog({
+            title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
+            content: "<p>Select a form to switch to:</p>",
+            buttons,
+          }).render(true);
+        }
+      },
+    });
+  });
+
+  // Add Switch Form button to Token HUD
+  Hooks.on("renderTokenHUD", (app, html) => {
+    if (!game.settings.get("marvel-multiverse", "enableAlternateForms")) return;
+    const actor = app.actor;
+    if (!actor) return;
+
+    const forms = actor.system.alternateForms ?? [];
+    const primaryIds = actor.system.primaryFormIds ?? [];
+    if (forms.length === 0 && primaryIds.length === 0) return;
+
+    const targets = [];
+    for (const f of forms) {
+      const a = game.actors.get(f.actorId);
+      if (a) targets.push({ id: a.id, name: a.name });
+    }
+    for (const id of primaryIds) {
+      const a = game.actors.get(id);
+      if (a) targets.push({ id: a.id, name: a.name });
+    }
+    if (targets.length === 0) return;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.classList.add("control-icon");
+    btn.dataset.tooltip = game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm");
+    btn.innerHTML = '<i class="fas fa-exchange-alt" inert></i>';
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      if (targets.length === 1) {
+        switchForm(actor, targets[0].id);
+      } else {
+        const existing = document.querySelector(".mm-form-picker");
+        if (existing) {
+          existing.remove();
+          return;
+        }
+
+        const picker = document.createElement("div");
+        picker.classList.add("mm-form-picker");
+
+        for (const t of targets) {
+          const a = game.actors.get(t.id);
+          const img = a?.prototypeToken?.texture?.src || a?.img || CONST.DEFAULT_TOKEN;
+          const item = document.createElement("div");
+          item.classList.add("mm-form-picker-item");
+          item.dataset.actorId = t.id;
+          item.innerHTML = `<img src="${img}"/><span class="mm-form-picker-name">${t.name}</span>`;
+          item.addEventListener("click", () => {
+            picker.remove();
+            switchForm(actor, t.id);
+          });
+          picker.appendChild(item);
+        }
+
+        const btnRect = btn.getBoundingClientRect();
+        picker.style.top = `${btnRect.top + btnRect.height / 2}px`;
+        picker.style.left = `${btnRect.left}px`;
+
+        document.body.appendChild(picker);
+
+        const dismiss = (e) => {
+          if (!picker.contains(e.target) && e.target !== btn) {
+            picker.remove();
+            document.removeEventListener("pointerdown", dismiss);
+          }
+        };
+        setTimeout(() => document.addEventListener("pointerdown", dismiss), 50);
+      }
+    });
+
+    const col = html.querySelector(".col.left");
+    if (col) col.appendChild(btn);
+  });
+
   // Preload Handlebars templates.
   return preloadHandlebarsTemplates();
+});
+
+/* -------------------------------------------- */
+/*  Condition Automation Hooks                  */
+/* -------------------------------------------- */
+
+function _getConditionDamage(actor) {
+  const conditions = MARVEL_MULTIVERSE.conditionEffects;
+  let totalDamage = 0;
+  const active = [];
+  for (const [id, cfg] of Object.entries(conditions)) {
+    if (cfg.timing !== "end" || !cfg.turnDamage) continue;
+    if (!actor.statuses?.has(id)) continue;
+    active.push({ id, name: cfg.name, damage: cfg.turnDamage });
+    totalDamage += cfg.turnDamage;
+  }
+  return { active, totalDamage };
+}
+
+function _getWhisperRecipients(actor) {
+  const ids = new Set();
+  for (const user of game.users) {
+    if (user.isGM) ids.add(user.id);
+    if (actor.testUserPermission(user, "OWNER")) ids.add(user.id);
+  }
+  return Array.from(ids);
+}
+
+async function _processEndOfTurn(combatant) {
+  const actor = combatant?.actor;
+  if (!actor) return;
+  const { active, totalDamage } = _getConditionDamage(actor);
+  if (active.length === 0) return;
+  const conditionDR = actor.system.conditionDamageReduction ?? 0;
+  const damageAfterDR = Math.max(0, totalDamage - conditionDR);
+  const oldHealth = actor.system.health.value;
+  if (damageAfterDR > 0) {
+    await actor.update({ "system.health.value": oldHealth - damageAfterDR });
+  }
+  const tokenImg = _getTokenImg(actor);
+  const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
+  let detailHtml = active.map(c => `<div><b>${c.name}:</b> ${c.damage} damage</div>`).join("");
+  if (conditionDR > 0) detailHtml += `<div><b>Condition DR:</b> -${conditionDR}</div>`;
+  const flavor = `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;">${detailHtml}</div></div>`;
+  await ChatMessage.create({
+    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>Health: ${oldHealth} → ${oldHealth - damageAfterDR}</span></h4></div></div>`,
+    flavor,
+    whisper: _getWhisperRecipients(actor),
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
+  });
+}
+
+async function _processStartOfTurn(combatant) {
+  const actor = combatant?.actor;
+  if (!actor) return;
+  if (!actor.statuses?.has("poisoned")) return;
+  const cfg = MARVEL_MULTIVERSE.conditionEffects.poisoned;
+  const { ability, tn } = cfg.turnCheck;
+  const abilityValue = actor.system.abilities[ability]?.value ?? 0;
+  const roll = new CONFIG.Dice.MarvelMultiverseRoll(
+    `{1d6,1dm,1d6}+${abilityValue}`,
+    actor.getRollData(),
+  );
+  await roll.evaluate();
+  const total = roll.total;
+  const isFantastic = roll.isFantastic;
+  const success = isFantastic || total >= tn;
+  const abilityLabel = game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[ability]) ?? ability;
+  let resultText;
+  if (isFantastic) {
+    resultText = "<b>Fantastic!</b> Poison cleared!";
+    await actor.toggleStatusEffect("poisoned", { active: false });
+  } else if (success) {
+    resultText = "<b>Success</b> — fine this turn.";
+  } else {
+    resultText = "<b>Failed</b> — loses 1 Health.";
+    await actor.update({ "system.health.value": actor.system.health.value - 1 });
+  }
+  const tokenImg = _getTokenImg(actor);
+  const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
+  const rollFlavor = `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;"><div>Poison Check: ${abilityLabel} vs TN ${tn}</div></div></div>`;
+  const resultFlavor = `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;"><div>${resultText}</div></div></div>`;
+  await roll.toMessage({
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
+    flavor: rollFlavor,
+  }, { rollMode: "publicroll" });
+  await ChatMessage.create({
+    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>${total}</span></h4></div></div>`,
+    flavor: resultFlavor,
+    whisper: _getWhisperRecipients(actor),
+    speaker: ChatMessage.getSpeaker({ token: combatant.token, actor }),
+  });
+}
+
+Hooks.on("updateCombat", (combat, changed, options, userId) => {
+  if (!game.user.isGM) return;
+  if (!("turn" in changed) && !("round" in changed)) return;
+  if (combat.previous.round === 0) {
+    const current = combat.combatant;
+    if (current) _processStartOfTurn(current);
+    return;
+  }
+  const prevCombatant = combat.turns[combat.previous.turn];
+  if (prevCombatant) _processEndOfTurn(prevCombatant);
+  const current = combat.combatant;
+  if (current) _processStartOfTurn(current);
+});
+
+/**
+ * A headquarters derives its team rank — and from it its trait slots — from the
+ * ranks of its member actors, but those actors are separate documents. Foundry
+ * only re-prepares the document that changed, so deleting a member or changing
+ * a member's rank left the headquarters showing a stale team rank until
+ * something else happened to touch it.
+ *
+ * @param {string} actorId  The member actor that was deleted or updated.
+ */
+function _refreshHeadquartersFor(actorId) {
+  for (const hq of game.actors?.filter((a) => a.type === "headquarters") ?? []) {
+    if (!hq.system.members?.some((m) => m.actorId === actorId)) continue;
+    hq.prepareData();
+    if (hq.sheet?.rendered) hq.sheet.render(false);
+  }
+}
+
+Hooks.on("deleteActor", (actor) => _refreshHeadquartersFor(actor.id));
+
+Hooks.on("updateActor", (actor, changed) => {
+  // Only a rank change can move the team rank.
+  if (foundry.utils.getProperty(changed, "system.attributes.rank.value") === undefined) return;
+  _refreshHeadquartersFor(actor.id);
 });
 
 /* -------------------------------------------- */
@@ -5615,20 +6901,43 @@ function _configureFonts() {
 /* -------------------------------------------- */
 
 Hooks.on("renderChatMessage", (message, html) => {
-  const flavorEl = html.find ? html.find(".mm-roll-flavor") : html.querySelector?.(".mm-roll-flavor");
-  const flavor = flavorEl?.[0] ?? flavorEl;
-  if (!flavor) return;
+  const flavorEl = html.find ? html.find(".mm-roll-flavor")[0] : html.querySelector?.(".mm-roll-flavor");
 
-  const tokenImg = flavor.dataset.tokenImg;
+  const flavorText = html.find ? html.find(".flavor-text")[0] : html.querySelector?.(".flavor-text");
+  const isInitiative = !flavorEl && flavorText?.textContent?.includes("Initiative");
+
+  if (!flavorEl && !isInitiative) return;
+
+  let tokenImg;
+  if (flavorEl) {
+    tokenImg = flavorEl.dataset.tokenImg;
+  } else {
+    const speaker = message.speaker;
+    const scene = game.scenes?.get(speaker.scene);
+    const tokenDoc = scene?.tokens?.get(speaker.token);
+    tokenImg = tokenDoc?.texture?.src;
+    if (!tokenImg) {
+      const actor = game.actors?.get(speaker.actor);
+      const activeToken = actor?.getActiveTokens?.()?.[0];
+      if (activeToken?.document?.texture?.src) {
+        tokenImg = activeToken.document.texture.src;
+      } else {
+        const protoSrc = actor?.prototypeToken?.texture?.src;
+        if (protoSrc && !protoSrc.includes("*")) tokenImg = protoSrc;
+        else tokenImg = actor?.img || "";
+      }
+    }
+  }
+
   const header = html.find ? html.find(".message-header")[0] : html.querySelector(".message-header");
   if (!header) return;
 
   header.classList.add("mm-custom-header");
-  header.style.cssText = "background:#8b0502;padding:2px 8px;position:relative;overflow:visible;min-height:32px;align-items:center;flex-wrap:nowrap;display:flex;";
+  header.style.cssText = "background:#8b0502;padding:2px 8px;margin-left:3px;position:relative;overflow:visible;min-height:32px;align-items:center;flex-wrap:nowrap;display:flex;";
 
   const sender = header.querySelector(".message-sender");
   if (sender) {
-    sender.style.cssText = "color:#fff;font-weight:700;font-size:14px;white-space:nowrap;flex:1;padding-left:" + (tokenImg ? "39px" : "0") + ";";
+    sender.style.cssText = "color:#fff;font-weight:700;font-size:14px;white-space:nowrap;flex:1;padding-left:" + (tokenImg ? "29px" : "0") + ";";
     const nameEl = sender.querySelector(".title");
     if (nameEl) nameEl.style.color = "#fff";
   }
@@ -5639,9 +6948,6 @@ Hooks.on("renderChatMessage", (message, html) => {
   const metadata = header.querySelector(".message-metadata");
   if (metadata) metadata.style.cssText = "white-space:nowrap;flex-shrink:0;margin-left:auto;";
 
-  const allControls = header.querySelectorAll(".chat-control, [data-context-menu]");
-  allControls.forEach(el => el.style.cssText = "display:none !important;");
-
   const flavorInHeader = header.querySelector(".flavor-text");
   if (flavorInHeader) {
     header.parentNode.insertBefore(flavorInHeader, header.nextSibling);
@@ -5650,9 +6956,10 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (tokenImg) {
     const img = document.createElement("img");
     img.src = tokenImg;
-    img.style.cssText = "position:absolute;left:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
+    img.style.cssText = "position:absolute;left:-7px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:50%;object-fit:cover;";
     header.insertBefore(img, header.firstChild);
   }
+
 });
 
 /* -------------------------------------------- */
@@ -5661,7 +6968,33 @@ Hooks.on("renderChatMessage", (message, html) => {
 
 Hooks.once("ready", () => {
   // Wait to register hotbar drop hook on ready so that modules could register earlier if they want to
-  Hooks.on("hotbarDrop", (bar, data, slot) => createItemMacro(data, slot));
+  Hooks.on("hotbarDrop", (bar, data, slot) => {
+    // Core suppresses its own handling only on a strict `false`, and checks the
+    // return synchronously. Returning an async create*Macro() promise would
+    // never match, so core would also assign a macro to this slot.
+    if (data.type === "MarvelMultiverseCheck") {
+      createCheckMacro(data, slot);
+      return false;
+    }
+    // Only Items become roll macros; let core handle Macro, RollTable, etc.
+    if (data.type !== "Item") return;
+    createItemMacro(data, slot);
+    return false;
+  });
+
+  const chatLog = document.querySelector("ol.chat-log");
+  if (chatLog) {
+    const CM = foundry.applications.ux.ContextMenu.implementation ?? ContextMenu;
+    const menuItems = ui.chat._getEntryContextOptions();
+    const clickCtx = new CM(chatLog, ".message[data-message-id]", menuItems, { eventName: "mmclick", jQuery: false });
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".chat-message [data-context-menu]");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      clickCtx._onActivate(e);
+    });
+  }
 });
 /* -------------------------------------------- */
 /*  Render Settings Hook                                  */
@@ -5744,8 +7077,10 @@ Hooks.once("diceSoNiceReady", (dice3d) => {
  * @returns {Promise}
  */
 async function createItemMacro(data, slot) {
-  // First, determine if this is a valid owned item.
-  if (data.type !== "Item" || data.type !== "Weapon") return;
+  // First, determine if this is a valid owned item. `data.type` is the Document
+  // name, so it is "Item" for every item including weapons — `weapon` is an item
+  // subtype and never appears here.
+  if (data.type !== "Item") return;
   if (!data.uuid.includes("Actor.") && !data.uuid.includes("Token.")) {
     return ui.notifications.warn(
       "You can only create macro buttons for owned Items"
@@ -5770,6 +7105,134 @@ async function createItemMacro(data, slot) {
   }
   game.user.assignHotbarMacro(macro, slot);
   return false;
+}
+
+/**
+ * Create a Macro from an ability or non-combat check dropped on the hotbar.
+ * @param {Object} data     The dropped data
+ * @param {number} slot     The hotbar slot to use
+ * @returns {Promise}
+ */
+async function createCheckMacro(data, slot) {
+  const actor = await fromUuid(data.actorUuid);
+  if (!actor) {
+    return ui.notifications.warn(
+      "Could not find the actor this check was dragged from."
+    );
+  }
+
+  const noncom = data.rollType === "noncom";
+  const abilityLabel =
+    game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[data.abilityKey]) ??
+    data.abilityKey;
+  const name = noncom
+    ? `${actor.name}: ${abilityLabel} (Non-Combat)`
+    : `${actor.name}: ${abilityLabel}`;
+  const command = `game.MarvelMultiverse.rollCheckMacro("${data.actorUuid}", "${data.abilityKey}", ${noncom});`;
+
+  let macro = game.macros.find(
+    (m) => m.name === name && m.command === command
+  );
+  if (!macro) {
+    macro = await Macro.create({
+      name: name,
+      type: "script",
+      img: actor.img,
+      command: command,
+      flags: { "marvel-multiverse.checkMacro": true },
+    });
+  }
+  game.user.assignHotbarMacro(macro, slot);
+  return false;
+}
+
+/**
+ * Roll an ability or non-combat check for an actor.
+ *
+ * Shared by the sheet click handler and the hotbar macro so both paths produce
+ * the same chat card.
+ * @param {Actor} actor             The actor making the check
+ * @param {string} abilityKey       One of the six ability keys, e.g. "mle"
+ * @param {object} [options]
+ * @param {boolean} [options.noncom=false]   Roll the non-combat check instead
+ * @returns {MarvelMultiverseRoll|null}
+ */
+function rollAbilityCheck(actor, abilityKey, { noncom = false } = {}) {
+  const abilityData = actor?.system?.abilities?.[abilityKey];
+  if (!abilityData) {
+    ui.notifications.warn(
+      `Could not find the ${abilityKey} ability on ${actor?.name ?? "this actor"}.`
+    );
+    return null;
+  }
+
+  const formula = `{1d6,1dm,1d6}+@abilities.${abilityKey}.${noncom ? "noncom" : "value"}`;
+  const abilityLabel =
+    game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[abilityKey]) ??
+    abilityKey;
+
+  let flavor = _buildRollFlavor({
+    tokenImg: _getTokenImg(actor),
+    actorName: actor.name,
+    ability: abilityLabel,
+  });
+
+  let edgeMode = MarvelMultiverseRoll.EDGE_MODE.NORMAL;
+  if (abilityData.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
+  else if (abilityData.trouble)
+    edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
+
+  const roll = new CONFIG.Dice.MarvelMultiverseRoll(
+    formula,
+    actor.getRollData(),
+    { edgeMode }
+  );
+
+  if (
+    abilityKey === "ego" &&
+    game.settings.get("marvel-multiverse", "mutantReputationEnabled")
+  ) {
+    const repOverride = actor.system.mutantReputation;
+    const repKey =
+      repOverride !== "world"
+        ? repOverride
+        : game.settings.get("marvel-multiverse", "mutantReputationLevel");
+    const repConfig = MARVEL_MULTIVERSE.mutantReputationLevels[repKey];
+    if (repConfig && repKey !== "neutral") {
+      flavor += `<div style="margin-top:4px;padding:2px 6px;background:#5c3d6e;color:#fff;border-radius:3px;font-size:11px;"><b>Mutant Reputation (${repConfig.label}):</b> ${repConfig.effect}</div>`;
+    }
+  }
+
+  const rollMode = game.settings.get("core", "rollMode");
+  const messageData = {
+    speaker: ChatMessage.getSpeaker({ actor: actor }),
+    flavor: flavor,
+    rollMode: rollMode,
+    title: "",
+  };
+  const attackTargets = _getAttackTargets(abilityKey);
+  if (attackTargets.length) {
+    messageData["flags.marvel-multiverse.targets"] = attackTargets;
+  }
+
+  roll.toMessage(messageData, { rollMode: rollMode });
+  return roll;
+}
+
+/**
+ * Execute an ability or non-combat check macro created from a hotbar drop.
+ * @param {string} actorUuid
+ * @param {string} abilityKey
+ * @param {boolean} [noncom=false]
+ */
+async function rollCheckMacro(actorUuid, abilityKey, noncom = false) {
+  const actor = await fromUuid(actorUuid);
+  if (!actor) {
+    return ui.notifications.warn(
+      "Could not find the actor for this check. You may need to delete and recreate this macro."
+    );
+  }
+  return rollAbilityCheck(actor, abilityKey, { noncom });
 }
 
 /**
@@ -5798,5 +7261,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, dice, models, rollItemMacro };
+export { ChatMessageMarvel, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, dice, models, rollAbilityCheck, rollCheckMacro, rollItemMacro };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

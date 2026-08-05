@@ -44,6 +44,7 @@ export default class MarvelMultiversePower extends MarvelMultiverseItemBase {
       initial: false,
     })),
       (schema.element = new fields.StringField({ blank: true }));
+    schema.detail = new fields.StringField({ required: true, blank: true });
 
     return schema;
   }

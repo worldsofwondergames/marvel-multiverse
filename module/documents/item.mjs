@@ -45,7 +45,8 @@ export class MarvelMultiverseItem extends Item {
    */
   async roll() {
     // Initialize chat data.
-    const speaker = ChatMessage.getSpeaker({ actor: this.actor });
+    const tokenDoc = this.actor?.token ?? canvas.tokens?.controlled?.find(t => t.actor?.id === this.actor?.id)?.document ?? this.actor?.getActiveTokens()?.[0]?.document;
+    const speaker = ChatMessage.getSpeaker({ actor: this.actor, token: tokenDoc });
     const rollMode = game.settings.get("core", "rollMode");
     let label = `ability: ${
       CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability]

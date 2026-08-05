@@ -4,13 +4,13 @@ import {
 } from "../helpers/effects.mjs";
 
 /**
- * Extend the basic ItemSheet with some very simple modifications
- * @extends {ItemSheet}
+ * Extend the basic item sheet with some very simple modifications
+ * @extends {foundry.appv1.sheets.ItemSheet}
  */
-export class MarvelMultiverseItemSheet extends ItemSheet {
+export class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
   /** @override */
   static get defaultOptions() {
-    return foundry.utils.mergeObject(ItemSheet.defaultOptions, {
+    return foundry.utils.mergeObject(foundry.appv1.sheets.ItemSheet.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "item"],
       width: 520,
       height: 480,
@@ -151,6 +151,20 @@ export class MarvelMultiverseItemSheet extends ItemSheet {
       context.sortedRestrictions = (context.system.restrictions ?? [])
         .map((r, idx) => ({ ...r, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    }
+    if (itemData.type === "equipment") {
+      context.equipmentTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.equipmentTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.equipmentTypes[k]),
+        ])
+      );
+      context.grenadeTypes = Object.fromEntries(
+        Object.keys(CONFIG.MARVEL_MULTIVERSE.grenadeTypes).map((k) => [
+          k,
+          game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.grenadeTypes[k]),
+        ])
+      );
     }
     return context;
   }

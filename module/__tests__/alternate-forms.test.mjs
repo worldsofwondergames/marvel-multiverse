@@ -116,11 +116,11 @@ describe('switchForm', () => {
   beforeEach(() => {
     currentActor = {
       id: 'actor1',
-      name: 'Bruce Banner',
+      name: 'Marcus Vane',
       system: { alternateForms: [{ actorId: 'actor2', formType: 'powerDown', triggers: [] }] },
     };
     const protoTokenData = {
-      name: 'Hulk',
+      name: 'Titan',
       texture: { src: 'hulk-token.png' },
       width: 1,
       height: 1,
@@ -131,7 +131,7 @@ describe('switchForm', () => {
     };
     targetActor = {
       id: 'actor2',
-      name: 'Hulk',
+      name: 'Titan',
       img: 'hulk.png',
       system: { primaryFormIds: ['actor1'] },
       sheet: { render: jest.fn() },

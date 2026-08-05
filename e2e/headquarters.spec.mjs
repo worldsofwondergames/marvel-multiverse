@@ -9,7 +9,7 @@ import { evaluateWhenReady, dismissNotifications, deleteActor } from './helpers.
  * sheet applies before rendering.
  */
 
-const HQ = 'E2E Avengers Mansion';
+const HQ = 'E2E Vanguard Manor';
 const HERO = 'E2E HQ Hero';
 const SIDEKICK = 'E2E HQ Sidekick';
 const GOON = 'E2E HQ Goon';

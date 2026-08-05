@@ -48,7 +48,7 @@ describe('Rules: Ability Defense', () => {
         expect(actor.abilities.mle.defense).toBe(12);
     });
 
-    test('Spider-Man agility 7 → defense 17', () => {
+    test('Nightjar agility 7 → defense 17', () => {
         const actor = makeActor({ abilities: { agl: 7 } });
         expect(actor.abilities.agl.defense).toBe(17);
     });
@@ -450,7 +450,7 @@ describe('Rulebook: Run Speed Includes Agility Bonus (KNOWN GAP)', () => {
         expect(actor.movement.run.value).toBe(6);
     });
 
-    test.failing('agility 7 (Spider-Man): run speed should be 6', () => {
+    test.failing('agility 7 (Nightjar): run speed should be 6', () => {
         const actor = makeActor({ abilities: { agl: 7 } });
         expect(actor.movement.run.value).toBe(6);
     });

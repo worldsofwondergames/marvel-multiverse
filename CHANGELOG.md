@@ -87,7 +87,7 @@
 - Active canvas token image used in chat card instead of prototype token
 
 ### Mutant Reputation
-- Mutant Reputation system from the X-Men Expansion
+- Mutant Reputation system
 - Fix Fantastic damage after trouble reroll on Marvel die
 
 ### Non-Combat Movement Speed

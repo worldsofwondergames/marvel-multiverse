@@ -139,8 +139,8 @@ describe('MarvelMultiverseEquipment — constructor data assignment', () => {
   test('accepts source field', () => {
     const equipment = new MarvelMultiverseEquipment({
       equipmentType: 'protection',
-      source: 'avengers-expansion',
+      source: 'vanguard-expansion',
     });
-    expect(equipment.source).toBe('avengers-expansion');
+    expect(equipment.source).toBe('vanguard-expansion');
   });
 });

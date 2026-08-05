@@ -87,13 +87,13 @@ describe('MarvelMultiverseVehicle — Defense', () => {
 
   test('uses pilot actor defense scores when pilot found in game.actors', () => {
     const mockActor = {
-      name: 'Cyclops',
+      name: 'Beacon',
       system: { abilities: { mle: { defense: 14 }, agl: { defense: 16 } } },
     };
     game.actors = { get: (id) => id === 'pilot-id' ? mockActor : null };
 
-    const v = makeVehicle({ occupants: [{ actorId: 'pilot-id', name: 'Cyclops', img: '', role: 'pilot' }] });
-    expect(v.defense).toEqual({ melee: 14, agility: 16, pilotName: 'Cyclops' });
+    const v = makeVehicle({ occupants: [{ actorId: 'pilot-id', name: 'Beacon', img: '', role: 'pilot' }] });
+    expect(v.defense).toEqual({ melee: 14, agility: 16, pilotName: 'Beacon' });
 
     game.actors = undefined;
   });

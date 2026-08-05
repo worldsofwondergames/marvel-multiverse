@@ -26,11 +26,11 @@ describe('Config', () => {
 describe('MarvelMultiverseActor', () => {
     test('can be instantiated with minimal data', () => {
         const actor = new MarvelMultiverseActor({
-            name: 'Spider-Man',
+            name: 'Nightjar',
             flags: {},
             system: { abilities: {}, attributes: { rank: { value: 3 } } },
         });
-        expect(actor.name).toBe('Spider-Man');
+        expect(actor.name).toBe('Nightjar');
     });
 
     test('getRollData includes abilities and rank', () => {

@@ -22,7 +22,7 @@ Support this and other projects via these platforms.
 ## Installation Instructions
 
 To install and use the  Marvel Multiverse Role Playing Game system for Foundry Virtual Tabletop you will need a licensed copy of currently supported versions of [Foundry VTT](https://foundryvtt.com/purchase/) 
-![Foundry v12](https://img.shields.io/badge/foundry-v12-green) ![Foundry v13](https://img.shields.io/badge/foundry-v13-green).
+![Foundry v12](https://img.shields.io/badge/foundry-v12-green) ![Foundry v13](https://img.shields.io/badge/foundry-v13-green) ![Foundry v14](https://img.shields.io/badge/foundry-v14-green).
 
 ### Easy Install ###
 In your foundry setup page copy and paste the following Link into the **Install System** dialog on the Setup menu of the application.

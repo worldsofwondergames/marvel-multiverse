@@ -15,11 +15,11 @@ function actor(name, { type = 'character', items = [], ...system } = {}) {
   return { name, type, system, items };
 }
 
-const SPIDER = actor('Spider-Man', {
+const NIGHTJAR = actor('Nightjar', {
   attributes: { rank: { value: 4 } },
   size: 'average',
   abilities: { mle: { value: 5 }, agl: { value: 7 }, res: { value: 3 }, vig: { value: 4 }, ego: { value: 2 }, log: { value: 5 } },
-  teams: 'Avengers, Daily Bugle',
+  teams: 'Vanguard, City Herald',
   movement: { run: { active: true }, climb: { active: true }, flight: { active: false } },
   defaultElement: 'kinetic',
   healthDamageReduction: 2,
@@ -36,11 +36,11 @@ const SPIDER = actor('Spider-Man', {
   ],
 });
 
-const HULK = actor('Hulk', {
+const TITAN = actor('Titan', {
   attributes: { rank: { value: 6 } },
   size: 'big',
   abilities: { mle: { value: 9 }, agl: { value: 2 }, res: { value: 9 }, vig: { value: 3 }, ego: { value: 1 }, log: { value: 1 } },
-  teams: 'Avengers',
+  teams: 'Vanguard',
   movement: { run: { active: true }, climb: { active: false }, flight: { active: false } },
   defaultElement: 'kinetic',
   healthDamageReduction: 6,
@@ -71,11 +71,11 @@ const THUG = actor('Street Thug', {
   items: [],
 });
 
-const FALCON = actor('Falcon', {
+const KESTREL = actor('Kestrel', {
   attributes: { rank: { value: 3 } },
   size: 'average',
   abilities: { mle: { value: 4 }, agl: { value: 5 }, res: { value: 3 }, vig: { value: 5 }, ego: { value: 3 }, log: { value: 3 } },
-  teams: 'Avengers',
+  teams: 'Vanguard',
   movement: { run: { active: true }, climb: { active: false }, flight: { active: true } },
   defaultElement: 'air',
   healthDamageReduction: 1,
@@ -90,7 +90,7 @@ const FALCON = actor('Falcon', {
   ],
 });
 
-const POPULATION = [SPIDER, HULK, THUG, FALCON];
+const POPULATION = [NIGHTJAR, TITAN, THUG, KESTREL];
 
 /** Apply `state` on top of the defaults and return the matching actor names. */
 function matching(state) {
@@ -103,7 +103,7 @@ beforeEach(() => ActorDirectoryFilter.init());
 
 describe('no active filters', () => {
   test('matches every actor', () => {
-    expect(matching({})).toEqual(['Spider-Man', 'Hulk', 'Street Thug', 'Falcon']);
+    expect(matching({})).toEqual(['Nightjar', 'Titan', 'Street Thug', 'Kestrel']);
   });
 
   test('_hasActiveFilters is false so the directory is left alone', () => {
@@ -117,91 +117,91 @@ describe('single filters select the right subset', () => {
   });
 
   test('size', () => {
-    expect(matching({ size: ['big'] })).toEqual(['Hulk']);
+    expect(matching({ size: ['big'] })).toEqual(['Titan']);
   });
 
   test('rank >=', () => {
-    expect(matching({ rank: { op: '>=', value: 4 } })).toEqual(['Spider-Man', 'Hulk']);
+    expect(matching({ rank: { op: '>=', value: 4 } })).toEqual(['Nightjar', 'Titan']);
   });
 
   test('rank <=', () => {
-    expect(matching({ rank: { op: '<=', value: 3 } })).toEqual(['Street Thug', 'Falcon']);
+    expect(matching({ rank: { op: '<=', value: 3 } })).toEqual(['Street Thug', 'Kestrel']);
   });
 
   test('rank exact', () => {
-    expect(matching({ rank: { op: '=', value: 6 } })).toEqual(['Hulk']);
+    expect(matching({ rank: { op: '=', value: 6 } })).toEqual(['Titan']);
   });
 
   test('origin item by name', () => {
-    expect(matching({ origins: ['High-Tech'] })).toEqual(['Spider-Man', 'Falcon']);
+    expect(matching({ origins: ['High-Tech'] })).toEqual(['Nightjar', 'Kestrel']);
   });
 
   test('occupation item by name', () => {
-    expect(matching({ occupations: ['Scientist'] })).toEqual(['Hulk']);
+    expect(matching({ occupations: ['Scientist'] })).toEqual(['Titan']);
   });
 
   test('tag item by name', () => {
-    expect(matching({ tags: ['Enhanced Reflexes'] })).toEqual(['Spider-Man', 'Falcon']);
+    expect(matching({ tags: ['Enhanced Reflexes'] })).toEqual(['Nightjar', 'Kestrel']);
   });
 
   test('trait item by name', () => {
-    expect(matching({ traits: ['Wall-Crawling'] })).toEqual(['Spider-Man']);
+    expect(matching({ traits: ['Wall-Crawling'] })).toEqual(['Nightjar']);
   });
 
   test('element', () => {
-    expect(matching({ elements: ['air'] })).toEqual(['Falcon']);
+    expect(matching({ elements: ['air'] })).toEqual(['Kestrel']);
   });
 
   test('health DR >=', () => {
-    expect(matching({ healthDR: { op: '>=', value: 2 } })).toEqual(['Spider-Man', 'Hulk']);
+    expect(matching({ healthDR: { op: '>=', value: 2 } })).toEqual(['Nightjar', 'Titan']);
   });
 
   test('focus max >=', () => {
-    expect(matching({ focusMax: { op: '>=', value: 120 } })).toEqual(['Spider-Man', 'Falcon']);
+    expect(matching({ focusMax: { op: '>=', value: 120 } })).toEqual(['Nightjar', 'Kestrel']);
   });
 
   test('karma max >=', () => {
-    expect(matching({ karmaMax: { op: '>=', value: 3 } })).toEqual(['Spider-Man', 'Falcon']);
+    expect(matching({ karmaMax: { op: '>=', value: 3 } })).toEqual(['Nightjar', 'Kestrel']);
   });
 });
 
 describe('power set filtering splits the comma-separated field', () => {
   test('matches a set listed second in the string', () => {
-    // Spider-Man's power carries "Spider-Powers, Agility" in one field.
-    expect(matching({ powerSets: ['Agility'] })).toEqual(['Spider-Man']);
+    // Nightjar's power carries "Spider-Powers, Agility" in one field.
+    expect(matching({ powerSets: ['Agility'] })).toEqual(['Nightjar']);
   });
 
   test('matches a set listed first', () => {
-    expect(matching({ powerSets: ['Spider-Powers'] })).toEqual(['Spider-Man']);
+    expect(matching({ powerSets: ['Spider-Powers'] })).toEqual(['Nightjar']);
   });
 
   test('does not substring-match a longer set name', () => {
-    expect(matching({ powerSets: ['Flight'] })).toEqual(['Falcon']);
+    expect(matching({ powerSets: ['Flight'] })).toEqual(['Kestrel']);
   });
 
   test('several selected sets match any of them', () => {
-    expect(matching({ powerSets: ['Flight', 'Super-Strength'] })).toEqual(['Hulk', 'Falcon']);
+    expect(matching({ powerSets: ['Flight', 'Super-Strength'] })).toEqual(['Titan', 'Kestrel']);
   });
 });
 
 describe('team filtering', () => {
   test('is a case-insensitive substring match', () => {
-    expect(matching({ teams: 'avengers' })).toEqual(['Spider-Man', 'Hulk', 'Falcon']);
+    expect(matching({ teams: 'vanguard' })).toEqual(['Nightjar', 'Titan', 'Kestrel']);
   });
 
   test('matches a team that is not first in the list', () => {
-    expect(matching({ teams: 'Daily Bugle' })).toEqual(['Spider-Man']);
+    expect(matching({ teams: 'City Herald' })).toEqual(['Nightjar']);
   });
 
   test('whitespace-only input is not treated as a filter', () => {
-    expect(matching({ teams: '   ' })).toEqual(['Spider-Man', 'Hulk', 'Street Thug', 'Falcon']);
+    expect(matching({ teams: '   ' })).toEqual(['Nightjar', 'Titan', 'Street Thug', 'Kestrel']);
   });
 });
 
 describe('ability filters', () => {
   test('single ability threshold', () => {
     expect(matching({ abilities: { ...ActorDirectoryFilter._filterState.abilities, agl: { op: '>=', value: 5 } } }))
-      .toEqual(['Spider-Man', 'Falcon']);
+      .toEqual(['Nightjar', 'Kestrel']);
   });
 
   test('two ability thresholds must both hold under AND', () => {
@@ -211,7 +211,7 @@ describe('ability filters', () => {
         mle: { op: '>=', value: 4 },
         agl: { op: '>=', value: 5 },
       },
-    })).toEqual(['Spider-Man', 'Falcon']);
+    })).toEqual(['Nightjar', 'Kestrel']);
   });
 
   test('a zero threshold is a real filter, not an empty one', () => {
@@ -224,23 +224,23 @@ describe('ability filters', () => {
 
 describe('movement filtering requires every selected type', () => {
   test('one type', () => {
-    expect(matching({ movementTypes: ['flight'] })).toEqual(['Falcon']);
+    expect(matching({ movementTypes: ['flight'] })).toEqual(['Kestrel']);
   });
 
   test('two types match only actors with both active', () => {
-    expect(matching({ movementTypes: ['run', 'climb'] })).toEqual(['Spider-Man']);
+    expect(matching({ movementTypes: ['run', 'climb'] })).toEqual(['Nightjar']);
   });
 });
 
 describe('AND vs OR across filter groups', () => {
   test('AND requires every group to hold', () => {
     expect(matching({ actorType: ['character'], rank: { op: '>=', value: 4 } }))
-      .toEqual(['Spider-Man', 'Hulk']);
+      .toEqual(['Nightjar', 'Titan']);
   });
 
   test('OR admits an actor matching only one group', () => {
     expect(matching({ logic: 'or', actorType: ['npc'], rank: { op: '>=', value: 6 } }))
-      .toEqual(['Hulk', 'Street Thug']);
+      .toEqual(['Titan', 'Street Thug']);
   });
 
   test('AND on the same criteria excludes both', () => {
@@ -254,7 +254,7 @@ describe('active filter counting drives the badge and the early-out', () => {
     Object.assign(ActorDirectoryFilter._filterState, {
       actorType: ['npc'],
       size: ['big'],
-      teams: 'Avengers',
+      teams: 'Vanguard',
     });
     expect(ActorDirectoryFilter._countActiveFilters()).toBe(3);
   });
@@ -318,7 +318,7 @@ describe('actors missing the fields a filter reads', () => {
 
   test('an absent teams field does not match a team filter', () => {
     ActorDirectoryFilter.init();
-    ActorDirectoryFilter._filterState.teams = 'Avengers';
+    ActorDirectoryFilter._filterState.teams = 'Vanguard';
     expect(ActorDirectoryFilter._matchesFilters(BLANK)).toBe(false);
   });
 });

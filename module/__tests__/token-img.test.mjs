@@ -21,10 +21,10 @@ describe('_getTokenImg — wildcard token fallback', () => {
     test('returns prototype token src when no active token and no wildcard', () => {
         const actor = {
             getActiveTokens: () => [],
-            prototypeToken: { texture: { src: 'tokens/cyclops.png' } },
-            img: 'actors/cyclops.png',
+            prototypeToken: { texture: { src: 'tokens/beacon.png' } },
+            img: 'actors/beacon.png',
         };
-        expect(_getTokenImg(actor)).toBe('tokens/cyclops.png');
+        expect(_getTokenImg(actor)).toBe('tokens/beacon.png');
     });
 
     test('skips wildcard prototype token and returns actor img', () => {

@@ -724,20 +724,18 @@ MARVEL_MULTIVERSE.powersets = {
   weatherControl: { label: "Weather Control" },
 };
 
+/**
+ * Publication sources an item can be attributed to.
+ *
+ * This is an open registry, not a fixed list. The system ships only generic
+ * entries; named sourcebooks are content rather than mechanics and are supplied
+ * by content modules, which merge their own entries in during `init` -- the same
+ * arrangement as `namedTeamManeuvers`. Keys are persisted on items, so entries
+ * may be added but must not be renamed.
+ */
 MARVEL_MULTIVERSE.sources = {
   core: { label: "Core Rulebook" },
   coreModified: { label: "Core Rulebook (Modified)" },
-  xmen: { label: "X-Men Expansion" },
-  xmenModified: { label: "X-Men Expansion (Modified)" },
-  spiderverse: { label: "Spider-Verse Expansion" },
-  spiderverseModified: { label: "Spider-Verse Expansion (Modified)" },
-  avengers: { label: "Avengers Expansion" },
-  avengersModified: { label: "Avengers Expansion (Modified)" },
-  enterHydra: { label: "Enter: Hydra" },
-  enterHydraModified: { label: "Enter: Hydra (Modified)" },
-  cataclysmOfKang: { label: "Cataclysm of Kang" },
-  cataclysmOfKangModified: { label: "Cataclysm of Kang (Modified)" },
-  other: { label: "Other" },
   homebrew: { label: "Homebrew" }
 };
 
@@ -851,21 +849,21 @@ MARVEL_MULTIVERSE.teamManeuvers = [
         cost: "5 focus, each",
         rankAvg: [1, 2],
         description:
-          "The team members all get an edge on any attack they make this round.",
+          "Participants attack with edge for the remainder of the round.",
       },
       {
         level: 2,
         cost: "10 focus, each",
         rankAvg: [3, 4],
         description:
-          "The team members can each reroll all their dice on any attack they make this round. They get to use the better result.",
+          "Participants may reroll their dice on an attack this round, keeping whichever result is better.",
       },
       {
         level: 3,
         cost: "15 focus, each",
         rankAvg: [5, 6],
         description:
-          "The team members can each turn their Marvel die to a Fantastic success on any attack roll they make this round against targets of equal or highter rank.",
+          "Participants may set their Marvel die to a Fantastic success on an attack this round, against targets of equal or higher rank.",
       },
     ],
   },
@@ -877,21 +875,21 @@ MARVEL_MULTIVERSE.teamManeuvers = [
         cost: "5 focus, each",
         rankAvg: [1, 2],
         description:
-          "The team members all have Damage Reduction 2 for this round",
+          "Participants gain Damage Reduction 2 for the round.",
       },
       {
         level: 2,
         cost: "10 focus, each",
         rankAvg: [3, 4],
         description:
-          "The team members all have Damage Reduction 4 for this round",
+          "Participants gain Damage Reduction 4 for the round.",
       },
       {
         level: 3,
         cost: "15 focus, each",
         rankAvg: [5, 6],
         description:
-          "The team members all have Damage Reduction 8 for this round",
+          "Participants gain Damage Reduction 8 for the round.",
       },
     ],
   },
@@ -903,21 +901,21 @@ MARVEL_MULTIVERSE.teamManeuvers = [
         cost: "5 focus, each",
         rankAvg: [1, 2],
         description:
-          "All actions taken against team members have trouble this round.",
+          "Actions targeting participants suffer trouble for the round.",
       },
       {
         level: 2,
         cost: "10 focus, each",
         rankAvg: [3, 4],
         description:
-          "Each member of the team can make a speedy recovery roll for either Health or Focus, as if they had spent a point of Karma",
+          "Each participant may make one speedy recovery roll for Health or Focus without spending Karma.",
       },
       {
         level: 3,
         cost: "15 focus, each",
         rankAvg: [5, 6],
         description:
-          "A single member of the team who has been killed or shattered in battle is healed to at least Health: 0 and Focus: 0",
+          "One fallen participant is restored to Health 0 and Focus 0.",
       },
     ],
   },
@@ -1324,7 +1322,7 @@ MARVEL_MULTIVERSE.conditionEffects = {
     disabled: false,
     changes: [],
     description:
-      "Loses 5 Health at end of each turn until death or condition ends. Smother by rolling on ground: Agility vs TN 10 (costs an action).",
+      "Takes 5 damage at the end of each turn until removed. Clearing it costs an action and an Agility check against TN 10.",
     transfer: true,
     statuses: ["ablaze"],
     flags: {},
@@ -1336,7 +1334,7 @@ MARVEL_MULTIVERSE.conditionEffects = {
     disabled: false,
     changes: [],
     description:
-      "Cannot take any actions. All defenses reduced to 10. Melee attacks automatically hit. Wake up: Challenging check using resisted ability (Resilience for drugs, Vigilance for magic). Someone helping gives edge on the check.",
+      "Cannot act. Every defense is treated as 10 and melee attacks against it hit automatically. Waking requires a challenging check on the resisting ability -- Resilience against drugs, Vigilance against magic -- and assistance grants edge.",
     transfer: true,
     statuses: ["asleep"],
     flags: {},
@@ -1346,7 +1344,7 @@ MARVEL_MULTIVERSE.conditionEffects = {
     disabled: false,
     changes: [],
     description:
-      "Loses 5 Health at end of each turn until death or condition ends. Stop with Logic vs TN 10 (costs an action). Also ends when victim recovers 1+ Health.",
+      "Takes 5 damage at the end of each turn until removed. Clearing it costs an action and a Logic check against TN 10, and it also ends once any Health is regained.",
     transfer: true,
     statuses: ["bleeding"],
     flags: {},
@@ -1358,7 +1356,7 @@ MARVEL_MULTIVERSE.conditionEffects = {
     disabled: false,
     changes: [],
     description:
-      "Loses 5 Health at end of each turn until death or condition ends. Wash with copious water to remove.",
+      "Takes 5 damage at the end of each turn until removed. Washing it off clears the condition.",
     transfer: true,
     statuses: ["corroding"],
     flags: {},
@@ -1370,7 +1368,7 @@ MARVEL_MULTIVERSE.conditionEffects = {
     disabled: false,
     changes: [],
     description:
-      "+5 to Focus cost of any powers with a Focus cost. Stacks +5 per additional 24 hours awake or exhausting influence. Penalty ignores Focus spending cap. Trouble on all actions. Ends after a good night's sleep.",
+      "Powers cost an extra 5 Focus, rising by a further 5 for each additional day without rest. The surcharge ignores the Focus spending cap and all actions suffer trouble. Rest clears it.",
     transfer: true,
     statuses: ["exhausted"],
     flags: {},
@@ -1380,7 +1378,7 @@ MARVEL_MULTIVERSE.conditionEffects = {
     disabled: false,
     changes: [],
     description:
-      "Airborne: target within 3 spaces, breathing. Contact: close attack doing at least 1 damage. Resilience check vs. infection TN (default TN 12). Fantastic success: immunity for 1 full day. Effects and duration vary by disease.",
+      "Contracted through the air within 3 spaces of a breathing target, or by a close attack dealing at least 1 damage. Resist with a Resilience check against the infection's TN, 12 by default; a Fantastic success grants a full day of immunity. Effects and duration vary by disease.",
     transfer: true,
     statuses: ["infected"],
     flags: {},
@@ -1390,7 +1388,7 @@ MARVEL_MULTIVERSE.conditionEffects = {
     disabled: false,
     changes: [],
     description:
-      "Resilience vs TN 18 action check at start of each turn (no action cost). Fail: lose 1 Health. Success: fine that turn. Fantastic success: poison cleared. Most poisons have antidotes. Auto-clears after 24 hours if not fatal.",
+      "At the start of each turn, make a Resilience check against TN 18 at no action cost. Failure costs 1 Health, a Fantastic success clears the condition, and most have antidotes. Otherwise it lapses after a day if not fatal.",
     transfer: true,
     statuses: ["poisoned"],
     flags: {},
@@ -6419,7 +6417,7 @@ Hooks.once("init", () => {
 
   game.settings.register("marvel-multiverse", "mutantReputationEnabled", {
     name: "Enable Mutant Reputation",
-    hint: "Enable the optional Mutant Reputation system from the X-Men Expansion. When active, Ego checks display reputation-based edge/trouble notices.",
+    hint: "Enable the optional Mutant Reputation system. When active, Ego checks display reputation-based edge/trouble notices.",
     scope: "world",
     config: true,
     type: Boolean,

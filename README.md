@@ -4,9 +4,9 @@ This is an unoffical implementation of the [Marvel Multiverse Role Playing Game]
 
 This system is a fan made work, and is not associated with Marvel Entertainment, LLC, The Walt Disney Company, or their partners in any way.
 
-The system for Foundry VTT contains no rules or proprietary content from the various official RPG sourcebooks by Marvel Entertainment. It is intended to make the process of enjoying the Marvel Multivese RolePlaying system via an online tabletop experience as easy as possible but you will still need to purchase any and all official sourcebooks you desire in order to enjoy this system as intended.
+The system for Foundry VTT contains no proprietary content from the various official RPG sourcebooks by Marvel Entertainment. It is intended to make the process of enjoying the Marvel Multivese RolePlaying system via an online tabletop experience as easy as possible but you will still need to purchase any and all official sourcebooks you desire in order to enjoy this system as intended.
 
-This system provides character sheet support for Actors and Items, mechanical support for dice and rules support necessary to
+This system provides character sheet support for Actors and Items, mechanical support for dic,e and rules support necessary to
 play games of MMRPG. It is not a substitute for or contain rules or proprietary content from any Marvel Multiverse RPG publications. It is intended to enable game play on Foundry Virtual TableTop software. You will still need to purchase any and all official sourcebooks you desire in order to enjoy this system as intended.
 
 The software component of this system is distributed under the MIT license.

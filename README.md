@@ -11,9 +11,9 @@ play games of MMRPG. It is not a substitute for or contain rules or proprietary 
 
 The software component of this system is distributed under the MIT license.
 
-Development of the original code appears to have been abandoned in 2024. This project revived it in 2026 and continues to maintain it under that same MIT license.
+Development of the original code appears to have been abandoned in 2024. The original developer did not respond to attempts to contact him via multiple channels. Worlds of Wonder Games revived the code base in 2026 and continues to maintain it under that same MIT license.
 
-Support this and other projects via these platforms.
+Support WoW Games' effort here and other projects via these platforms.
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/worldsofwonder)
 

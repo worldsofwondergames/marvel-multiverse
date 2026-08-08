@@ -694,6 +694,26 @@ MARVEL_MULTIVERSE.sizes = {
   },
 };
 
+/**
+ * The Schooling Advancement Chart from the Avengers Expansion. Ten boxes divide
+ * the space between one rank and the next; indices 0-4 are the chart's left
+ * column and 5-9 its right column, so rendering `i` beside `i + 5` reproduces
+ * the printed five rows of two.
+ * @type {Array<{key: string, label: string}>}
+ */
+MARVEL_MULTIVERSE.schoolingChart = [
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "trait", label: "MARVEL_MULTIVERSE.Schooling.Reward.Trait" },
+];
+
 MARVEL_MULTIVERSE.powersets = {
   basic: { label: "Basic" },
   elementalControl: { label: "Elemental Control" },

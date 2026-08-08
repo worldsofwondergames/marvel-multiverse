@@ -1176,6 +1176,39 @@
   top: -2px;
 }
 
+.mm-schooling-block .mm-schooling-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
+  gap: 4px 12px;
+}
+.mm-schooling-block .mm-schooling-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.mm-schooling-block .mm-schooling-box input[type=checkbox] {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.mm-schooling-block .mm-schooling-box input[type=checkbox]:disabled {
+  cursor: default;
+}
+.mm-schooling-block .mm-schooling-reward {
+  white-space: nowrap;
+}
+.mm-schooling-block .mm-schooling-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-start: 8px;
+}
+.mm-schooling-block .mm-schooling-ready {
+  font-weight: bold;
+}
+
 .marvel-multiverse.sheet .window-content {
   background-position: top -360px center;
   background-repeat: no-repeat;

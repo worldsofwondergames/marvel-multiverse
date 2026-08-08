@@ -2336,6 +2336,22 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
     context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
 
+    // Ten schooling boxes, labelled from the printed chart. Bound directly to
+    // the schema path so the stock sheet submit persists them.
+    //
+    // Read from the live actor, not context.system: that comes from toObject(),
+    // which serializes schema fields only, so the derived `completed` and
+    // `readyToAdvance` are absent from it.
+    const schooling = this.actor.system.schooling;
+    context.schoolingBoxes = CONFIG.MARVEL_MULTIVERSE.schoolingChart.map((reward, i) => ({
+      index: i,
+      name: `system.schooling.boxes.box${i}`,
+      label: game.i18n.localize(reward.label),
+      checked: schooling.boxes[`box${i}`],
+    }));
+    context.schoolingCompleted = schooling.completed;
+    context.schoolingReadyToAdvance = schooling.readyToAdvance;
+
     context.mutantReputationEnabled = game.settings.get("marvel-multiverse", "mutantReputationEnabled");
     context.mutantReputationLevels = MARVEL_MULTIVERSE.mutantReputationLevels;
     const charWorldRepKey = game.settings.get("marvel-multiverse", "mutantReputationLevel");
@@ -4735,6 +4751,7 @@ const preloadHandlebarsTemplates = async () =>
     // Actor partials.
     "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-schooling.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-effects.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-items.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-occupation.hbs",

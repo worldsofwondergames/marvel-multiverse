@@ -1,4 +1,9 @@
+// The container body sits on $mm-primary-red, so every piece of text in here
+// must be white explicitly -- it would otherwise inherit the dark body colour
+// and be unreadable on the red.
 .mm-schooling-block {
+  color: white;
+
   .mm-schooling-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -24,17 +29,19 @@
   }
 
   .mm-schooling-reward {
+    color: white;
     white-space: nowrap;
   }
 
   .mm-schooling-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     margin-block-start: 8px;
   }
 
   .mm-schooling-ready {
+    color: white;
     font-weight: bold;
   }
 }

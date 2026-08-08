@@ -74,6 +74,14 @@
         <input type="text" name="system.base" value="{{system.base}}" data-dtype="String"/>
       </div>
     </div>
+    <div class="mm-styled-field -flex-relative -sm">
+      <label class="mm-styled-label -align-left"><span>Source</span></label>
+      <div class="mm-styled-input">
+        <select name="system.source">
+          {{selectOptions sources selected=system.source labelAttr="label" blank=""}}
+        </select>
+      </div>
+    </div>
   </div>
   {{#if mutantReputationEnabled}}
   <div class="flexrow -nowrap -gap-md">

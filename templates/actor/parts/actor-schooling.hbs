@@ -10,11 +10,10 @@
       </label>
       {{/each}}
     </div>
+    {{#if schoolingReadyToAdvance}}
     <div class="mm-schooling-footer">
-      <span class="mm-schooling-progress">{{schoolingCompleted}} / 10</span>
-      {{#if schoolingReadyToAdvance}}
       <span class="mm-schooling-ready">{{localize "MARVEL_MULTIVERSE.Schooling.ReadyToAdvance"}}</span>
-      {{/if}}
     </div>
+    {{/if}}
   </div>
 </div>

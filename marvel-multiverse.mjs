@@ -2286,6 +2286,11 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
           contentSelector: ".sheet-body",
           initial: "traits",
         },
+        {
+          navSelector: ".mm-subtabs",
+          contentSelector: ".mm-bio-body",
+          initial: "details",
+        },
       ],
     });
   }
@@ -2349,7 +2354,6 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       label: game.i18n.localize(reward.label),
       checked: schooling.boxes[`box${i}`],
     }));
-    context.schoolingCompleted = schooling.completed;
     context.schoolingReadyToAdvance = schooling.readyToAdvance;
 
     context.mutantReputationEnabled = game.settings.get("marvel-multiverse", "mutantReputationEnabled");

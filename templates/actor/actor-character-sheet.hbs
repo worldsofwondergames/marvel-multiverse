@@ -280,13 +280,34 @@
     {{!-- Biography --}}
     <div class="tab items" data-group="primary" data-tab="biography">
       <div class="mm-bio-block">
-        {{!-- Character Details --}}
-        <div class="flexcol -static-children">
-           {{> "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs"}}
-           {{> "systems/marvel-multiverse/templates/actor/parts/actor-schooling.hbs"}}
+        {{!-- Biography sub-tabs. A distinct nav class is required: the primary
+              tab controller binds to ".sheet-tabs" and would otherwise capture
+              this nav as well. --}}
+        <nav class="mm-subtabs tabs" data-group="biography">
+          <a class="item active" data-tab="details">Details</a>
+          <a class="item" data-tab="background">Background</a>
+          <a class="item" data-tab="advancement">Advancement</a>
+        </nav>
+
+        <div class="mm-bio-body">
+          {{!-- Character detail fields, plus alternate forms --}}
+          <div class="tab active" data-group="biography" data-tab="details">
+            <div class="flexcol -static-children">
+              {{> "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs"}}
+            </div>
+            {{> "systems/marvel-multiverse/templates/actor/parts/actor-alternate-forms.hbs"}}
+          </div>
+
+          {{!-- History, Personality, Features --}}
+          <div class="tab" data-group="biography" data-tab="background">
+            {{> "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs"}}
+          </div>
+
+          {{!-- Schooling Advancement Chart --}}
+          <div class="tab" data-group="biography" data-tab="advancement">
+            {{> "systems/marvel-multiverse/templates/actor/parts/actor-schooling.hbs"}}
+          </div>
         </div>
-        {{> "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs"}}
-        {{> "systems/marvel-multiverse/templates/actor/parts/actor-alternate-forms.hbs"}}
       </div>
     </div>
 

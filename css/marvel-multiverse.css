@@ -1203,16 +1203,6 @@
   color: white;
   white-space: nowrap;
 }
-.mm-schooling-block .mm-schooling-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-block-start: 8px;
-}
-.mm-schooling-block .mm-schooling-ready {
-  color: white;
-  font-weight: bold;
-}
 
 .sheet nav.mm-subtabs {
   border: none;

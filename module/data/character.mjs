@@ -28,13 +28,4 @@ export default class MarvelMultiverseCharacter extends MarvelMultiverseActorBase
 
     return schema;
   }
-
-  prepareDerivedData() {
-    super.prepareDerivedData();
-
-    // Written to `schooling`, not `schooling.boxes`, so the count never picks
-    // up its own output on a subsequent prepare.
-    this.schooling.completed = Object.values(this.schooling.boxes).filter(Boolean).length;
-    this.schooling.readyToAdvance = this.schooling.completed >= 10;
-  }
 }

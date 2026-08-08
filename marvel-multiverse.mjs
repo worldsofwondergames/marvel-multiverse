@@ -2343,18 +2343,13 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
 
     // Ten schooling boxes, labelled from the printed chart. Bound directly to
     // the schema path so the stock sheet submit persists them.
-    //
-    // Read from the live actor, not context.system: that comes from toObject(),
-    // which serializes schema fields only, so the derived `completed` and
-    // `readyToAdvance` are absent from it.
-    const schooling = this.actor.system.schooling;
+    const schoolingBoxes = this.actor.system.schooling.boxes;
     context.schoolingBoxes = CONFIG.MARVEL_MULTIVERSE.schoolingChart.map((reward, i) => ({
       index: i,
       name: `system.schooling.boxes.box${i}`,
       label: game.i18n.localize(reward.label),
-      checked: schooling.boxes[`box${i}`],
+      checked: schoolingBoxes[`box${i}`],
     }));
-    context.schoolingReadyToAdvance = schooling.readyToAdvance;
 
     context.mutantReputationEnabled = game.settings.get("marvel-multiverse", "mutantReputationEnabled");
     context.mutantReputationLevels = MARVEL_MULTIVERSE.mutantReputationLevels;
@@ -5154,15 +5149,6 @@ class MarvelMultiverseCharacter extends MarvelMultiverseActorBase {
     });
 
     return schema;
-  }
-
-  prepareDerivedData() {
-    super.prepareDerivedData();
-
-    // Written to `schooling`, not `schooling.boxes`, so the count never picks
-    // up its own output on a subsequent prepare.
-    this.schooling.completed = Object.values(this.schooling.boxes).filter(Boolean).length;
-    this.schooling.readyToAdvance = this.schooling.completed >= 10;
   }
 }
 

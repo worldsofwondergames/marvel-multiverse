@@ -694,6 +694,26 @@ MARVEL_MULTIVERSE.sizes = {
   },
 };
 
+/**
+ * The Schooling Advancement Chart from the Avengers Expansion. Ten boxes divide
+ * the space between one rank and the next; indices 0-4 are the chart's left
+ * column and 5-9 its right column, so rendering `i` beside `i + 5` reproduces
+ * the printed five rows of two.
+ * @type {Array<{key: string, label: string}>}
+ */
+MARVEL_MULTIVERSE.schoolingChart = [
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "trait", label: "MARVEL_MULTIVERSE.Schooling.Reward.Trait" },
+];
+
 MARVEL_MULTIVERSE.powersets = {
   basic: { label: "Basic" },
   elementalControl: { label: "Elemental Control" },
@@ -2266,6 +2286,11 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
           contentSelector: ".sheet-body",
           initial: "traits",
         },
+        {
+          navSelector: ".mm-subtabs",
+          contentSelector: ".mm-bio-body",
+          initial: "details",
+        },
       ],
     });
   }
@@ -2315,6 +2340,21 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
 
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
     context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
+
+    // Ten schooling boxes, labelled from the printed chart. Bound directly to
+    // the schema path so the stock sheet submit persists them.
+    //
+    // Read from the live actor, not context.system: that comes from toObject(),
+    // which serializes schema fields only, so the derived `completed` and
+    // `readyToAdvance` are absent from it.
+    const schooling = this.actor.system.schooling;
+    context.schoolingBoxes = CONFIG.MARVEL_MULTIVERSE.schoolingChart.map((reward, i) => ({
+      index: i,
+      name: `system.schooling.boxes.box${i}`,
+      label: game.i18n.localize(reward.label),
+      checked: schooling.boxes[`box${i}`],
+    }));
+    context.schoolingReadyToAdvance = schooling.readyToAdvance;
 
     context.mutantReputationEnabled = game.settings.get("marvel-multiverse", "mutantReputationEnabled");
     context.mutantReputationLevels = MARVEL_MULTIVERSE.mutantReputationLevels;
@@ -4715,6 +4755,7 @@ const preloadHandlebarsTemplates = async () =>
     // Actor partials.
     "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-schooling.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-effects.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-items.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-occupation.hbs",
@@ -5097,7 +5138,31 @@ class MarvelMultiverseCharacter extends MarvelMultiverseActorBase {
       named: new fields.StringField({ required: false, blank: true }),
     });
 
+    // The ten boxes of the Schooling Advancement Chart. Named boolean fields
+    // rather than an ArrayField: an ArrayField needs a function for its
+    // `initial`, and shipping-parity compares declared initials with toEqual,
+    // which compares functions by reference and would fail across the trees.
+    schema.schooling = new fields.SchemaField({
+      boxes: new fields.SchemaField(
+        Object.fromEntries(
+          Array.from({ length: 10 }, (_, i) => [
+            `box${i}`,
+            new fields.BooleanField({ required: true, initial: false }),
+          ])
+        )
+      ),
+    });
+
     return schema;
+  }
+
+  prepareDerivedData() {
+    super.prepareDerivedData();
+
+    // Written to `schooling`, not `schooling.boxes`, so the count never picks
+    // up its own output on a subsequent prepare.
+    this.schooling.completed = Object.values(this.schooling.boxes).filter(Boolean).length;
+    this.schooling.readyToAdvance = this.schooling.completed >= 10;
   }
 }
 

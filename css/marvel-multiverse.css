@@ -1176,6 +1176,78 @@
   top: -2px;
 }
 
+.mm-schooling-block {
+  color: white;
+}
+.mm-schooling-block .mm-schooling-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
+  gap: 4px 12px;
+}
+.mm-schooling-block .mm-schooling-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.mm-schooling-block .mm-schooling-box input[type=checkbox] {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.mm-schooling-block .mm-schooling-box input[type=checkbox]:disabled {
+  cursor: default;
+}
+.mm-schooling-block .mm-schooling-reward {
+  color: white;
+  white-space: nowrap;
+}
+.mm-schooling-block .mm-schooling-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-block-start: 8px;
+}
+.mm-schooling-block .mm-schooling-ready {
+  color: white;
+  font-weight: bold;
+}
+
+.sheet nav.mm-subtabs {
+  border: none;
+  display: flex;
+  gap: 2px;
+  margin: 0 0 4px 0;
+}
+.sheet nav.mm-subtabs .item {
+  background: #8b0502;
+  border: none;
+  color: white;
+  flex: 1 1 auto;
+  font-family: "Roboto", serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 12px;
+  text-align: center;
+  text-transform: uppercase;
+}
+.sheet nav.mm-subtabs .item:hover {
+  color: white;
+  text-shadow: none;
+}
+.sheet nav.mm-subtabs .item.active {
+  background: #e41d18;
+  color: white;
+}
+
+.mm-bio-body > .tab {
+  display: none;
+}
+.mm-bio-body > .tab.active {
+  display: block;
+}
+
 .marvel-multiverse.sheet .window-content {
   background-position: top -360px center;
   background-repeat: no-repeat;

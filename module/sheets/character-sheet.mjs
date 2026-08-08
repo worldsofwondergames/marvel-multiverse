@@ -22,6 +22,11 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
           contentSelector: ".sheet-body",
           initial: "traits",
         },
+        {
+          navSelector: ".mm-subtabs",
+          contentSelector: ".mm-bio-body",
+          initial: "details",
+        },
       ],
     });
   }
@@ -56,6 +61,21 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
     context.rollData = context.actor.getRollData();
 
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
+
+    // Ten schooling boxes, labelled from the printed chart. Bound directly to
+    // the schema path so the stock sheet submit persists them.
+    //
+    // Read from the live actor, not context.system: that comes from toObject(),
+    // which serializes schema fields only, so the derived `completed` and
+    // `readyToAdvance` are absent from it.
+    const schooling = this.actor.system.schooling;
+    context.schoolingBoxes = CONFIG.MARVEL_MULTIVERSE.schoolingChart.map((reward, i) => ({
+      index: i,
+      name: `system.schooling.boxes.box${i}`,
+      label: game.i18n.localize(reward.label),
+      checked: schooling.boxes[`box${i}`],
+    }));
+    context.schoolingReadyToAdvance = schooling.readyToAdvance;
 
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [

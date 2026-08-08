@@ -8,6 +8,7 @@ export const preloadHandlebarsTemplates = async () =>
     // Actor partials.
     "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-schooling.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-effects.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-items.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-occupation.hbs",

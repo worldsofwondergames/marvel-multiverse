@@ -1,0 +1,40 @@
+.mm-schooling-block {
+  .mm-schooling-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(5, auto);
+    grid-auto-flow: column;
+    gap: 4px 12px;
+  }
+
+  .mm-schooling-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+
+    input[type="checkbox"] {
+      flex: 0 0 auto;
+      margin: 0;
+    }
+
+    input[type="checkbox"]:disabled {
+      cursor: default;
+    }
+  }
+
+  .mm-schooling-reward {
+    white-space: nowrap;
+  }
+
+  .mm-schooling-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-block-start: 8px;
+  }
+
+  .mm-schooling-ready {
+    font-weight: bold;
+  }
+}

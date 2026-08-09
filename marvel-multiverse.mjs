@@ -73,6 +73,193 @@ function _buildItemMeta(system) {
     .join("")}</div>`;
 }
 
+/**
+ * Read a power's Focus cost out of its free-text `cost` field.
+ *
+ * Returns null when there is no cost, when the text names no Focus at all
+ * ("Varies", "Same as the character's Elemental Protection power"), or when the
+ * wording is not one of the recognised shapes. A null result means no activate
+ * control is offered, which is the safe outcome: better to leave the player to
+ * adjust Focus by hand than to deduct a guessed amount.
+ *
+ * @param {string} text
+ * @returns {{kind: 'flat'|'variable'|'recurring', amount: number, period: string|null}|null}
+ */
+function _parseFocusCost(text) {
+  const raw = String(text ?? "").trim();
+  if (!raw || !/focus/i.test(raw)) return null;
+
+  // "5 or more Focus" -- the number is a floor, the player chooses the rest.
+  const orMore = /^(\d+)\s+or\s+more\s+focus$/i.exec(raw);
+  if (orMore) return { kind: "variable", amount: Number(orMore[1]), period: null };
+
+  // "5 Focus per turn", "15 Focus per round" -- charged again each turn or round.
+  const per = /^(\d+)\s+focus\s+per\s+(turn|round)$/i.exec(raw);
+  if (per) return { kind: "recurring", amount: Number(per[1]), period: per[2].toLowerCase() };
+
+  // "10 Focus" -- a fixed price.
+  const flat = /^(\d+)\s+focus$/i.exec(raw);
+  if (flat) return { kind: "flat", amount: Number(flat[1]), period: null };
+
+  return null;
+}
+
+/**
+ * The most Focus a character may spend at once: five times their rank, per the
+ * core rulebook's "Spending Focus". Applies to every cost, flat or chosen.
+ */
+function _maxFocusSpend(actor) {
+  const rank = Number(actor?.system?.attributes?.rank?.value ?? 0);
+  return rank * 5;
+}
+
+/** Whether this user may activate powers on the actor: its owner, or a GM. */
+function _canActivatePowers(actor) {
+  return !!(game.user?.isGM || actor?.isOwner);
+}
+
+/**
+ * Ask the player how much Focus to spend. Used for costs that state a floor
+ * ("5 or more Focus") and for recurring ones, which are prefilled with a single
+ * period's price.
+ *
+ * @returns {Promise<number|null>} the chosen amount, or null if cancelled
+ */
+function _promptFocusAmount({ powerName, min, max }) {
+  return new Promise((resolve) => {
+    const content = `<form>
+      <div class="form-group mm-spend-group">
+        <label for="mm-focus-amount"><b>${powerName}</b> - Focus to spend (min ${min}, max ${max})</label>
+        <div class="mm-quantity">
+          <button type="button" class="minus" aria-label="Decrease">&minus;</button>
+          <input id="mm-focus-amount" class="input-box" type="number" name="amount" value="${min}" min="${min}" max="${max}" step="1" autofocus/>
+          <button type="button" class="plus" aria-label="Increase">&plus;</button>
+        </div>
+      </div>
+    </form>`;
+    let settled = false;
+    const done = (value) => { if (!settled) { settled = true; resolve(value); } };
+
+    new Dialog({
+      title: "Spend Focus",
+      content,
+      buttons: {
+        spend: {
+          icon: '<i class="fas fa-bolt"></i>',
+          label: "Spend",
+          callback: (html) => {
+            const raw = Number(html.find('input[name="amount"]').val());
+            if (!Number.isFinite(raw)) return done(null);
+            if (raw < min) {
+              ui.notifications.warn(`${powerName} costs at least ${min} Focus.`);
+              return done(null);
+            }
+            if (raw > max) {
+              ui.notifications.warn(`A character cannot spend more than ${max} Focus at once.`);
+              return done(null);
+            }
+            done(Math.trunc(raw));
+          },
+        },
+        cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", callback: () => done(null) },
+      },
+      default: "spend",
+      // Stepper buttons, wired here rather than with inline onclick attributes so
+      // they clamp to both bounds and do not depend on named-element globals.
+      render: (html) => {
+        const root = html instanceof HTMLElement ? html : html?.[0];
+        const input = root?.querySelector('input[name="amount"]');
+        if (!input) return;
+        const step = (delta) => {
+          const next = Math.min(max, Math.max(min, (Number(input.value) || min) + delta));
+          input.value = String(next);
+        };
+        root.querySelector("button.minus")?.addEventListener("click", () => step(-1));
+        root.querySelector("button.plus")?.addEventListener("click", () => step(1));
+      },
+      close: () => done(null),
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
+  });
+}
+
+/** Confirm a spend that would take the character below zero Focus. */
+function _confirmOverspend({ powerName, cost, current }) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value) => { if (!settled) { settled = true; resolve(value); } };
+    new Dialog({
+      title: "Not enough Focus",
+      content: `<p><b>${powerName}</b> costs ${cost} Focus, but the character has ${current}.</p>
+                <p>Spending it anyway leaves them at ${current - cost}.</p>`,
+      buttons: {
+        yes: { icon: '<i class="fas fa-check"></i>', label: "Spend anyway", callback: () => done(true) },
+        no: { icon: '<i class="fas fa-times"></i>', label: "Cancel", callback: () => done(false) },
+      },
+      default: "no",
+      close: () => done(false),
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
+  });
+}
+
+/**
+ * Spend a power's Focus cost and announce it.
+ *
+ * Shared by the sheet control and the chat card button so the two cannot drift.
+ * The message is always public, whatever the current roll mode.
+ *
+ * @returns {Promise<boolean>} whether Focus was actually spent
+ */
+async function _activatePower(actor, item) {
+  if (!actor || !item) return false;
+  if (!_canActivatePowers(actor)) {
+    ui.notifications.warn("You do not have permission to activate powers on this character.");
+    return false;
+  }
+
+  const cost = _parseFocusCost(item.system?.cost);
+  if (!cost) {
+    ui.notifications.warn(`${item.name} has no Focus cost that can be worked out automatically.`);
+    return false;
+  }
+
+  const max = _maxFocusSpend(actor);
+  // The rulebook caps a single spend at five times rank. A flat cost above that
+  // ceiling cannot be paid at all, so say so rather than deducting it.
+  if (cost.amount > max) {
+    ui.notifications.warn(
+      `${item.name} costs ${cost.amount} Focus, but this character cannot spend more than ${max} at once.`
+    );
+    return false;
+  }
+
+  let amount = cost.amount;
+  if (cost.kind !== "flat") {
+    amount = await _promptFocusAmount({ powerName: item.name, min: cost.amount, max });
+    if (amount === null) return false;
+  }
+
+  const current = Number(actor.system?.focus?.value ?? 0);
+  if (amount > current) {
+    const ok = await _confirmOverspend({ powerName: item.name, cost: amount, current });
+    if (!ok) return false;
+  }
+
+  await actor.update({ "system.focus.value": current - amount });
+
+  const period = cost.period ? ` per ${cost.period}` : "";
+  const flavor = _buildRollFlavor({
+    tokenImg: _getTokenImg(actor),
+    actorName: actor.name,
+    powerName: item.name,
+  });
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor, token: _getTokenDoc(actor) }),
+    flavor,
+    content: `<div class="mm-chat-body"><div class="mm-power-activated">Activated, spending <b>${amount} Focus</b>${period}.</div></div>`,
+  });
+  return true;
+}
+
 function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element, meta }) {
   let detailHtml = "";
   if (powerName) detailHtml += `<div class="mm-roll-power-name">${powerName}</div>`;
@@ -361,7 +548,7 @@ class MarvelMultiverseRoll extends Roll {
           close: () => resolve(null),
         },
         options
-      ).render(true);
+      , { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
     });
   }
 
@@ -612,6 +799,13 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       }${
         _hasContent(this.system.effect)
           ? `<div class="mm-chat-effect">${this.system.effect}</div>`
+          : ""
+      }${
+        // Same routine as the sheet control. Rendered for everyone, but the
+        // listener refuses anyone who is neither an owner nor a GM, and the
+        // button is hidden from them on render.
+        _parseFocusCost(this.system.cost)
+          ? `<div class="mm-chat-activate"><button type="button" class="mm-activate-power" data-actor-id="${this.actor?.id ?? ""}" data-item-id="${this.id}">Activate (${this.system.cost})</button></div>`
           : ""
       }</div>`,
     });
@@ -2395,6 +2589,9 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
     context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
 
+    // Only an owner or a GM sees the activate control on a power.
+    context.canActivatePowers = _canActivatePowers(this.actor);
+
     // Ten schooling boxes, labelled from the printed chart. Bound directly to
     // the schema path so the stock sheet submit persists them.
     const schoolingBoxes = this.actor.system.schooling.boxes;
@@ -2640,6 +2837,25 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
+
+
+    // Restore Health or Focus to its maximum.
+    html.on("click", ".mm-stat-reset", async (ev) => {
+      ev.preventDefault();
+      const key = ev.currentTarget.dataset.reset;
+      const max = this.actor.system?.[key]?.max;
+      // max is derived, so it is a number whenever the field exists at all.
+      if (typeof max !== "number") return;
+      await this.actor.update({ [`system.${key}.value`]: max });
+    });
+    // Spend a power's Focus cost from the sheet.
+    html.on("click", ".power-activate", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const itemId = ev.currentTarget.dataset.itemId ?? $(ev.currentTarget).parents(".item").data("itemId");
+      const item = this.actor.items.get(itemId);
+      if (item) await _activatePower(this.actor, item);
+    });
     // Render the item sheet for viewing/editing prior to the editable check.
     html.on("click", ".item-edit", (ev) => {
       const li = $(ev.currentTarget).parents(".item");
@@ -2821,7 +3037,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
           $(ev.currentTarget).closest(".trigger-row").remove();
         });
       },
-    }).render(true);
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
   }
 
   /**
@@ -3580,6 +3796,9 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
     context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
 
+    // Only an owner or a GM sees the activate control on a power.
+    context.canActivatePowers = _canActivatePowers(this.actor);
+
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [
         key,
@@ -3783,6 +4002,25 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
+
+
+    // Restore Health or Focus to its maximum.
+    html.on("click", ".mm-stat-reset", async (ev) => {
+      ev.preventDefault();
+      const key = ev.currentTarget.dataset.reset;
+      const max = this.actor.system?.[key]?.max;
+      // max is derived, so it is a number whenever the field exists at all.
+      if (typeof max !== "number") return;
+      await this.actor.update({ [`system.${key}.value`]: max });
+    });
+    // Spend a power's Focus cost from the sheet.
+    html.on("click", ".power-activate", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const itemId = ev.currentTarget.dataset.itemId ?? $(ev.currentTarget).parents(".item").data("itemId");
+      const item = this.actor.items.get(itemId);
+      if (item) await _activatePower(this.actor, item);
+    });
     // Render the item sheet for viewing/editing prior to the editable check.
     html.on("click", ".item-edit", (ev) => {
       const li = $(ev.currentTarget).parents(".item");
@@ -3964,7 +4202,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
           $(ev.currentTarget).closest(".trigger-row").remove();
         });
       },
-    }).render(true);
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
   }
 
   /**
@@ -4566,7 +4804,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
           cancel: { label: "Cancel" },
         },
         default: "save",
-      }).render(true);
+      }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
     });
 
     // Iconic item: power removal
@@ -4645,7 +4883,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
           cancel: { label: "Cancel" },
         },
         default: "save",
-      }).render(true);
+      }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
     });
 
     // Battle suit: power removal
@@ -6672,7 +6910,7 @@ Hooks.once("init", () => {
             title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
             content: "<p>Select a form to switch to:</p>",
             buttons,
-          }).render(true);
+          }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
         }
       },
     });
@@ -6892,10 +7130,52 @@ Hooks.on("updateActor", (actor, changed) => {
 /* -------------------------------------------- */
 
 // If you need to add Handlebars helpers, here is a useful example:
+/**
+ * True when a power's cost can be worked out, so the sheet knows whether to
+ * offer an activate control. Handlebars helpers must be synchronous, which
+ * _parseFocusCost is.
+ */
+Handlebars.registerHelper("mmHasFocusCost", (cost) => _parseFocusCost(cost) !== null);
+
 Handlebars.registerHelper("toLowerCase", (mle) => mle.toLowerCase());
 Handlebars.registerHelper("eq", (a, b) => a === b);
 Handlebars.registerHelper("gt", (a, b) => a > b);
 
+
+
+/**
+ * Wire the chat card's Activate button, and hide it from anyone who may not use
+ * it. The button is in the message content, which every user receives, so the
+ * check has to happen per viewer at render time.
+ */
+Hooks.on("renderChatMessageHTML", (message, html) => {
+  const el = html instanceof HTMLElement ? html : html?.[0];
+  const button = el?.querySelector?.("button.mm-activate-power");
+  if (!button) return;
+
+  const actor = game.actors?.get(button.dataset.actorId);
+  if (!actor || !_canActivatePowers(actor)) {
+    button.closest(".mm-chat-activate")?.remove();
+    return;
+  }
+
+  // The hook fires more than once per message in v14. Binding again on the same
+  // element would spend the cost twice from a single click.
+  if (button.dataset.mmBound === "1") return;
+  button.dataset.mmBound = "1";
+
+  button.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    const item = actor.items.get(button.dataset.itemId);
+    if (!item) return ui.notifications.warn("That power is no longer on the character.");
+    button.disabled = true;
+    try {
+      await _activatePower(actor, item);
+    } finally {
+      button.disabled = false;
+    }
+  });
+});
 
 Hooks.on("renderDialogV2", (app, html) => {
   const el = html instanceof HTMLElement ? html : html[0];

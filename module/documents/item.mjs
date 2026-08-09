@@ -16,6 +16,51 @@ export function _hasContent(html) {
  * no empty label, no blank line -- and the block itself disappears when none of
  * the four are set. Item types that lack these fields simply produce nothing.
  */
+/**
+ * Read a power's Focus cost out of its free-text `cost` field.
+ *
+ * Returns null when there is no cost, when the text names no Focus at all
+ * ("Varies", "Same as the character's Elemental Protection power"), or when the
+ * wording is not one of the recognised shapes. A null result means no activate
+ * control is offered, which is the safe outcome: better to leave the player to
+ * adjust Focus by hand than to deduct a guessed amount.
+ *
+ * @param {string} text
+ * @returns {{kind: 'flat'|'variable'|'recurring', amount: number, period: string|null}|null}
+ */
+export function _parseFocusCost(text) {
+  const raw = String(text ?? '').trim();
+  if (!raw || !/focus/i.test(raw)) return null;
+
+  // "5 or more Focus" — the number is a floor, the player chooses the rest.
+  const orMore = /^(\d+)\s+or\s+more\s+focus$/i.exec(raw);
+  if (orMore) return { kind: 'variable', amount: Number(orMore[1]), period: null };
+
+  // "5 Focus per turn", "15 Focus per round" — charged again each turn or round.
+  const per = /^(\d+)\s+focus\s+per\s+(turn|round)$/i.exec(raw);
+  if (per) return { kind: 'recurring', amount: Number(per[1]), period: per[2].toLowerCase() };
+
+  // "10 Focus" — a fixed price.
+  const flat = /^(\d+)\s+focus$/i.exec(raw);
+  if (flat) return { kind: 'flat', amount: Number(flat[1]), period: null };
+
+  return null;
+}
+
+/**
+ * The most Focus a character may spend at once: five times their rank, per the
+ * core rulebook's "Spending Focus". Applies to every cost, flat or chosen.
+ */
+export function _maxFocusSpend(actor) {
+  const rank = Number(actor?.system?.attributes?.rank?.value ?? 0);
+  return rank * 5;
+}
+
+/** Whether this user may activate powers on the actor: its owner, or a GM. */
+export function _canActivatePowers(actor) {
+  return !!(globalThis.game?.user?.isGM || actor?.isOwner);
+}
+
 export function _buildItemMeta(system) {
   const rows = [
     ["Action", system?.action],

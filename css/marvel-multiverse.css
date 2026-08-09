@@ -1207,6 +1207,124 @@
   font-style: italic;
 }
 
+.mm-chat-activate {
+  margin-block-start: 4px;
+}
+.mm-chat-activate .mm-activate-power {
+  font-size: 12px;
+  width: 100%;
+}
+
+.mm-dialog .window-header {
+  background: #8b0502;
+  border-bottom: 1px solid #8b0502;
+}
+.mm-dialog .window-header .window-title {
+  color: white;
+  font-family: "Roboto", serif;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.mm-dialog .window-header .header-button,
+.mm-dialog .window-header .header-control,
+.mm-dialog .window-header a.close {
+  color: white;
+}
+.mm-dialog .window-content {
+  background: #fff2ec;
+  color: #000101;
+  font-family: "Roboto", serif;
+}
+.mm-dialog .window-content,
+.mm-dialog .window-content p,
+.mm-dialog .window-content label,
+.mm-dialog .window-content span,
+.mm-dialog .window-content div,
+.mm-dialog .window-content h1,
+.mm-dialog .window-content h2,
+.mm-dialog .window-content h3,
+.mm-dialog .window-content h4,
+.mm-dialog .dialog-content,
+.mm-dialog form .form-group > label {
+  color: #000101;
+}
+.mm-dialog input[type=number],
+.mm-dialog input[type=text],
+.mm-dialog select {
+  background: white;
+  border: 1px solid #8b0502;
+  color: #000101;
+}
+.mm-dialog .mm-quantity {
+  border: 2px solid #8b0502;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  overflow: hidden;
+}
+.mm-dialog .mm-quantity button.minus,
+.mm-dialog .mm-quantity button.plus {
+  background: #e41d18;
+  border: none;
+  border-radius: 0;
+  color: white;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  transition: background-color 0.2s;
+  width: 30px;
+}
+.mm-dialog .mm-quantity button.minus:hover,
+.mm-dialog .mm-quantity button.plus:hover {
+  background: #8b0502;
+  box-shadow: none;
+  text-shadow: none;
+}
+.mm-dialog .mm-quantity .input-box {
+  background: white;
+  border: none;
+  color: #000101;
+  flex: 1;
+  font-size: 14px;
+  outline: none;
+  padding: 8px 4px;
+  text-align: center;
+}
+.mm-dialog .mm-quantity .input-box::-webkit-inner-spin-button, .mm-dialog .mm-quantity .input-box::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.mm-dialog .mm-spend-group {
+  display: block;
+}
+.mm-dialog .mm-spend-group > label {
+  display: block;
+  margin-block-end: 6px;
+}
+.mm-dialog .dialog-buttons {
+  gap: 4px;
+}
+.mm-dialog button {
+  background: #e41d18;
+  border: 1px solid #8b0502;
+  color: white;
+  font-family: "Roboto", serif;
+  font-weight: 600;
+}
+.mm-dialog button:hover:not(:disabled) {
+  background: #8b0502;
+  box-shadow: none;
+}
+.mm-dialog button:disabled {
+  opacity: 0.6;
+}
+.mm-dialog button i {
+  color: white;
+}
+
 .mm-schooling-block {
   color: white;
 }
@@ -1642,6 +1760,59 @@
 .marvel-multiverse.sheet.actor .mm-speed-fields span:first-child {
   max-width: 72px;
   overflow: hidden;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-reset-slot {
+  align-items: center;
+  bottom: 2px;
+  display: flex;
+  justify-content: center;
+  position: absolute;
+  right: -2px;
+  top: 50px;
+  width: 72px;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-reset-slot.-shifted {
+  right: 70px;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-reset {
+  align-items: center;
+  background: #8b0502;
+  border: 1px solid #8b0502;
+  border-radius: 3px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 11px;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  width: 28px;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-reset:hover {
+  background: #e41d18;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-reset i {
+  color: white;
+  margin: 0;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-block.-focus ~ .mm-stat-reset-slot .mm-stat-reset {
+  background: #00599e;
+  border-color: #00599e;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-block.-focus ~ .mm-stat-reset-slot .mm-stat-reset:hover {
+  background: #0088cd;
 }
 
 .marvel-multiverse.sheet.actor .mm-abilities-block .mm-ability-rows::before {

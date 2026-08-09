@@ -1,0 +1,143 @@
+@use "../utils/colors" as *;
+@use "../utils/typography" as *;
+@use "../utils/variables" as *;
+
+// Dialogs opened by the system, so they read as part of it rather than as
+// Foundry's default parchment. Scoped to .mm-dialog, which every `new Dialog`
+// call in the system sets, so no other module's dialogs are touched.
+.mm-dialog {
+  .window-header {
+    background: $mm-secondary-red;
+    border-bottom: 1px solid $mm-secondary-red;
+
+    .window-title {
+      color: white;
+      font-family: $font-secondary;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    // Foundry's close control is a light glyph on the default header.
+    .header-button,
+    .header-control,
+    a.close {
+      color: white;
+    }
+  }
+
+  .window-content {
+    background: $mm-input-bg;
+    color: $mm-text-color;
+    font-family: $font-secondary;
+  }
+
+  // The body is a light cream, so every piece of text inside it must be dark.
+  // Foundry's light theme sets some content text to near-white, which would be
+  // invisible here. Buttons are excluded: they sit on red and stay white.
+  .window-content,
+  .window-content p,
+  .window-content label,
+  .window-content span,
+  .window-content div,
+  .window-content h1,
+  .window-content h2,
+  .window-content h3,
+  .window-content h4,
+  .dialog-content,
+  form .form-group > label {
+    color: $mm-text-color;
+  }
+
+  input[type="number"],
+  input[type="text"],
+  select {
+    background: white;
+    border: 1px solid $mm-secondary-red;
+    color: $mm-text-color;
+  }
+
+  // Number stepper, following the MEGS quantity widget but in this system's
+  // colours. The native spinner is hidden so the two buttons are the only way
+  // to step, which keeps the control the same size in every browser.
+  .mm-quantity {
+    border: 2px solid $mm-secondary-red;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    overflow: hidden;
+
+    button.minus,
+    button.plus {
+      background: $mm-primary-red;
+      border: none;
+      border-radius: 0;
+      color: white;
+      cursor: pointer;
+      flex: 0 0 auto;
+      font-size: 20px;
+      line-height: 1;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      transition: background-color 0.2s;
+      width: 30px;
+
+      &:hover {
+        background: $mm-secondary-red;
+        box-shadow: none;
+        text-shadow: none;
+      }
+    }
+
+    .input-box {
+      background: white;
+      border: none;
+      color: $mm-text-color;
+      flex: 1;
+      font-size: 14px;
+      outline: none;
+      padding: 8px 4px;
+      text-align: center;
+
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button {
+        appearance: none;
+        margin: 0;
+      }
+    }
+  }
+
+  // The power name and the instruction share one line above the stepper.
+  .mm-spend-group {
+    display: block;
+
+    > label {
+      display: block;
+      margin-block-end: 6px;
+    }
+  }
+
+  .dialog-buttons {
+    gap: 4px;
+  }
+
+  button {
+    background: $mm-primary-red;
+    border: 1px solid $mm-secondary-red;
+    color: white;
+    font-family: $font-secondary;
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: $mm-secondary-red;
+      box-shadow: none;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+    }
+
+    i {
+      color: white;
+    }
+  }
+}

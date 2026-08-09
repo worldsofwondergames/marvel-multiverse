@@ -1207,6 +1207,75 @@
   font-style: italic;
 }
 
+.mm-chat-activate {
+  margin-block-start: 4px;
+}
+.mm-chat-activate .mm-activate-power {
+  font-size: 12px;
+  width: 100%;
+}
+
+.mm-dialog .window-header {
+  background: #8b0502;
+  border-bottom: 1px solid #8b0502;
+}
+.mm-dialog .window-header .window-title {
+  color: white;
+  font-family: "Roboto", serif;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.mm-dialog .window-header .header-button,
+.mm-dialog .window-header .header-control,
+.mm-dialog .window-header a.close {
+  color: white;
+}
+.mm-dialog .window-content {
+  background: #fff2ec;
+  color: #000101;
+  font-family: "Roboto", serif;
+}
+.mm-dialog .window-content,
+.mm-dialog .window-content p,
+.mm-dialog .window-content label,
+.mm-dialog .window-content span,
+.mm-dialog .window-content div,
+.mm-dialog .window-content h1,
+.mm-dialog .window-content h2,
+.mm-dialog .window-content h3,
+.mm-dialog .window-content h4,
+.mm-dialog .dialog-content,
+.mm-dialog form .form-group > label {
+  color: #000101;
+}
+.mm-dialog input[type=number],
+.mm-dialog input[type=text],
+.mm-dialog select {
+  background: white;
+  border: 1px solid #8b0502;
+  color: #000101;
+}
+.mm-dialog .dialog-buttons {
+  gap: 4px;
+}
+.mm-dialog button {
+  background: #e41d18;
+  border: 1px solid #8b0502;
+  color: white;
+  font-family: "Roboto", serif;
+  font-weight: 600;
+}
+.mm-dialog button:hover:not(:disabled) {
+  background: #8b0502;
+  box-shadow: none;
+}
+.mm-dialog button:disabled {
+  opacity: 0.6;
+}
+.mm-dialog button i {
+  color: white;
+}
+
 .mm-schooling-block {
   color: white;
 }

@@ -28,6 +28,17 @@
             </a>
           </div>
           <div class="item-controls">
+            {{#if @root.canActivatePowers}}
+            {{#if (mmHasFocusCost item.system.cost)}}
+            <a
+              class="item-control power-activate"
+              title="Activate, spending {{item.system.cost}}"
+              data-item-id="{{item._id}}"
+            >
+              <i class="fas fa-bolt"></i>
+            </a>
+            {{/if}}
+            {{/if}}
             <a
               class="item-control item-edit"
               title="{{localize 'DOCUMENT.Edit' type="power"}}"

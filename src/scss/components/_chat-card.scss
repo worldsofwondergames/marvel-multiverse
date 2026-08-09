@@ -53,3 +53,13 @@ $mm-chat-font-size: 12px;
     font-style: italic;
   }
 }
+
+// Activate button on a power card.
+.mm-chat-activate {
+  margin-block-start: $mm-chat-gap;
+
+  .mm-activate-power {
+    font-size: $mm-chat-font-size;
+    width: 100%;
+  }
+}

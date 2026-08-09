@@ -113,6 +113,47 @@ function _maxFocusSpend(actor) {
   return rank * 5;
 }
 
+/**
+ * True when a power lasts for as long as the character concentrates on it.
+ * Duration is free text, but every concentration power in the data module
+ * spells it exactly "Concentration".
+ */
+function _isConcentrationPower(system) {
+  return /concentration/i.test(String(system?.duration ?? ""));
+}
+
+/**
+ * How many powers a character may concentrate on at once: one per rank, per the
+ * core rulebook's "Breaking Concentration".
+ */
+function _concentrationLimit(actor) {
+  return Number(actor?.system?.attributes?.rank?.value ?? 0);
+}
+
+/**
+ * Whether a new concentration may start, and if not, why.
+ *
+ * Kept separate from the actor so the rule can be tested without Foundry: the
+ * caller passes the ids already held, the id being added, and the limit.
+ *
+ * @returns {{ok: true}|{ok: false, reason: "duplicate"|"limit"}}
+ */
+function _checkConcentration({ held = [], itemId, limit = 0 }) {
+  if (held.includes(itemId)) return { ok: false, reason: "duplicate" };
+  if (held.length >= limit) return { ok: false, reason: "limit" };
+  return { ok: true };
+}
+
+/**
+ * Conditions that break concentration and can be detected from actor state.
+ *
+ * The rulebook also breaks it on blinded, deafened and paralyzed, but only when
+ * the power needs line of sight, hearing, or a Melee or Agility check. Nothing
+ * in the power schema records those requirements, so those stay manual, as does
+ * knockback, which is not a condition at all.
+ */
+const CONCENTRATION_BREAKERS = ["unconscious", "demoralized", "stunned", "prone"];
+
 /** Whether this user may activate powers on the actor: its owner, or a GM. */
 function _canActivatePowers(actor) {
   return !!(game.user?.isGM || actor?.isOwner);
@@ -209,6 +250,75 @@ function _confirmOverspend({ powerName, cost, current }) {
  *
  * @returns {Promise<boolean>} whether Focus was actually spent
  */
+/** Concentration ids on the actor, with any deleted powers dropped. */
+function _heldConcentrations(actor) {
+  const held = actor?.system?.concentrating ?? [];
+  return held.filter((id) => actor.items.get(id));
+}
+
+/** The single user answering for this actor: an owning player, else the GM. */
+function _isResponsibleFor(actor) {
+  const owners = game.users?.filter((u) => u.active && actor.testUserPermission(u, "OWNER")) ?? [];
+  const responsible = owners.find((u) => !u.isGM) ?? owners.find((u) => u.isGM);
+  return responsible?.id === game.user?.id;
+}
+
+/** Stop concentrating on one power, or on every power when no id is given. */
+async function _endConcentration(actor, itemId = null, { announce = true, reason = "" } = {}) {
+  const held = _heldConcentrations(actor);
+  const ending = itemId ? held.filter((id) => id === itemId) : held;
+  if (!ending.length) return false;
+
+  const remaining = held.filter((id) => !ending.includes(id));
+  await actor.update({ "system.concentrating": remaining });
+  // The marker reflects "holding at least one", so it clears only when the last
+  // one goes. Removing it here is what makes toggling it off symmetrical.
+  if (!remaining.length && actor.statuses?.has("concentrating")) {
+    await actor.toggleStatusEffect("concentrating", { active: false });
+  }
+
+  if (announce) {
+    const names = ending.map((id) => actor.items.get(id)?.name).filter(Boolean).join(", ");
+    if (names) {
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor, token: _getTokenDoc(actor) }),
+        flavor: _buildRollFlavor({ tokenImg: _getTokenImg(actor), actorName: actor.name }),
+        content: `<div class="mm-chat-body"><div class="mm-concentration-ended">Concentration on <b>${names}</b> ends${reason ? ` — ${reason}` : ""}.</div></div>`,
+      });
+    }
+  }
+  return true;
+}
+
+/**
+ * Record a new concentration, refusing when the character is already at their
+ * rank's worth or already concentrating on that same power.
+ *
+ * @returns {Promise<boolean>} whether it was recorded
+ */
+async function _startConcentration(actor, item) {
+  const held = _heldConcentrations(actor);
+  const limit = _concentrationLimit(actor);
+  const check = _checkConcentration({ held, itemId: item.id, limit });
+  if (!check.ok) {
+    if (check.reason === "duplicate") {
+      ui.notifications.warn(`${actor.name} is already concentrating on ${item.name}.`);
+    } else {
+      const names = held.map((id) => actor.items.get(id)?.name).filter(Boolean).join(", ");
+      ui.notifications.warn(
+        `${actor.name} can concentrate on ${limit} power${limit === 1 ? "" : "s"} at a time` +
+        `${names ? `, and is already holding ${names}` : ""}.`
+      );
+    }
+    return false;
+  }
+  await actor.update({ "system.concentrating": [...held, item.id] });
+  if (!actor.statuses?.has("concentrating")) {
+    await actor.toggleStatusEffect("concentrating", { active: true });
+  }
+  return true;
+}
+
 async function _activatePower(actor, item) {
   if (!actor || !item) return false;
   if (!_canActivatePowers(actor)) {
@@ -220,6 +330,20 @@ async function _activatePower(actor, item) {
   if (!cost) {
     ui.notifications.warn(`${item.name} has no Focus cost that can be worked out automatically.`);
     return false;
+  }
+
+  // Checked before anything is spent, so a refused concentration costs nothing.
+  const concentrates = _isConcentrationPower(item.system);
+  if (concentrates) {
+    const check = _checkConcentration({
+      held: _heldConcentrations(actor),
+      itemId: item.id,
+      limit: _concentrationLimit(actor),
+    });
+    if (!check.ok) {
+      await _startConcentration(actor, item); // reports the reason
+      return false;
+    }
   }
 
   const max = _maxFocusSpend(actor);
@@ -252,10 +376,12 @@ async function _activatePower(actor, item) {
     actorName: actor.name,
     powerName: item.name,
   });
+  if (concentrates) await _startConcentration(actor, item);
+
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor, token: _getTokenDoc(actor) }),
     flavor,
-    content: `<div class="mm-chat-body"><div class="mm-power-activated">Activated, spending <b>${amount} Focus</b>${period}.</div></div>`,
+    content: `<div class="mm-chat-body"><div class="mm-power-activated">Activated, spending <b>${amount} Focus</b>${period}.${concentrates ? " Concentrating." : ""}</div></div>`,
   });
   return true;
 }
@@ -2591,6 +2717,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
 
     // Only an owner or a GM sees the activate control on a power.
     context.canActivatePowers = _canActivatePowers(this.actor);
+    context.concentrating = _heldConcentrations(this.actor);
 
     // Ten schooling boxes, labelled from the printed chart. Bound directly to
     // the schema path so the stock sheet submit persists them.
@@ -2847,6 +2974,14 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       // max is derived, so it is a number whenever the field exists at all.
       if (typeof max !== "number") return;
       await this.actor.update({ [`system.${key}.value`]: max });
+    });
+
+    // Stop concentrating on a power. Costs no action, per the rulebook.
+    html.on("click", ".power-end-concentration", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const itemId = ev.currentTarget.dataset.itemId;
+      await _endConcentration(this.actor, itemId, { reason: "ended voluntarily" });
     });
     // Spend a power's Focus cost from the sheet.
     html.on("click", ".power-activate", async (ev) => {
@@ -3798,6 +3933,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
 
     // Only an owner or a GM sees the activate control on a power.
     context.canActivatePowers = _canActivatePowers(this.actor);
+    context.concentrating = _heldConcentrations(this.actor);
 
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [
@@ -4012,6 +4148,14 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       // max is derived, so it is a number whenever the field exists at all.
       if (typeof max !== "number") return;
       await this.actor.update({ [`system.${key}.value`]: max });
+    });
+
+    // Stop concentrating on a power. Costs no action, per the rulebook.
+    html.on("click", ".power-end-concentration", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const itemId = ev.currentTarget.dataset.itemId;
+      await _endConcentration(this.actor, itemId, { reason: "ended voluntarily" });
     });
     // Spend a power's Focus cost from the sheet.
     html.on("click", ".power-activate", async (ev) => {
@@ -5248,6 +5392,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
     );
 
     schema.base = new fields.StringField({ required: true, blank: true });
+    // Ids of the powers this actor is currently concentrating on. No `initial`
+    // is declared: ArrayField defaults to an empty array, and an explicit
+    // function-valued initial would break the shipping-parity comparison, which
+    // compares declared options and sees two functions as unequal.
+    schema.concentrating = new fields.ArrayField(new fields.StringField());
     schema.occupations = new fields.ArrayField(new fields.ObjectField());
     schema.weapons = new fields.ArrayField(new fields.ObjectField());
     schema.origins = new fields.ArrayField(new fields.ObjectField());
@@ -6810,6 +6959,7 @@ Hooks.once("init", () => {
     { id: "bleeding", name: "Bleeding", img: "systems/marvel-multiverse/icons/statuses/bleeding.svg" },
     { id: "blinded", name: "Blinded", img: "systems/marvel-multiverse/icons/statuses/blinded.svg" },
     { id: "corroding", name: "Corroding", img: "icons/svg/acid.svg" },
+    { id: "concentrating", name: "Concentrating", img: "icons/svg/eye.svg" },
     { id: "damageReduction", name: "Damage Reduction", img: "icons/svg/shield.svg" },
     { id: "deafened", name: "Deafened", img: "systems/marvel-multiverse/icons/statuses/deafened.svg" },
     { id: "demoralized", name: "Demoralized", img: "systems/marvel-multiverse/icons/statuses/demoralized.svg" },
@@ -7086,9 +7236,113 @@ async function _processStartOfTurn(combatant) {
   });
 }
 
+
+/**
+ * Ask whether to keep concentrating on a power that charges every turn or
+ * round. Only 7 of the 125 concentration powers do; the rest are free to
+ * maintain and are never asked about.
+ */
+async function _processConcentrationUpkeep(combatant) {
+  const actor = combatant?.actor;
+  if (!actor) return;
+  if (!_isResponsibleFor(actor)) return;
+
+  for (const id of _heldConcentrations(actor)) {
+    const item = actor.items.get(id);
+    const cost = _parseFocusCost(item?.system?.cost);
+    if (!cost || cost.kind !== "recurring") continue;
+
+    const keep = await _confirmUpkeep({
+      powerName: item.name,
+      cost: cost.amount,
+      period: cost.period,
+      current: Number(actor.system?.focus?.value ?? 0),
+    });
+    if (!keep) {
+      await _endConcentration(actor, id, { reason: "not maintained" });
+      continue;
+    }
+
+    const current = Number(actor.system?.focus?.value ?? 0);
+    await actor.update({ "system.focus.value": current - cost.amount });
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor, token: _getTokenDoc(actor) }),
+      flavor: _buildRollFlavor({ tokenImg: _getTokenImg(actor), actorName: actor.name, powerName: item.name }),
+      content: `<div class="mm-chat-body"><div class="mm-power-activated">Concentration maintained, spending <b>${cost.amount} Focus</b> per ${cost.period}.</div></div>`,
+    });
+  }
+}
+
+/** Keep concentrating and pay, or let it lapse. */
+function _confirmUpkeep({ powerName, cost, period, current }) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    new Dialog({
+      title: "Maintain Concentration",
+      content: `<form><div class="form-group mm-spend-group">
+        <label><b>${powerName}</b> - costs ${cost} Focus per ${period} to maintain. Focus is ${current}.</label>
+      </div></form>`,
+      buttons: {
+        keep: { icon: '<i class="fas fa-bolt"></i>', label: `Spend ${cost}`, callback: () => done(true) },
+        drop: { icon: '<i class="fas fa-times"></i>', label: "Let it end", callback: () => done(false) },
+      },
+      default: "keep",
+      close: () => done(false),
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
+  });
+}
+
+/**
+ * Conditions listed in CONCENTRATION_BREAKERS end every concentration the
+ * character holds. Status effects arrive as Active Effects on the actor, so the
+ * check runs when one is created.
+ */
+Hooks.on("createActiveEffect", async (effect) => {
+  const actor = effect?.parent;
+  if (!actor || actor.documentName !== "Actor") return;
+  if (!_isResponsibleFor(actor)) return;
+  const statuses = [...(effect.statuses ?? [])];
+  const breaker = statuses.find((s) => CONCENTRATION_BREAKERS.includes(s));
+  if (!breaker) return;
+  await _endConcentration(actor, null, { reason: `${actor.name} is ${breaker}` });
+});
+
+
+/**
+ * Clearing the Concentrating marker from the token HUD ends everything the
+ * character is holding. `_endConcentration` clears the marker itself once the
+ * last power goes, so the length check below is what keeps the two from
+ * calling each other in a loop.
+ */
+Hooks.on("deleteActiveEffect", async (effect) => {
+  const actor = effect?.parent;
+  if (!actor || actor.documentName !== "Actor") return;
+  if (!effect.statuses?.has("concentrating")) return;
+  if (!_isResponsibleFor(actor)) return;
+  if (!_heldConcentrations(actor).length) return;
+  await _endConcentration(actor, null, { reason: "the marker was cleared" });
+});
+
+/** Ending the encounter ends any concentration its combatants were holding. */
+Hooks.on("deleteCombat", async (combat) => {
+  for (const combatant of combat.combatants ?? []) {
+    const actor = combatant.actor;
+    if (!actor || !_isResponsibleFor(actor)) continue;
+    if (!_heldConcentrations(actor).length) continue;
+    await _endConcentration(actor, null, { reason: "the encounter ended" });
+  }
+});
+
 Hooks.on("updateCombat", (combat, changed, options, userId) => {
-  if (!game.user.isGM) return;
   if (!("turn" in changed) && !("round" in changed)) return;
+
+  // Upkeep is answered by whoever owns the character, not only the GM, so this
+  // runs before the GM-only automation below.
+  const upkeepFor = combat.combatant;
+  if (upkeepFor) _processConcentrationUpkeep(upkeepFor);
+
+  if (!game.user.isGM) return;
   if (combat.previous.round === 0) {
     const current = combat.combatant;
     if (current) _processStartOfTurn(current);
@@ -7136,6 +7390,11 @@ Hooks.on("updateActor", (actor, changed) => {
  * _parseFocusCost is.
  */
 Handlebars.registerHelper("mmHasFocusCost", (cost) => _parseFocusCost(cost) !== null);
+
+/** True when the actor is currently concentrating on this power. */
+Handlebars.registerHelper("mmIsConcentrating", (held, itemId) =>
+  Array.isArray(held) && held.includes(itemId)
+);
 
 Handlebars.registerHelper("toLowerCase", (mle) => mle.toLowerCase());
 Handlebars.registerHelper("eq", (a, b) => a === b);

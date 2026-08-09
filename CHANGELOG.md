@@ -2,6 +2,14 @@
 
 ## 3.1.0
 
+### Concentration
+
+- Activating a power whose duration is Concentration now records it against the character. A character can hold one per rank, on separate powers, as the core rulebook requires; a further power, or the same power twice, is refused before any Focus is spent.
+- A **Concentrating** marker appears in the token HUD while at least one power is held. Clearing it ends everything the character is holding.
+- Concentration ends automatically on becoming unconscious, demoralized, stunned or prone, and when the encounter ends. Blinded, deafened and paralyzed break it only when the power requires sight, hearing, or a Melee or Agility check, which the power data does not record, so those stay manual — as does knockback, which is not a condition.
+- Powers that charge every turn or round — 7 of the 125 concentration powers — prompt at the start of the character's turn in combat. Continuing spends the cost again; declining ends that concentration. The other 118 are free to maintain and never prompt.
+- A control on the power row ends a single concentration, at no action cost.
+
 ### Conditions
 
 - **Conditions reworked to follow the rulebooks.** `Grappled` is renamed to `Grabbed`, and `Encumbered` and `Restrained` are replaced by `Demoralized` and `Pinned` — the names the core rulebook uses for those exact effects. `Demoralized`, `Pinned`, `Shattered` and `Damage Reduction` are added. `Damage Reduction` exists as a condition in addition to the existing numeric damage-reduction fields, which are unchanged. `Frightened`, `Flying` and `Invisible` are kept even though the books do not define them.

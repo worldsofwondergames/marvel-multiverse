@@ -351,7 +351,7 @@ test.describe('Condition Automation', () => {
 test.describe('Registered conditions', () => {
   /** Every condition the system is expected to offer, by status id. */
   const EXPECTED = [
-    'ablaze', 'asleep', 'bleeding', 'blinded', 'corroding', 'damageReduction',
+    'ablaze', 'asleep', 'bleeding', 'blinded', 'concentrating', 'corroding', 'damageReduction',
     'deafened', 'demoralized', 'exhausted', 'flying', 'frightened', 'grabbed',
     'infected', 'invisible', 'paralyzed', 'pinned', 'poisoned', 'prone',
     'shattered', 'stunned', 'surprised', 'unconscious',

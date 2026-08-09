@@ -1,4 +1,39 @@
 /**
+ * True when rich-text content has something worth showing. ProseMirror stores
+ * an emptied editor as `<p></p>`, which is not blank as a string but renders as
+ * nothing, so tags are stripped before testing. An image-only body counts as
+ * content.
+ */
+export function _hasContent(html) {
+  const raw = String(html ?? "");
+  if (/<img\b/i.test(raw)) return true;
+  return raw.replace(/<[^>]*>/g, "").trim().length > 0;
+}
+
+/**
+ * Action / Trigger / Duration / Cost rows for an item's chat card, in the order
+ * the item sheet lists them. A field with no value contributes no row at all --
+ * no empty label, no blank line -- and the block itself disappears when none of
+ * the four are set. Item types that lack these fields simply produce nothing.
+ */
+export function _buildItemMeta(system) {
+  const rows = [
+    ["Action", system?.action],
+    ["Trigger", system?.trigger],
+    ["Duration", system?.duration],
+    ["Cost", system?.cost],
+  ].filter(([, value]) => String(value ?? "").trim().length > 0);
+
+  if (!rows.length) return "";
+  return `<div style="padding:0 8px;" class="mm-chat-meta">${rows
+    .map(
+      ([label, value]) =>
+        `<div class="mm-chat-meta-row" data-meta="${label.toLowerCase()}"><b>${label}:</b> ${String(value).trim()}</div>`
+    )
+    .join("")}</div>`;
+}
+
+/**
  * Extend the basic Item with some very simple modifications.
  * @extends {Item}
  */
@@ -71,9 +106,15 @@ export class MarvelMultiverseItem extends Item {
       speaker: speaker,
       rollMode: rollMode,
       flavor: label,
-      content: `<div>${this.system.description}</div><div>${
-        this.system.effect ? this.system.effect : ""
-      }</div>`,
+      content: `${
+        _hasContent(this.system.description)
+          ? `<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>`
+          : ""
+      }${
+        _hasContent(this.system.effect)
+          ? `<div style="padding:0 8px;" class="mm-chat-effect">${this.system.effect}</div>`
+          : ""
+      }${_buildItemMeta(this.system)}`,
     });
 
     if (this.system.formula && this.system.ability) {

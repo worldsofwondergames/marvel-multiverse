@@ -42,8 +42,9 @@ $mm-chat-gap: 4px;
     margin-block: 0;
   }
 
-  // The effect is the rules text, set apart from the flavour line above it.
-  .mm-chat-effect {
+  // The description is flavour text and is italicised; the effect is the rules
+  // text and stays roman.
+  .mm-chat-description {
     font-style: italic;
   }
 }

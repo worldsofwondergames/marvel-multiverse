@@ -237,10 +237,10 @@ test.describe('Power chat card layout', () => {
     expect(m.nameStyle.text).toBe('E2E Layout Power');
   });
 
-  test('the effect is italic and the description is not', async ({ foundryPage: page }) => {
+  test('the description is italic and the effect is not', async ({ foundryPage: page }) => {
     const m = await measureCard(page);
     expect(m).not.toBeNull();
-    expect(m.effectFontStyle).toBe('italic');
-    expect(m.descriptionFontStyle).toBe('normal');
+    expect(m.descriptionFontStyle).toBe('italic');
+    expect(m.effectFontStyle).toBe('normal');
   });
 });

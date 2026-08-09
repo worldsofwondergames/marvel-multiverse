@@ -29,6 +29,15 @@
           </div>
           <div class="item-controls">
             {{#if @root.canActivatePowers}}
+            {{#if (mmIsConcentrating @root.concentrating item._id)}}
+            <a
+              class="item-control power-end-concentration"
+              title="Stop concentrating on {{item.name}}"
+              data-item-id="{{item._id}}"
+            >
+              <i class="fas fa-circle-stop"></i>
+            </a>
+            {{/if}}
             {{#if (mmHasFocusCost item.system.cost)}}
             <a
               class="item-control power-activate"

@@ -179,6 +179,11 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
     );
 
     schema.base = new fields.StringField({ required: true, blank: true });
+    // Ids of the powers this actor is currently concentrating on. No `initial`
+    // is declared: ArrayField defaults to an empty array, and an explicit
+    // function-valued initial would break the shipping-parity comparison, which
+    // compares declared options and sees two functions as unequal.
+    schema.concentrating = new fields.ArrayField(new fields.StringField());
     schema.occupations = new fields.ArrayField(new fields.ObjectField());
     schema.weapons = new fields.ArrayField(new fields.ObjectField());
     schema.origins = new fields.ArrayField(new fields.ObjectField());

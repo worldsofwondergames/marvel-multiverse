@@ -56,6 +56,47 @@ export function _maxFocusSpend(actor) {
   return rank * 5;
 }
 
+/**
+ * True when a power lasts for as long as the character concentrates on it.
+ * Duration is free text, but every concentration power in the data module
+ * spells it exactly "Concentration".
+ */
+export function _isConcentrationPower(system) {
+  return /concentration/i.test(String(system?.duration ?? ""));
+}
+
+/**
+ * How many powers a character may concentrate on at once: one per rank, per the
+ * core rulebook's "Breaking Concentration".
+ */
+export function _concentrationLimit(actor) {
+  return Number(actor?.system?.attributes?.rank?.value ?? 0);
+}
+
+/**
+ * Whether a new concentration may start, and if not, why.
+ *
+ * Kept separate from the actor so the rule can be tested without Foundry: the
+ * caller passes the ids already held, the id being added, and the limit.
+ *
+ * @returns {{ok: true}|{ok: false, reason: "duplicate"|"limit"}}
+ */
+export function _checkConcentration({ held = [], itemId, limit = 0 }) {
+  if (held.includes(itemId)) return { ok: false, reason: "duplicate" };
+  if (held.length >= limit) return { ok: false, reason: "limit" };
+  return { ok: true };
+}
+
+/**
+ * Conditions that break concentration and can be detected from actor state.
+ *
+ * The rulebook also breaks it on blinded, deafened and paralyzed, but only when
+ * the power needs line of sight, hearing, or a Melee or Agility check. Nothing
+ * in the power schema records those requirements, so those stay manual, as does
+ * knockback, which is not a condition at all.
+ */
+export const CONCENTRATION_BREAKERS = ["unconscious", "demoralized", "stunned", "prone"];
+
 /** Whether this user may activate powers on the actor: its owner, or a GM. */
 export function _canActivatePowers(actor) {
   return !!(globalThis.game?.user?.isGM || actor?.isOwner);

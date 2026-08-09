@@ -31,7 +31,7 @@ const NIGHTJAR = actor('Nightjar', {
     { type: 'origin', name: 'High-Tech' },
     { type: 'occupation', name: 'Journalist' },
     { type: 'tag', name: 'Enhanced Reflexes' },
-    { type: 'trait', name: 'Wall-Crawling' },
+    { type: 'trait', name: 'Surface Climbing' },
     { type: 'power', system: { powerSet: 'Spider-Powers, Agility' } },
   ],
 });
@@ -145,7 +145,7 @@ describe('single filters select the right subset', () => {
   });
 
   test('trait item by name', () => {
-    expect(matching({ traits: ['Wall-Crawling'] })).toEqual(['Nightjar']);
+    expect(matching({ traits: ['Surface Climbing'] })).toEqual(['Nightjar']);
   });
 
   test('element', () => {

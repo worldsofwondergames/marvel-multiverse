@@ -237,7 +237,7 @@ test.describe('Headquarters sheet', () => {
 
     test('rejects an item type the headquarters cannot hold', async ({ foundryPage }) => {
       const r = await callOnSheet(foundryPage, '_onDropItemCreate', {
-        name: 'Web-Shooters', type: 'weapon', system: {},
+        name: 'Line Launcher', type: 'weapon', system: {},
       });
       expect(r.itemNames).toEqual([]);
       expect(r.warnings.join(' ')).toContain('cannot hold');

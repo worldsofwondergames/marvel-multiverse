@@ -108,7 +108,7 @@ describe('MarvelMultiverseItem — roll', () => {
     });
 
     test('chat message includes item name in content', async () => {
-        const item = makeItem({ name: 'Web Shot' });
+        const item = makeItem({ name: 'Line Shot' });
         await item.roll();
         const [args] = createSpy.mock.calls[0];
         expect(args.content).toContain('');

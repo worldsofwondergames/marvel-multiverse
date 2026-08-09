@@ -117,12 +117,12 @@ test.describe('Untested item types', () => {
     test('suggested content round-trips', async ({ foundryPage }) => {
       const s = await createItem(foundryPage, `${PREFIX} Origin`, 'origin', {
         suggestedOccupation: 'Scientist',
-        suggestedTags: [{ name: 'Gamma-Irradiated' }],
+        suggestedTags: [{ name: 'Irradiated' }],
         powers: [{ name: 'Super-Strength' }],
         limitation: 'Cannot suppress transformation',
       });
       expect(s.suggestedOccupation).toBe('Scientist');
-      expect(s.suggestedTags[0].name).toBe('Gamma-Irradiated');
+      expect(s.suggestedTags[0].name).toBe('Irradiated');
       expect(s.powers[0].name).toBe('Super-Strength');
       expect(s.limitation).toBe('Cannot suppress transformation');
     });

@@ -128,14 +128,18 @@ function _canActivatePowers(actor) {
 function _promptFocusAmount({ powerName, min, max }) {
   return new Promise((resolve) => {
     const content = `<form>
-      <p><b>${powerName}</b></p>
-      <div class="form-group">
-        <label for="mm-focus-amount">Focus to spend (minimum ${min}, maximum ${max})</label>
-        <input id="mm-focus-amount" type="number" name="amount" value="${min}" min="${min}" max="${max}" step="1" autofocus/>
+      <div class="form-group mm-spend-group">
+        <label for="mm-focus-amount"><b>${powerName}</b> - Focus to spend (min ${min}, max ${max})</label>
+        <div class="mm-quantity">
+          <button type="button" class="minus" aria-label="Decrease">&minus;</button>
+          <input id="mm-focus-amount" class="input-box" type="number" name="amount" value="${min}" min="${min}" max="${max}" step="1" autofocus/>
+          <button type="button" class="plus" aria-label="Increase">&plus;</button>
+        </div>
       </div>
     </form>`;
     let settled = false;
     const done = (value) => { if (!settled) { settled = true; resolve(value); } };
+
     new Dialog({
       title: "Spend Focus",
       content,
@@ -160,6 +164,19 @@ function _promptFocusAmount({ powerName, min, max }) {
         cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", callback: () => done(null) },
       },
       default: "spend",
+      // Stepper buttons, wired here rather than with inline onclick attributes so
+      // they clamp to both bounds and do not depend on named-element globals.
+      render: (html) => {
+        const root = html instanceof HTMLElement ? html : html?.[0];
+        const input = root?.querySelector('input[name="amount"]');
+        if (!input) return;
+        const step = (delta) => {
+          const next = Math.min(max, Math.max(min, (Number(input.value) || min) + delta));
+          input.value = String(next);
+        };
+        root.querySelector("button.minus")?.addEventListener("click", () => step(-1));
+        root.querySelector("button.plus")?.addEventListener("click", () => step(1));
+      },
       close: () => done(null),
     }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
   });

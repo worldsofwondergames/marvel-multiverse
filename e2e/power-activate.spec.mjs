@@ -159,6 +159,104 @@ test.describe('Activating a power', () => {
 });
 
 /**
+ * The prompt shown for a variable cost. Its bounds are computed from the power's
+ * cost text and the character's rank, so the label is checked against those live
+ * values rather than against a fixed string.
+ */
+test.describe('Focus spend prompt', () => {
+  test.beforeEach(async ({ foundryPage }) => {
+    await dismissNotifications(foundryPage);
+  });
+
+  test.afterEach(async ({ foundryPage }) => {
+    await evaluateWhenReady(foundryPage, () => {
+      document.querySelectorAll('.mm-dialog').forEach(d => d.remove());
+    });
+    await deleteActor(foundryPage, HERO);
+  });
+
+  /** Open the prompt and drive its stepper, reporting what the input holds. */
+  async function openPromptAndStep(page, itemId, { minusClicks = 0, plusClicks = 0 } = {}) {
+    return evaluateWhenReady(page, async ({ hero, itemId, minusClicks, plusClicks }) => {
+      const actor = game.actors.find(a => a.name === hero);
+      const item = actor.items.get(itemId);
+
+      const sheet = actor.sheet;
+      await sheet._render(true);
+      await new Promise(r => setTimeout(r, 400));
+      const sheetRoot = sheet.element?.[0] ?? sheet.element;
+      sheetRoot?.querySelector(`.power-activate[data-item-id="${item.id}"]`)?.click();
+      await new Promise(r => setTimeout(r, 700));
+
+      const dialog = document.querySelector('.mm-dialog');
+      if (!dialog) { await sheet.close(); return null; }
+
+      const input = dialog.querySelector('input[name="amount"]');
+      const label = dialog.querySelector('label');
+      const start = Number(input.value);
+
+      for (let i = 0; i < minusClicks; i++) dialog.querySelector('button.minus').click();
+      for (let i = 0; i < plusClicks; i++) dialog.querySelector('button.plus').click();
+
+      const out = {
+        start,
+        value: Number(input.value),
+        inputMin: Number(input.min),
+        inputMax: Number(input.max),
+        labelText: label.textContent.replace(/\s+/g, ' ').trim(),
+        boldText: label.querySelector('b')?.textContent ?? null,
+        labelCount: dialog.querySelectorAll('.mm-spend-group label').length,
+        hasStepper: !!dialog.querySelector('.mm-quantity'),
+        // Recomputed from live data, so the expectation cannot drift from it.
+        rank: actor.system.attributes.rank.value,
+        costText: item.system.cost,
+        powerName: item.name,
+      };
+      dialog.remove();
+      await sheet.close();
+      return out;
+    }, { hero: HERO, itemId, minusClicks, plusClicks });
+  }
+
+  test('the stepper starts at the floor and will not go below it', async ({ foundryPage: page }) => {
+    const { itemId } = await setup(page, { rank: 3, cost: '5 or more Focus' });
+    const r = await openPromptAndStep(page, itemId, { minusClicks: 4 });
+
+    expect(r).not.toBeNull();
+    expect(r.hasStepper).toBe(true);
+    expect(r.start).toBe(5);
+    expect(r.value).toBe(5); // four decrements, still clamped at the floor
+  });
+
+  test('the stepper increments and stops at five times rank', async ({ foundryPage: page }) => {
+    // Rank 3 caps a single spend at 15, from a floor of 5.
+    const { itemId } = await setup(page, { rank: 3, cost: '5 or more Focus' });
+    const r = await openPromptAndStep(page, itemId, { plusClicks: 3 });
+    expect(r.value).toBe(8);
+
+    const r2 = await openPromptAndStep(page, itemId, { plusClicks: 40 });
+    expect(r2.value).toBe(15);
+    expect(r2.value).toBe(r2.rank * 5);
+  });
+
+  test('the label is one line pairing the bold power name with its live bounds', async ({ foundryPage: page }) => {
+    const { itemId } = await setup(page, { rank: 4, cost: '10 or more Focus', name: 'E2E Bound Power' });
+    const r = await openPromptAndStep(page, itemId);
+
+    expect(r).not.toBeNull();
+    // One label, not a separate name paragraph and instruction.
+    expect(r.labelCount).toBe(1);
+    expect(r.boldText).toBe(r.powerName);
+
+    // Bounds come from the cost text and the rank, so they are derived here too.
+    const floor = Number(r.costText.match(/\d+/)[0]);
+    expect(r.labelText).toBe(`${r.powerName} - Focus to spend (min ${floor}, max ${r.rank * 5})`);
+    expect(r.inputMin).toBe(floor);
+    expect(r.inputMax).toBe(r.rank * 5);
+  });
+});
+
+/**
  * Dialogs the system opens should look like the system, not like Foundry's
  * default parchment. Only a browser resolves the cascade, and `classes` has to
  * reach the Dialog's *options* argument to apply at all — passing it in the

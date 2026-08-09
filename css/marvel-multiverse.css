@@ -1255,6 +1255,55 @@
   border: 1px solid #8b0502;
   color: #000101;
 }
+.mm-dialog .mm-quantity {
+  border: 2px solid #8b0502;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  overflow: hidden;
+}
+.mm-dialog .mm-quantity button.minus,
+.mm-dialog .mm-quantity button.plus {
+  background: #e41d18;
+  border: none;
+  border-radius: 0;
+  color: white;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  transition: background-color 0.2s;
+  width: 30px;
+}
+.mm-dialog .mm-quantity button.minus:hover,
+.mm-dialog .mm-quantity button.plus:hover {
+  background: #8b0502;
+  box-shadow: none;
+  text-shadow: none;
+}
+.mm-dialog .mm-quantity .input-box {
+  background: white;
+  border: none;
+  color: #000101;
+  flex: 1;
+  font-size: 14px;
+  outline: none;
+  padding: 8px 4px;
+  text-align: center;
+}
+.mm-dialog .mm-quantity .input-box::-webkit-inner-spin-button, .mm-dialog .mm-quantity .input-box::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.mm-dialog .mm-spend-group {
+  display: block;
+}
+.mm-dialog .mm-spend-group > label {
+  display: block;
+  margin-block-end: 6px;
+}
 .mm-dialog .dialog-buttons {
   gap: 4px;
 }

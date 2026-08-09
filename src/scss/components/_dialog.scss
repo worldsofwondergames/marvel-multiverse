@@ -56,6 +56,66 @@
     color: $mm-text-color;
   }
 
+  // Number stepper, following the MEGS quantity widget but in this system's
+  // colours. The native spinner is hidden so the two buttons are the only way
+  // to step, which keeps the control the same size in every browser.
+  .mm-quantity {
+    border: 2px solid $mm-secondary-red;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    overflow: hidden;
+
+    button.minus,
+    button.plus {
+      background: $mm-primary-red;
+      border: none;
+      border-radius: 0;
+      color: white;
+      cursor: pointer;
+      flex: 0 0 auto;
+      font-size: 20px;
+      line-height: 1;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      transition: background-color 0.2s;
+      width: 30px;
+
+      &:hover {
+        background: $mm-secondary-red;
+        box-shadow: none;
+        text-shadow: none;
+      }
+    }
+
+    .input-box {
+      background: white;
+      border: none;
+      color: $mm-text-color;
+      flex: 1;
+      font-size: 14px;
+      outline: none;
+      padding: 8px 4px;
+      text-align: center;
+
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button {
+        appearance: none;
+        margin: 0;
+      }
+    }
+  }
+
+  // The power name and the instruction share one line above the stepper.
+  .mm-spend-group {
+    display: block;
+
+    > label {
+      display: block;
+      margin-block-end: 6px;
+    }
+  }
+
   .dialog-buttons {
     gap: 4px;
   }

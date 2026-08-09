@@ -106,8 +106,9 @@ test.describe('Power chat card meta lines', () => {
     });
     expect(card).not.toBeNull();
     expect(card.rollFlavor).not.toBeNull();
-    // The roll's flavor is built, so an empty meta list here is a real result.
-    expect(card.rollFlavor).toContain('Power:');
+    // The roll's flavor carries the power name, so an empty meta list here is a
+    // real result rather than a flavor that failed to build.
+    expect(card.rollFlavor).toContain('mm-roll-power-name');
     expect(metaRows(card.rollFlavor)).toEqual([]);
   });
 });
@@ -166,6 +167,10 @@ test.describe('Power chat card layout', () => {
       const flavorRows = [...li.querySelectorAll('.mm-roll-flavor > div > div')];
       const lastFlavorRow = flavorRows[flavorRows.length - 1];
 
+      const nameEl = li.querySelector('.mm-roll-power-name');
+      const abilityRow = flavorRows[flavorRows.length - 1];
+      const left = (el) => Math.round(el.getBoundingClientRect().left);
+
       const result = {
         rowCount: rows.length,
         flavorOrder,
@@ -174,6 +179,16 @@ test.describe('Power chat card layout', () => {
         metaBottom: Math.round(meta.getBoundingClientRect().bottom),
         headerToDescription: Math.round(desc.getBoundingClientRect().top - lastFlavorRow.getBoundingClientRect().bottom),
         descriptionToEffect: Math.round(eff.getBoundingClientRect().top - desc.getBoundingClientRect().bottom),
+        // Every line on the card should share one left edge.
+        leftEdges: [nameEl, rows[0], abilityRow, desc, eff].map(left),
+        nameStyle: {
+          color: getComputedStyle(nameEl).color,
+          weight: getComputedStyle(nameEl).fontWeight,
+          transform: getComputedStyle(nameEl).textTransform,
+          text: nameEl.textContent,
+        },
+        effectFontStyle: getComputedStyle(eff).fontStyle,
+        descriptionFontStyle: getComputedStyle(desc).fontStyle,
       };
       await item.delete();
       return result;
@@ -184,8 +199,8 @@ test.describe('Power chat card layout', () => {
     const m = await measureCard(page);
     expect(m).not.toBeNull();
     expect(m.rowCount).toBe(4);
-    // power-line, then the meta block, then the ability/type/element row.
-    expect(m.flavorOrder[0]).toBe('power-line');
+    // The name, then the meta block, then the ability/type/element row.
+    expect(m.flavorOrder[0]).toBe('mm-roll-power-name');
     expect(m.flavorOrder[1]).toBe('mm-chat-meta');
   });
 
@@ -201,5 +216,31 @@ test.describe('Power chat card layout', () => {
     expect(m).not.toBeNull();
     expect(m.descriptionToEffect).toBeGreaterThan(0);
     expect(m.headerToDescription).toBe(m.descriptionToEffect);
+  });
+
+  test('every line shares one left edge', async ({ foundryPage: page }) => {
+    const m = await measureCard(page);
+    expect(m).not.toBeNull();
+    // name, meta row, ability row, description, effect
+    expect(m.leftEdges).toHaveLength(5);
+    expect(m.leftEdges).toEqual(m.leftEdges.map(() => m.leftEdges[0]));
+  });
+
+  test('the power name is bold, deep red and uppercased', async ({ foundryPage: page }) => {
+    const m = await measureCard(page);
+    expect(m).not.toBeNull();
+    expect(m.nameStyle.color).toBe('rgb(139, 5, 2)'); // $mm-secondary-red
+    expect(Number(m.nameStyle.weight)).toBeGreaterThanOrEqual(700);
+    expect(m.nameStyle.transform).toBe('uppercase');
+    // Uppercasing is presentational, so the underlying text keeps its casing
+    // and carries no "Power:" label.
+    expect(m.nameStyle.text).toBe('E2E Layout Power');
+  });
+
+  test('the effect is italic and the description is not', async ({ foundryPage: page }) => {
+    const m = await measureCard(page);
+    expect(m).not.toBeNull();
+    expect(m.effectFontStyle).toBe('italic');
+    expect(m.descriptionFontStyle).toBe('normal');
   });
 });

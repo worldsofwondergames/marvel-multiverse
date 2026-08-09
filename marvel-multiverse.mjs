@@ -63,7 +63,9 @@ function _buildItemMeta(system) {
   ].filter(([, value]) => String(value ?? "").trim().length > 0);
 
   if (!rows.length) return "";
-  return `<div style="padding:0 8px;" class="mm-chat-meta">${rows
+  // No side padding here: this block is nested inside the flavor wrapper, which
+  // already provides the 8px that every line on the card shares.
+  return `<div class="mm-chat-meta">${rows
     .map(
       ([label, value]) =>
         `<div class="mm-chat-meta-row" data-meta="${label.toLowerCase()}"><b>${label}:</b> ${String(value).trim()}</div>`
@@ -73,7 +75,7 @@ function _buildItemMeta(system) {
 
 function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element, meta }) {
   let detailHtml = "";
-  if (powerName) detailHtml += `<div><b>Power:</b> ${powerName}</div>`;
+  if (powerName) detailHtml += `<div class="mm-roll-power-name">${powerName}</div>`;
   // Action / Trigger / Duration / Cost sit directly under Power and above the
   // ability row, sharing the wrapper's font size so every line matches.
   if (meta) detailHtml += meta;
@@ -89,8 +91,9 @@ function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType,
   const tags = `<span style="display:none;">ability: ${ability || ""}${damageType ? " damagetype: " + damageType : ""}${element ? " element: " + element : ""}</span>`;
   const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
   // Bottom padding is 2px rather than 4px so the gap between this block and the
-  // card body matches the gap between the description and the effect.
-  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0 2px;font-size:12px;">${detailHtml}</div>${tags}</div>`;
+  // card body matches the gap between the description and the effect. The 8px
+  // side padding matches .mm-chat-body, so every line shares one left edge.
+  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 8px 2px;font-size:12px;">${detailHtml}</div>${tags}</div>`;
 }
 
 

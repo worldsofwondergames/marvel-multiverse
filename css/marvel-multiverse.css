@@ -1176,6 +1176,12 @@
   top: -2px;
 }
 
+.mm-roll-power-name {
+  color: #8b0502;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .mm-chat-meta {
   font-size: inherit;
 }
@@ -1195,6 +1201,9 @@
 }
 .mm-chat-body p {
   margin-block: 0;
+}
+.mm-chat-body .mm-chat-effect {
+  font-style: italic;
 }
 
 .mm-schooling-block {

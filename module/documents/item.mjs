@@ -25,7 +25,9 @@ export function _buildItemMeta(system) {
   ].filter(([, value]) => String(value ?? "").trim().length > 0);
 
   if (!rows.length) return "";
-  return `<div style="padding:0 8px;" class="mm-chat-meta">${rows
+  // No side padding here: this block is nested inside the flavor wrapper, which
+  // already provides the 8px that every line on the card shares.
+  return `<div class="mm-chat-meta">${rows
     .map(
       ([label, value]) =>
         `<div class="mm-chat-meta-row" data-meta="${label.toLowerCase()}"><b>${label}:</b> ${String(value).trim()}</div>`

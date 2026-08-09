@@ -1,7 +1,18 @@
+@use "../utils/colors" as *;
+
 // Power chat card. One gap value governs both the space below the
 // Action/Trigger/Duration/Cost block and the space between the description and
 // the effect, so the two read as the same paragraph break.
 $mm-chat-gap: 4px;
+
+// The power name heads the card. The flavor wrapper and .mm-chat-body share
+// 8px of side padding, so this line, the meta rows, the ability row, the
+// description and the effect all sit on one left edge.
+.mm-roll-power-name {
+  color: $mm-secondary-red;
+  font-weight: 700;
+  text-transform: uppercase;
+}
 
 .mm-chat-meta {
   // Inherits the flavor wrapper's font size so Action/Trigger/Duration/Cost
@@ -29,5 +40,10 @@ $mm-chat-gap: 4px;
   // larger gap on top of the one above.
   p {
     margin-block: 0;
+  }
+
+  // The effect is the rules text, set apart from the flavour line above it.
+  .mm-chat-effect {
+    font-style: italic;
   }
 }

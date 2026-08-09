@@ -36,9 +36,49 @@ function _getTokenImg(actor) {
   return actor?.img || "";
 }
 
-function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element }) {
+/**
+ * True when rich-text content has something worth showing. ProseMirror stores
+ * an emptied editor as `<p></p>`, which is not blank as a string but renders as
+ * nothing, so tags are stripped before testing. An image-only body counts as
+ * content.
+ */
+function _hasContent(html) {
+  const raw = String(html ?? "");
+  if (/<img\b/i.test(raw)) return true;
+  return raw.replace(/<[^>]*>/g, "").trim().length > 0;
+}
+
+/**
+ * Action / Trigger / Duration / Cost rows for an item's chat card, in the order
+ * the item sheet lists them. A field with no value contributes no row at all --
+ * no empty label, no blank line -- and the block itself disappears when none of
+ * the four are set. Item types that lack these fields simply produce nothing.
+ */
+function _buildItemMeta(system) {
+  const rows = [
+    ["Action", system?.action],
+    ["Trigger", system?.trigger],
+    ["Duration", system?.duration],
+    ["Cost", system?.cost],
+  ].filter(([, value]) => String(value ?? "").trim().length > 0);
+
+  if (!rows.length) return "";
+  // No side padding here: this block is nested inside the flavor wrapper, which
+  // already provides the 8px that every line on the card shares.
+  return `<div class="mm-chat-meta">${rows
+    .map(
+      ([label, value]) =>
+        `<div class="mm-chat-meta-row" data-meta="${label.toLowerCase()}"><b>${label}:</b> ${String(value).trim()}</div>`
+    )
+    .join("")}</div>`;
+}
+
+function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element, meta }) {
   let detailHtml = "";
-  if (powerName) detailHtml += `<div><b>Power:</b> ${powerName}</div>`;
+  if (powerName) detailHtml += `<div class="mm-roll-power-name">${powerName}</div>`;
+  // Action / Trigger / Duration / Cost sit directly under Power and above the
+  // ability row, sharing the wrapper's font size so every line matches.
+  if (meta) detailHtml += meta;
   const cols = [];
   if (ability) cols.push(`<b>Ability:</b> ${_toTitleCase(ability)}`);
   if (damageType) cols.push(`<b>Type:</b> ${_toTitleCase(damageType)}`);
@@ -50,7 +90,10 @@ function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType,
   }
   const tags = `<span style="display:none;">ability: ${ability || ""}${damageType ? " damagetype: " + damageType : ""}${element ? " element: " + element : ""}</span>`;
   const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
-  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;">${detailHtml}</div>${tags}</div>`;
+  // Bottom padding is 2px rather than 4px so the gap between this block and the
+  // card body matches the gap between the description and the effect. The 8px
+  // side padding matches .mm-chat-body, so every line shares one left edge.
+  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 8px 2px;font-size:12px;">${detailHtml}</div>${tags}</div>`;
 }
 
 
@@ -544,22 +587,33 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
     const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
     const tokenImg = _getTokenImg(this.actor);
     const elementKey = this.system.isElemental ? this.system.element : null;
-    const label = _buildRollFlavor({
+    const flavorParts = {
       tokenImg,
       actorName: this.actor?.name,
       powerName: this.name,
       ability: abilityName ?? this.system.ability,
       damageType: this.system.damageType,
       element: elementKey,
-    });
+    };
+    // The description card carries the Action/Trigger/Duration/Cost block; the
+    // roll message below it reuses the same flavor without, so the four lines
+    // are not repeated twice in the log.
+    const label = _buildRollFlavor(flavorParts);
+    const cardLabel = _buildRollFlavor({ ...flavorParts, meta: _buildItemMeta(this.system) });
 
     ChatMessage.create({
       speaker: speaker,
       rollMode: rollMode,
-      flavor: label,
-      content: `<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>${
-        this.system.effect ? `<div style="padding:0 8px;" class="mm-chat-effect">${this.system.effect}</div>` : ""
-      }`,
+      flavor: cardLabel,
+      content: `<div class="mm-chat-body">${
+        _hasContent(this.system.description)
+          ? `<div class="mm-chat-description">${this.system.description}</div>`
+          : ""
+      }${
+        _hasContent(this.system.effect)
+          ? `<div class="mm-chat-effect">${this.system.effect}</div>`
+          : ""
+      }</div>`,
     });
 
     if (this.system.formula && this.system.ability) {

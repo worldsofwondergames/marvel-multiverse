@@ -102,19 +102,24 @@ export class MarvelMultiverseItem extends Item {
       `damageType: ${this.system.damageType} item.roll() : label: ${label}`
     );
 
+    // The four meta lines are part of the card's flavor text, directly under
+    // the power name and above the ability row. The roll message reuses the
+    // plain label instead, so the lines are not shown twice.
+    const cardLabel = `${label}${_buildItemMeta(this.system)}`;
+
     ChatMessage.create({
       speaker: speaker,
       rollMode: rollMode,
-      flavor: label,
-      content: `${
+      flavor: cardLabel,
+      content: `<div class="mm-chat-body">${
         _hasContent(this.system.description)
-          ? `<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>`
+          ? `<div class="mm-chat-description">${this.system.description}</div>`
           : ""
       }${
         _hasContent(this.system.effect)
-          ? `<div style="padding:0 8px;" class="mm-chat-effect">${this.system.effect}</div>`
+          ? `<div class="mm-chat-effect">${this.system.effect}</div>`
           : ""
-      }${_buildItemMeta(this.system)}`,
+      }</div>`,
     });
 
     if (this.system.formula && this.system.ability) {

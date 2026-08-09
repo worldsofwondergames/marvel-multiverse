@@ -71,9 +71,12 @@ function _buildItemMeta(system) {
     .join("")}</div>`;
 }
 
-function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element }) {
+function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element, meta }) {
   let detailHtml = "";
   if (powerName) detailHtml += `<div><b>Power:</b> ${powerName}</div>`;
+  // Action / Trigger / Duration / Cost sit directly under Power and above the
+  // ability row, sharing the wrapper's font size so every line matches.
+  if (meta) detailHtml += meta;
   const cols = [];
   if (ability) cols.push(`<b>Ability:</b> ${_toTitleCase(ability)}`);
   if (damageType) cols.push(`<b>Type:</b> ${_toTitleCase(damageType)}`);
@@ -85,7 +88,9 @@ function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType,
   }
   const tags = `<span style="display:none;">ability: ${ability || ""}${damageType ? " damagetype: " + damageType : ""}${element ? " element: " + element : ""}</span>`;
   const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
-  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;">${detailHtml}</div>${tags}</div>`;
+  // Bottom padding is 2px rather than 4px so the gap between this block and the
+  // card body matches the gap between the description and the effect.
+  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0 2px;font-size:12px;">${detailHtml}</div>${tags}</div>`;
 }
 
 
@@ -579,28 +584,33 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
     const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
     const tokenImg = _getTokenImg(this.actor);
     const elementKey = this.system.isElemental ? this.system.element : null;
-    const label = _buildRollFlavor({
+    const flavorParts = {
       tokenImg,
       actorName: this.actor?.name,
       powerName: this.name,
       ability: abilityName ?? this.system.ability,
       damageType: this.system.damageType,
       element: elementKey,
-    });
+    };
+    // The description card carries the Action/Trigger/Duration/Cost block; the
+    // roll message below it reuses the same flavor without, so the four lines
+    // are not repeated twice in the log.
+    const label = _buildRollFlavor(flavorParts);
+    const cardLabel = _buildRollFlavor({ ...flavorParts, meta: _buildItemMeta(this.system) });
 
     ChatMessage.create({
       speaker: speaker,
       rollMode: rollMode,
-      flavor: label,
-      content: `${
+      flavor: cardLabel,
+      content: `<div class="mm-chat-body">${
         _hasContent(this.system.description)
-          ? `<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>`
+          ? `<div class="mm-chat-description">${this.system.description}</div>`
           : ""
       }${
         _hasContent(this.system.effect)
-          ? `<div style="padding:0 8px;" class="mm-chat-effect">${this.system.effect}</div>`
+          ? `<div class="mm-chat-effect">${this.system.effect}</div>`
           : ""
-      }${_buildItemMeta(this.system)}`,
+      }</div>`,
     });
 
     if (this.system.formula && this.system.ability) {

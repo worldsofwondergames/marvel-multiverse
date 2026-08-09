@@ -22,15 +22,19 @@ async function rollPowerAndReadCard(page, powerData) {
     await new Promise(r => setTimeout(r, 400));
 
     const created = game.messages.contents.filter(m => !before.has(m.id));
-    await item.delete();
-    // The description/effect/meta card is the one that is not a roll.
     const card = created.find(m => !m.rolls?.length);
-    return card ? card.content : null;
+    const roll = created.find(m => m.rolls?.length);
+    await item.delete();
+    // The four meta lines are part of the card's flavor text, above the
+    // ability row. The roll message reuses the same flavor without them.
+    return card
+      ? { flavor: card.flavor, content: card.content, rollFlavor: roll?.flavor ?? null }
+      : null;
   }, { name: HERO, power: powerData });
 }
 
-/** Which of the four meta rows the card carries, in render order. */
-const metaRows = (html) => [...html.matchAll(/data-meta="([a-z]+)"/g)].map(m => m[1]);
+/** Which of the four meta rows a chunk of HTML carries, in render order. */
+const metaRows = (html) => [...String(html ?? '').matchAll(/data-meta="([a-z]+)"/g)].map(m => m[1]);
 
 test.describe('Power chat card meta lines', () => {
   test.beforeEach(async ({ foundryPage }) => {
@@ -47,49 +51,155 @@ test.describe('Power chat card meta lines', () => {
   });
 
   test('shows all four lines when the power sets all four', async ({ foundryPage: page }) => {
-    const html = await rollPowerAndReadCard(page, {
+    const card = await rollPowerAndReadCard(page, {
       description: '<p>Probe description.</p>',
       action: 'Standard',
       trigger: 'On a hit',
       duration: '1 round',
       cost: '10 Focus',
     });
-    expect(html).not.toBeNull();
-    expect(metaRows(html)).toEqual(['action', 'trigger', 'duration', 'cost']);
+    expect(card).not.toBeNull();
+    expect(metaRows(card.flavor)).toEqual(['action', 'trigger', 'duration', 'cost']);
     for (const value of ['Standard', 'On a hit', '1 round', '10 Focus']) {
-      expect(html).toContain(value);
+      expect(card.flavor).toContain(value);
     }
   });
 
   test('omits every line when the power sets none of them', async ({ foundryPage: page }) => {
-    const html = await rollPowerAndReadCard(page, {
+    const card = await rollPowerAndReadCard(page, {
       description: '<p>Probe description.</p>',
     });
-    expect(html).not.toBeNull();
+    expect(card).not.toBeNull();
     // The description proves the card rendered, so an empty meta list is a real
     // result rather than a card that failed to appear.
-    expect(html).toContain('Probe description.');
-    expect(metaRows(html)).toEqual([]);
+    expect(card.content).toContain('Probe description.');
+    expect(metaRows(card.flavor)).toEqual([]);
   });
 
   test('shows only the fields that have values', async ({ foundryPage: page }) => {
-    const html = await rollPowerAndReadCard(page, {
+    const card = await rollPowerAndReadCard(page, {
       description: '<p>Probe description.</p>',
       cost: '5 Focus',
     });
-    expect(html).not.toBeNull();
-    expect(metaRows(html)).toEqual(['cost']);
-    expect(html).toContain('5 Focus');
+    expect(card).not.toBeNull();
+    expect(metaRows(card.flavor)).toEqual(['cost']);
+    expect(card.flavor).toContain('5 Focus');
   });
 
   test('an emptied description leaves no empty element behind', async ({ foundryPage: page }) => {
-    const html = await rollPowerAndReadCard(page, {
+    const card = await rollPowerAndReadCard(page, {
       description: '<p></p>',
       cost: '5 Focus',
     });
-    expect(html).not.toBeNull();
+    expect(card).not.toBeNull();
     // Cost proves the card rendered; the description block must be absent.
-    expect(metaRows(html)).toEqual(['cost']);
-    expect(html).not.toContain('mm-chat-description');
+    expect(metaRows(card.flavor)).toEqual(['cost']);
+    expect(card.content).not.toContain('mm-chat-description');
+  });
+
+  test('the roll message does not repeat the meta block', async ({ foundryPage: page }) => {
+    const card = await rollPowerAndReadCard(page, {
+      description: '<p>Probe description.</p>',
+      formula: '{1d6,1dm,1d6}',
+      ability: 'mle',
+      cost: '5 Focus',
+    });
+    expect(card).not.toBeNull();
+    expect(card.rollFlavor).not.toBeNull();
+    // The roll's flavor is built, so an empty meta list here is a real result.
+    expect(card.rollFlavor).toContain('Power:');
+    expect(metaRows(card.rollFlavor)).toEqual([]);
+  });
+});
+
+test.describe('Power chat card layout', () => {
+  test.beforeEach(async ({ foundryPage }) => {
+    await dismissNotifications(foundryPage);
+    await evaluateWhenReady(foundryPage, async (name) => {
+      const stale = game.actors.filter(a => a.name === name);
+      if (stale.length) await Actor.deleteDocuments(stale.map(a => a.id));
+      await Actor.create({ name, type: 'character' });
+    }, HERO);
+  });
+
+  test.afterEach(async ({ foundryPage }) => {
+    await deleteActor(foundryPage, HERO);
+  });
+
+  /** Render a fully-populated power and measure the rendered card. */
+  async function measureCard(page) {
+    return evaluateWhenReady(page, async (name) => {
+      const actor = game.actors.find(a => a.name === name);
+      const [item] = await actor.createEmbeddedDocuments('Item', [{
+        name: 'E2E Layout Power',
+        type: 'power',
+        system: {
+          ability: 'mle',
+          description: '<p>Flavour sentence.</p>',
+          effect: '<p>Mechanical effect.</p>',
+          action: 'Reaction',
+          trigger: 'The character makes an attack.',
+          duration: 'Instant',
+          cost: '5 Focus',
+        },
+      }]);
+      const before = new Set(game.messages.contents.map(m => m.id));
+      await item.roll();
+      await new Promise(r => setTimeout(r, 1200));
+
+      const card = game.messages.contents.filter(m => !before.has(m.id)).find(m => !m.rolls?.length);
+      const li = card ? document.querySelector(`[data-message-id="${card.id}"]`) : null;
+      if (!li) { await item.delete(); return null; }
+
+      const rows = [...li.querySelectorAll('.mm-chat-meta-row')];
+      const meta = li.querySelector('.mm-chat-meta');
+      const desc = li.querySelector('.mm-chat-description');
+      const eff = li.querySelector('.mm-chat-effect');
+      const powerLine = li.querySelector('.mm-roll-flavor div div');
+      // Order of the flavor's direct children identifies what sits where.
+      const flavorOrder = [...li.querySelectorAll('.mm-roll-flavor > div > div')]
+        .map(d => d.className || 'power-line');
+
+      // The ability row sits between the meta block and the description, so the
+      // gap that meets the description is measured from whatever the flavor's
+      // last row is, not from the meta block itself.
+      const flavorRows = [...li.querySelectorAll('.mm-roll-flavor > div > div')];
+      const lastFlavorRow = flavorRows[flavorRows.length - 1];
+
+      const result = {
+        rowCount: rows.length,
+        flavorOrder,
+        powerFontSize: getComputedStyle(powerLine).fontSize,
+        rowFontSizes: [...new Set(rows.map(r => getComputedStyle(r).fontSize))],
+        metaBottom: Math.round(meta.getBoundingClientRect().bottom),
+        headerToDescription: Math.round(desc.getBoundingClientRect().top - lastFlavorRow.getBoundingClientRect().bottom),
+        descriptionToEffect: Math.round(eff.getBoundingClientRect().top - desc.getBoundingClientRect().bottom),
+      };
+      await item.delete();
+      return result;
+    }, HERO);
+  }
+
+  test('the meta block sits between the power name and the ability row', async ({ foundryPage: page }) => {
+    const m = await measureCard(page);
+    expect(m).not.toBeNull();
+    expect(m.rowCount).toBe(4);
+    // power-line, then the meta block, then the ability/type/element row.
+    expect(m.flavorOrder[0]).toBe('power-line');
+    expect(m.flavorOrder[1]).toBe('mm-chat-meta');
+  });
+
+  test('every meta row matches the power line font size', async ({ foundryPage: page }) => {
+    const m = await measureCard(page);
+    expect(m).not.toBeNull();
+    // One distinct size across all four rows, equal to the line above them.
+    expect(m.rowFontSizes).toEqual([m.powerFontSize]);
+  });
+
+  test('the gap below the header block equals the description-to-effect gap', async ({ foundryPage: page }) => {
+    const m = await measureCard(page);
+    expect(m).not.toBeNull();
+    expect(m.descriptionToEffect).toBeGreaterThan(0);
+    expect(m.headerToDescription).toBe(m.descriptionToEffect);
   });
 });

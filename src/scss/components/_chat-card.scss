@@ -5,6 +5,10 @@
 // the effect, so the two read as the same paragraph break.
 $mm-chat-gap: 4px;
 
+// One size for the whole card. The flavor wrapper already sets this inline, so
+// the body is brought down to match rather than the header being pushed up.
+$mm-chat-font-size: 12px;
+
 // The power name heads the card. The flavor wrapper and .mm-chat-body share
 // 8px of side padding, so this line, the meta rows, the ability row, the
 // description and the effect all sit on one left edge.
@@ -25,6 +29,7 @@ $mm-chat-gap: 4px;
 }
 
 .mm-chat-body {
+  font-size: $mm-chat-font-size;
   padding-inline: 8px;
   margin-block-start: 0;
 

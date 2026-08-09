@@ -189,6 +189,9 @@ test.describe('Power chat card layout', () => {
         },
         effectFontStyle: getComputedStyle(eff).fontStyle,
         descriptionFontStyle: getComputedStyle(desc).fontStyle,
+        // Every text element on the card, header and body alike.
+        fontSizes: [nameEl, rows[0], abilityRow, desc, eff]
+          .map(el => getComputedStyle(el).fontSize),
       };
       await item.delete();
       return result;
@@ -235,6 +238,14 @@ test.describe('Power chat card layout', () => {
     // Uppercasing is presentational, so the underlying text keeps its casing
     // and carries no "Power:" label.
     expect(m.nameStyle.text).toBe('E2E Layout Power');
+  });
+
+  test('every line on the card shares one font size', async ({ foundryPage: page }) => {
+    const m = await measureCard(page);
+    expect(m).not.toBeNull();
+    // name, meta row, ability row, description, effect
+    expect(m.fontSizes).toHaveLength(5);
+    expect(m.fontSizes).toEqual(m.fontSizes.map(() => m.fontSizes[0]));
   });
 
   test('the description is italic and the effect is not', async ({ foundryPage: page }) => {

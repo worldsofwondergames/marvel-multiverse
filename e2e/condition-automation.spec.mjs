@@ -343,3 +343,48 @@ test.describe('Condition Automation', () => {
     expect(conditions).toContain('poisoned');
   });
 });
+
+/**
+ * The registered status effects are what the token HUD offers. The list is
+ * built inside the init hook, so it is only observable at runtime.
+ */
+test.describe('Registered conditions', () => {
+  /** Every condition the system is expected to offer, by status id. */
+  const EXPECTED = [
+    'ablaze', 'asleep', 'bleeding', 'blinded', 'corroding', 'damageReduction',
+    'deafened', 'demoralized', 'exhausted', 'flying', 'frightened', 'grabbed',
+    'infected', 'invisible', 'paralyzed', 'pinned', 'poisoned', 'prone',
+    'shattered', 'stunned', 'surprised', 'unconscious',
+  ];
+
+  /** Replaced by the rulebook names; these must no longer be offered. */
+  const REMOVED = ['grappled', 'encumbered', 'restrained'];
+
+  test('offers every expected condition', async ({ foundryPage }) => {
+    const ids = await foundryPage.evaluate(() => CONFIG.statusEffects.map(s => s.id));
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of EXPECTED) expect(ids).toContain(id);
+  });
+
+  test('no longer offers the conditions the rulebook does not use', async ({ foundryPage }) => {
+    const ids = await foundryPage.evaluate(() => CONFIG.statusEffects.map(s => s.id));
+    // The expected list is asserted present first, so an empty or broken
+    // CONFIG.statusEffects cannot make these absence checks pass for free.
+    for (const id of EXPECTED) expect(ids).toContain(id);
+    for (const id of REMOVED) expect(ids).not.toContain(id);
+  });
+
+  test('every condition icon resolves', async ({ foundryPage }) => {
+    // The rename moved four icon files. A stale path shows an empty square in
+    // the HUD, which no id-level assertion would catch.
+    const broken = await foundryPage.evaluate(async () => {
+      const out = [];
+      for (const s of CONFIG.statusEffects) {
+        const res = await fetch(`/${s.img}`, { method: 'HEAD' });
+        if (!res.ok) out.push(`${s.id} -> ${s.img} (${res.status})`);
+      }
+      return out;
+    });
+    expect(broken).toEqual([]);
+  });
+});

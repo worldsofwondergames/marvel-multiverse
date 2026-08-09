@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 3.1.0
+
+### Conditions
+
+- **Conditions reworked to follow the rulebooks.** `Grappled` is renamed to `Grabbed`, and `Encumbered` and `Restrained` are replaced by `Demoralized` and `Pinned` — the names the core rulebook uses for those exact effects. `Demoralized`, `Pinned`, `Shattered` and `Damage Reduction` are added. `Damage Reduction` exists as a condition in addition to the existing numeric damage-reduction fields, which are unchanged. `Frightened`, `Flying` and `Invisible` are kept even though the books do not define them.
+- The Force and Iron elemental Fantastic effects now apply `Demoralized` and `Pinned` instead of `Encumbered` and `Restrained`. Their behaviour is unchanged; only the condition name differs. Swarm still applies `Frightened`.
+- **Action required:** tokens already carrying Grappled, Encumbered or Restrained keep a status id the system no longer registers, so they will show a stale icon that cannot be cleared from the HUD. Clear and reapply the condition on any affected token.
+
 ## 3.0.0
 
 ### Hotbar Macros

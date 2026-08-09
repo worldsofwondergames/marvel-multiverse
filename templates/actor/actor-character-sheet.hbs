@@ -138,6 +138,15 @@
                 </div>
               </div>
               {{/if}}
+              {{#if editable}}
+              {{!-- Sits under the DR box. When Condition DR is shown it occupies
+                    that same corner, so the button shifts left of the column. --}}
+              <div class="mm-stat-reset-slot{{#if (gt system.conditionDamageReduction 0)}} -shifted{{/if}}">
+                <button type="button" class="mm-stat-reset" data-reset="health" title="Reset Health to its maximum">
+                  <i class="fas fa-rotate-left"></i>
+                </button>
+              </div>
+              {{/if}}
             </div>
             {{!-- Focus & Focus DR --}}
             <div class="flexrow -relative">
@@ -155,6 +164,13 @@
                   {{#if (gt system.focusDamageReduction 0)}}-{{/if}}{{system.focusDamageReduction}}
                 </div>
               </div>
+              {{#if editable}}
+              <div class="mm-stat-reset-slot">
+                <button type="button" class="mm-stat-reset" data-reset="focus" title="Reset Focus to its maximum">
+                  <i class="fas fa-rotate-left"></i>
+                </button>
+              </div>
+              {{/if}}
             </div>
             {{!-- Speed & Initative --}}
             <div class="flexrow -relative">

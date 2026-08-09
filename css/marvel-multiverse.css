@@ -1762,6 +1762,59 @@
   overflow: hidden;
 }
 
+.marvel-multiverse.sheet.actor .mm-stat-reset-slot {
+  align-items: center;
+  bottom: 2px;
+  display: flex;
+  justify-content: center;
+  position: absolute;
+  right: -2px;
+  top: 50px;
+  width: 72px;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-reset-slot.-shifted {
+  right: 70px;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-reset {
+  align-items: center;
+  background: #8b0502;
+  border: 1px solid #8b0502;
+  border-radius: 3px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 11px;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  width: 28px;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-reset:hover {
+  background: #e41d18;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-reset i {
+  color: white;
+  margin: 0;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-block.-focus ~ .mm-stat-reset-slot .mm-stat-reset {
+  background: #00599e;
+  border-color: #00599e;
+}
+
+.marvel-multiverse.sheet.actor .mm-stat-block.-focus ~ .mm-stat-reset-slot .mm-stat-reset:hover {
+  background: #0088cd;
+}
+
 .marvel-multiverse.sheet.actor .mm-abilities-block .mm-ability-rows::before {
   background: #fff2ec;
   bottom: 4px;

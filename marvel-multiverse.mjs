@@ -2838,6 +2838,16 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     super.activateListeners(html);
 
 
+
+    // Restore Health or Focus to its maximum.
+    html.on("click", ".mm-stat-reset", async (ev) => {
+      ev.preventDefault();
+      const key = ev.currentTarget.dataset.reset;
+      const max = this.actor.system?.[key]?.max;
+      // max is derived, so it is a number whenever the field exists at all.
+      if (typeof max !== "number") return;
+      await this.actor.update({ [`system.${key}.value`]: max });
+    });
     // Spend a power's Focus cost from the sheet.
     html.on("click", ".power-activate", async (ev) => {
       ev.preventDefault();
@@ -3993,6 +4003,16 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
     super.activateListeners(html);
 
 
+
+    // Restore Health or Focus to its maximum.
+    html.on("click", ".mm-stat-reset", async (ev) => {
+      ev.preventDefault();
+      const key = ev.currentTarget.dataset.reset;
+      const max = this.actor.system?.[key]?.max;
+      // max is derived, so it is a number whenever the field exists at all.
+      if (typeof max !== "number") return;
+      await this.actor.update({ [`system.${key}.value`]: max });
+    });
     // Spend a power's Focus cost from the sheet.
     html.on("click", ".power-activate", async (ev) => {
       ev.preventDefault();

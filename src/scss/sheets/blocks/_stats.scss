@@ -123,3 +123,63 @@
     }
   }
 }
+
+// Reset control for Health and Focus. It sits in the same right-hand column as
+// the damage-reduction box, filling the space between that box's bottom edge
+// (54px tall, offset -4px, so 50px down) and the block's bottom border, and is
+// centred in both directions within that space.
+.mm-stat-reset-slot {
+  align-items: center;
+  bottom: 2px;
+  display: flex;
+  justify-content: center;
+  position: absolute;
+  right: -2px;
+  top: 50px;
+  width: 72px;
+
+  // Condition DR is pinned to this same corner when it appears, so the button
+  // moves one column left rather than sitting underneath it.
+  &.-shifted {
+    right: 70px;
+  }
+}
+
+.mm-stat-reset {
+  align-items: center;
+  background: $mm-secondary-red;
+  border: 1px solid $mm-secondary-red;
+  border-radius: 3px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 11px;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  width: 28px;
+
+  &:hover {
+    background: $mm-primary-red;
+    box-shadow: none;
+    text-shadow: none;
+  }
+
+  i {
+    color: white;
+    margin: 0;
+  }
+}
+
+// Focus is the blue block, so its reset follows that palette.
+.mm-stat-block.-focus ~ .mm-stat-reset-slot .mm-stat-reset {
+  background: $mm-secondary-blue;
+  border-color: $mm-secondary-blue;
+
+  &:hover {
+    background: $mm-primary-blue;
+  }
+}

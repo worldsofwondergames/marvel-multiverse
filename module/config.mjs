@@ -238,7 +238,7 @@ MARVEL_MULTIVERSE.elements = {
   force: {
     label: "Force",
     fantasticEffect: "Target has trouble on all actions for one round.",
-    statusId: "encumbered",
+    statusId: "demoralized",
   },
   hellfire: {
     label: "Hellfire",
@@ -252,7 +252,7 @@ MARVEL_MULTIVERSE.elements = {
   iron: {
     label: "Iron",
     fantasticEffect: "Pins target for one round.",
-    statusId: "restrained",
+    statusId: "pinned",
   },
   sound: {
     label: "Sound",

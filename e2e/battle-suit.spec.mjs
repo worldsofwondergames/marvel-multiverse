@@ -354,7 +354,7 @@ test.describe('Battle Suit Item Type', () => {
         'system.abilityModifiers.melee': 3,
         'system.rankIncrease': 2,
         'system.additionalTraits': ['Big', 'Fearless'],
-        'system.integratedIconicItems': [{ id: 'x', name: 'Unibeam', img: '' }],
+        'system.integratedIconicItems': [{ id: 'x', name: 'Focused Beam', img: '' }],
       });
     }, BATTLE_SUIT_NAME);
     await page.waitForTimeout(500);
@@ -371,7 +371,7 @@ test.describe('Battle Suit Item Type', () => {
     await expect(sheet.locator('.mm-battlesuit-powers-drop-zone')).toBeVisible();
     await expect(sheet.locator('.mm-battlesuit-powers-drop-zone')).toContainText('Repulsors');
     await expect(sheet.locator('.mm-battlesuit-iconic-drop-zone')).toBeVisible();
-    await expect(sheet.locator('.mm-battlesuit-iconic-drop-zone')).toContainText('Unibeam');
+    await expect(sheet.locator('.mm-battlesuit-iconic-drop-zone')).toContainText('Focused Beam');
 
     // Restrictions tab
     await sheet.locator('.sheet-tabs a[data-tab="restrictions"]').click();

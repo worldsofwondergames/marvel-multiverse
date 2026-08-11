@@ -51,13 +51,13 @@ describe("phrases that must not become rolls", () => {
 
 describe("ability checks and attacks", () => {
   test("an ability check names that ability", () => {
-    expect(links("The character makes an Ego check against the possessor's Ego defense.")).toEqual([
+    expect(links("The hero makes an Ego check against the rival's Logic defense.")).toEqual([
       { abilityKey: "ego", kind: "check", tn: null, label: "Ego check" },
     ]);
   });
 
   test("an ability attack is an attack, not a check", () => {
-    expect(links("The character makes a Melee attack against the grabbed target.")).toEqual([
+    expect(links("The hero makes a Melee attack against the held foe.")).toEqual([
       { abilityKey: "mle", kind: "attack", tn: null, label: "Melee attack" },
     ]);
   });
@@ -72,7 +72,7 @@ describe("ability checks and attacks", () => {
   });
 
   test("plurals are matched", () => {
-    expect(links("gain a +2 bonus to Agility checks other than attacks")).toEqual([
+    expect(links("gain a +2 bonus to Agility checks of any other kind")).toEqual([
       { abilityKey: "agl", kind: "check", tn: null, label: "Agility checks" },
     ]);
   });
@@ -92,19 +92,19 @@ describe("ability checks and attacks", () => {
 
 describe("target numbers", () => {
   test("a vs. TN action check captures its number as one link", () => {
-    expect(links("they can make a Logic vs. TN 13 action check to puzzle it out")).toEqual([
+    expect(links("they can make a Logic vs. TN 13 action check to work it out")).toEqual([
       { abilityKey: "log", kind: "check", tn: 13, label: "Logic vs. TN 13 action check" },
     ]);
   });
 
   test("a parenthesised target number captures its number as one link", () => {
-    expect(links("Breaking free from webbing requires a Melee check (target number 20).")).toEqual([
+    expect(links("Pulling loose requires a Melee check (target number 20).")).toEqual([
       { abilityKey: "mle", kind: "check", tn: 20, label: "Melee check (target number 20)" },
     ]);
   });
 
   test("TN without the period still matches", () => {
-    expect(links("must make an Ego vs TN 18 action check or follow those orders")).toEqual([
+    expect(links("must make an Ego vs TN 18 action check or comply")).toEqual([
       { abilityKey: "ego", kind: "check", tn: 18, label: "Ego vs TN 18 action check" },
     ]);
   });

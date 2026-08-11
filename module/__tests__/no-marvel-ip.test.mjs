@@ -86,3 +86,76 @@ describe('the system repo carries no Marvel IP', () => {
     expect(hits).toEqual([]);
   });
 });
+
+/**
+ * The term list above catches names. It does not catch rules prose, which is
+ * how six test fixtures ended up holding published sentences copied out of the
+ * compendium while the roll-link patterns were worked out.
+ *
+ * Comparing against the data module directly is not an option, because the
+ * system must build without it. Instead the repo stores hashes of every
+ * twelve-word run in the compendium text. A hash recognises a phrase without
+ * containing it, so the check ships no published text.
+ *
+ * Regenerate after the compendium changes:
+ *   node utils/build-rules-fingerprints.mjs
+ */
+describe('the system repo carries no copied rules prose', () => {
+  const FINGERPRINTS = path.join(HERE, 'fixtures', 'rules-prose.hashes');
+  const haveFingerprints = fs.existsSync(FINGERPRINTS);
+
+  // Files whose whole job is handling this text, plus the generator itself.
+  const PROSE_EXEMPT = new Set([
+    'module/__tests__/no-marvel-ip.test.mjs',
+    'utils/build-rules-fingerprints.mjs',
+  ]);
+
+  test('the fingerprint file is present and populated', () => {
+    // A missing or empty file would make the scan below pass by checking
+    // nothing, which is the failure mode this whole test exists to avoid.
+    expect(haveFingerprints).toBe(true);
+    const count = fs.readFileSync(FINGERPRINTS, 'utf8').split('\n').filter(Boolean).length;
+    expect(count).toBeGreaterThan(10_000);
+  });
+
+  test('no tracked source file repeats twelve consecutive words of compendium text', async () => {
+    const { fingerprints } = await import('../../utils/build-rules-fingerprints.mjs');
+    const known = new Set(fs.readFileSync(FINGERPRINTS, 'utf8').split('\n').filter(Boolean));
+
+    const hits = [];
+    for (const file of trackedTextFiles()) {
+      if (PROSE_EXEMPT.has(file)) continue;
+      const text = fs.readFileSync(path.join(REPO_ROOT, file), 'utf8');
+      for (const hash of fingerprints(text)) {
+        if (known.has(hash)) hits.push(`${file}  matches compendium prose (${hash})`);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  test('twelve words fingerprint, eleven do not', async () => {
+    // The window is what keeps ordinary rules vocabulary from matching. Shrink
+    // it and common phrasing starts tripping the scan; grow it and real copied
+    // sentences slip through.
+    //
+    // Twelve is written out rather than read from WINDOW. Building the input
+    // from the constant under test would move both sides together and the
+    // assertion could never fail.
+    const { fingerprints } = await import('../../utils/build-rules-fingerprints.mjs');
+    const words = Array.from({ length: 13 }, (_, i) => `word${i}`);
+
+    expect(fingerprints(words.slice(0, 11).join(' ')).size).toBe(0);
+    expect(fingerprints(words.slice(0, 12).join(' ')).size).toBe(1);
+    expect(fingerprints(words.join(' ')).size).toBe(2);
+  });
+
+  test('formatting and punctuation do not hide a match', async () => {
+    // Text reaches this scan as HTML in some files and plain prose in others,
+    // so the same sentence has to fingerprint identically either way.
+    const { fingerprints } = await import('../../utils/build-rules-fingerprints.mjs');
+    const plain = 'one two three four five six seven eight nine ten eleven twelve';
+    const marked = '<p>One, two &mdash; three four five; six "seven" eight nine ten eleven twelve!</p>';
+
+    expect([...fingerprints(marked)]).toEqual([...fingerprints(plain)]);
+  });
+});

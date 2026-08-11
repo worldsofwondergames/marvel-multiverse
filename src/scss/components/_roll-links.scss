@@ -1,0 +1,32 @@
+@use "../utils/colors" as *;
+@use "../utils/variables" as *;
+
+// Roll links sit inside running prose, so they are styled as emphasised text
+// rather than as a control. A background or border would break the line the
+// sentence sits on and make the paragraph hard to read.
+.mm-roll-link {
+  color: $mm-secondary-red;
+  font-weight: 700;
+  cursor: pointer;
+  border-bottom: 1px dotted $mm-secondary-red;
+  white-space: nowrap;
+
+  i {
+    margin-right: $mm-spacing-xs;
+    font-size: 0.85em;
+    opacity: 0.75;
+  }
+
+  &:hover {
+    color: $mm-primary-red;
+    border-bottom-style: solid;
+    text-shadow: none;
+  }
+}
+
+// The target number outcome sits under the ability row in the roll flavor and
+// shares that block's padding so it lines up with everything above it.
+.mm-roll-tn {
+  padding: $mm-spacing-xs $mm-spacing-md 0;
+  font-size: 12px;
+}

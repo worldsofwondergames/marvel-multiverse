@@ -1387,6 +1387,29 @@
   display: block;
 }
 
+.mm-roll-link {
+  color: #8b0502;
+  font-weight: 700;
+  cursor: pointer;
+  border-bottom: 1px dotted #8b0502;
+  white-space: nowrap;
+}
+.mm-roll-link i {
+  margin-right: 2px;
+  font-size: 0.85em;
+  opacity: 0.75;
+}
+.mm-roll-link:hover {
+  color: #e41d18;
+  border-bottom-style: solid;
+  text-shadow: none;
+}
+
+.mm-roll-tn {
+  padding: 2px 8px 0;
+  font-size: 12px;
+}
+
 .marvel-multiverse.sheet .window-content {
   background-position: top -360px center;
   background-repeat: no-repeat;

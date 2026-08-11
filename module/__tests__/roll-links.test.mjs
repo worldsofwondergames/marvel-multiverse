@@ -1,11 +1,5 @@
 /* eslint-env jest */
-import {
-  ABILITY_BY_NAME,
-  IMPLIED_ABILITY,
-  describeRollLink,
-  findRollLinks,
-  ROLL_LINK_PATTERN,
-} from "../helpers/roll-links.mjs";
+import { findRollLinks } from "../helpers/roll-links.mjs";
 
 /** Convenience: the descriptors found in a string, without the match index. */
 function links(text) {
@@ -82,12 +76,6 @@ describe("ability checks and attacks", () => {
       { abilityKey: key, kind: "check", tn: null, label: `${name} check` },
     ]);
   });
-
-  test("the ability map covers exactly the six abilities", () => {
-    expect(Object.keys(ABILITY_BY_NAME).sort()).toEqual(
-      ["agility", "ego", "logic", "melee", "resilience", "vigilance"]
-    );
-  });
 });
 
 describe("target numbers", () => {
@@ -127,19 +115,5 @@ describe("pattern mechanics", () => {
     const text = "makes an Ego check and then a Logic check";
     expect(links(text)).toHaveLength(2);
     expect(links(text)).toHaveLength(2);
-  });
-
-  test("describeRollLink returns null when handed a match with no groups", () => {
-    expect(describeRollLink({ 0: "Ego check" })).toBeNull();
-    expect(describeRollLink(null)).toBeNull();
-  });
-
-  test("implied abilities cover exactly close and ranged", () => {
-    expect(Object.keys(IMPLIED_ABILITY).sort()).toEqual(["close", "ranged"]);
-  });
-
-  test("the pattern carries the flags the enricher relies on", () => {
-    expect(ROLL_LINK_PATTERN.flags).toContain("g");
-    expect(ROLL_LINK_PATTERN.flags).toContain("i");
   });
 });

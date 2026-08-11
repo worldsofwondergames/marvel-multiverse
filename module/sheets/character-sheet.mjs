@@ -3,6 +3,7 @@ import {
   prepareActiveEffectCategories,
 } from "../helpers/effects.mjs";
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
+import { enrichSheetFields } from "../helpers/enrich.mjs";
 
 /**
  * Extend the basic actor sheet with some very simple modifications
@@ -39,7 +40,7 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
   /* -------------------------------------------- */
 
   /** @override */
-  getData() {
+  async getData() {
     // Retrieve the data structure from the base sheet. You can inspect or log
     // the context variable to see the structure, but some key properties for
     // sheets are the actor object, the data object, whether or not it's
@@ -165,6 +166,12 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
 
       context.formData = { isPrimary, isAlternate, forms, primaryActors };
     }
+
+    // Rich text is shown enriched so content links, inline rolls and the
+    // roll links registered by this system all work on the sheet.
+    context.enriched = await enrichSheetFields(this.actor, {
+      rollData: context.rollData,
+    });
 
     return context;
   }

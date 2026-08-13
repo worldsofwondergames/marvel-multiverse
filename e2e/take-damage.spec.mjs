@@ -3,13 +3,11 @@ import {
   createActorViaAPI,
   updateActorData,
   createActiveEffect,
-  deleteActor,
   createScene,
   activateScene,
   placeToken,
   targetToken,
   clearTargets,
-  deleteScene,
   triggerAbilityRoll,
   forceHit,
   clearChatMessages,
@@ -29,6 +27,7 @@ const ATTACKER = 'E2E Take Damage Attacker';
 const DEFENDER = 'E2E Take Damage Defender';
 const BYSTANDER = 'E2E Take Damage Bystander';
 const SCENE_NAME = 'E2E Take Damage Scene';
+const PLAYER_NAME = 'E2E Take Damage Player';
 
 /**
  * Wait until the canvas is actually showing the named scene.
@@ -114,6 +113,30 @@ async function buttonStates(page, uuid) {
       (b) => ({ disabled: b.disabled, label: b.textContent.trim() }),
     );
   }, uuid);
+}
+
+/**
+ * Remove everything these tests create, by name and in every copy.
+ *
+ * Teardown runs from afterEach rather than from the end of a test body, so a
+ * test that fails partway still takes its actors, scene and user with it. The
+ * shared deleteScene helper removes only the first match, which is not enough
+ * once an earlier failure has left one behind.
+ */
+async function purgeTestData(page) {
+  await page.evaluate(async ({ actorNames, sceneName, userName }) => {
+    game.user.targets.forEach((t) => t.setTarget(false));
+
+    const actors = game.actors.filter((a) => actorNames.includes(a.name));
+    if (actors.length) await Actor.deleteDocuments(actors.map((a) => a.id));
+
+    const scenes = game.scenes.filter((s) => s.name === sceneName);
+    if (scenes.length) await Scene.deleteDocuments(scenes.map((s) => s.id));
+
+    const users = game.users.filter((u) => u.name === userName);
+    if (users.length) await User.deleteDocuments(users.map((u) => u.id));
+  }, { actorNames: [ATTACKER, DEFENDER, BYSTANDER], sceneName: SCENE_NAME, userName: PLAYER_NAME });
+  await page.waitForTimeout(500);
 }
 
 /** Set up attacker, defender and scene, then roll an attack that cannot miss. */
@@ -203,11 +226,7 @@ test.describe('applying damage from the chat card', () => {
   });
 
   test.afterEach(async ({ foundryPage }) => {
-    await clearTargets(foundryPage);
-    await deleteActor(foundryPage, ATTACKER);
-    await deleteActor(foundryPage, DEFENDER);
-    await deleteActor(foundryPage, BYSTANDER);
-    await deleteScene(foundryPage, SCENE_NAME);
+    await purgeTestData(foundryPage);
   });
 
   test('clicking Take Damage takes the recorded amount off the target Health', async ({ foundryPage: page }) => {
@@ -421,9 +440,11 @@ test.describe('applying damage from the chat card', () => {
  * line, so this needs a second client actually joined as a player. Nothing
  * about the rule can be observed from the GM's session.
  */
-const PLAYER_NAME = 'E2E Take Damage Player';
-
 test.describe('who the button is shown to', () => {
+  test.afterEach(async ({ foundryPage }) => {
+    await purgeTestData(foundryPage);
+  });
+
   test('a player sees the button only for the target they own', async ({ foundryPage: page, browser }) => {
     await page.waitForFunction(() => window.game?.ready === true, { timeout: 60_000 });
     await clearChatMessages(page);
@@ -519,14 +540,5 @@ test.describe('who the button is shown to', () => {
       await context.close();
     }
 
-    await clearTargets(page);
-    await deleteActor(page, ATTACKER);
-    await deleteActor(page, DEFENDER);
-    await deleteActor(page, BYSTANDER);
-    await deleteScene(page, SCENE_NAME);
-    await page.evaluate(async (id) => {
-      const user = game.users.get(id);
-      if (user) await user.delete();
-    }, playerId);
   });
 });

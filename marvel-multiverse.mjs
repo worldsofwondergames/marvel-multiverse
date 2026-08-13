@@ -78,6 +78,48 @@ function computeDamage({
 }
 
 /**
+ * Powers whose rules text says targets take half damage.
+ *
+ * Matched on the rule rather than on a list of power names: the system repo
+ * carries no content, and a name list here would both duplicate the compendium
+ * and go stale the moment content is added.
+ */
+const HALF_DAMAGE_RULE = /half\s+regular\s+damage/i;
+
+/** The scale such a power should carry. */
+const HALF_DAMAGE_SCALE = 0.5;
+
+/**
+ * Whether one item still needs the half-damage scale applied.
+ *
+ * A value other than 1 is left alone, so a deliberate choice by a GM -- or a
+ * later correction -- is never overwritten by this running again.
+ * @param {object} item
+ * @returns {boolean}
+ */
+function needsHalfDamageScale(item) {
+  if (item?.type !== "power") return false;
+  const scale = item?.system?.damageScale;
+  if (scale !== undefined && scale !== null && scale !== 1) return false;
+  return HALF_DAMAGE_RULE.test(item?.system?.effect ?? "");
+}
+
+/**
+ * The updates required to bring a collection of items in line. Returns payloads
+ * rather than applying them, so what changes is testable without a database.
+ * @param {Iterable<object>} items
+ * @returns {Array<object>}
+ */
+function collectHalfDamageUpdates(items) {
+  const updates = [];
+  for (const item of items ?? []) {
+    if (!needsHalfDamageScale(item)) continue;
+    updates.push({ _id: item.id ?? item._id, "system.damageScale": HALF_DAMAGE_SCALE });
+  }
+  return updates;
+}
+
+/**
  * The fraction of regular damage an item's power deals, or null when it deals
  * the usual amount.
  *
@@ -7161,6 +7203,14 @@ Hooks.once("init", () => {
     hqTrait: MarvelMultiverseHqTrait,
   };
 
+  // Records world repairs that have already run, so each is applied once.
+  game.settings.register("marvel-multiverse", "migrationVersion", {
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 0,
+  });
+
   game.settings.register("marvel-multiverse", "autoPopulateOrigin", {
     name: "Auto-Populate Origin Items",
     hint: "When adding an Origin or Occupation to a character, automatically create its associated powers, traits, and tags.",
@@ -7788,6 +7838,56 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     });
   }
 });
+
+/** Bumped when a new repair is added below. */
+const MIGRATION_VERSION = 1;
+
+/**
+ * Bring already-imported powers in line with a compendium backfill.
+ *
+ * `damageScale` was added to the schema and set on the twelve powers whose text
+ * reads "half regular damage", but a compendium edit does not reach copies that
+ * are already owned by an actor. Without this pass those powers keep dealing
+ * full damage in every world that imported them before the field existed.
+ *
+ * GM only, and recorded in a setting so it runs once per world rather than on
+ * every load.
+ */
+async function _runWorldMigrations() {
+  if (!game.user.isGM) return;
+  const done = game.settings.get("marvel-multiverse", "migrationVersion");
+  if (done >= MIGRATION_VERSION) return;
+
+  let changed = 0;
+  try {
+    for (const actor of game.actors) {
+      const updates = collectHalfDamageUpdates(actor.items);
+      if (!updates.length) continue;
+      await actor.updateEmbeddedDocuments("Item", updates);
+      changed += updates.length;
+    }
+
+    const worldUpdates = collectHalfDamageUpdates(game.items);
+    if (worldUpdates.length) {
+      await Item.updateDocuments(worldUpdates);
+      changed += worldUpdates.length;
+    }
+  } catch (err) {
+    // Leave the version unbumped so the pass is retried next load rather than
+    // being recorded as done after a partial run.
+    console.error("marvel-multiverse | half damage migration failed", err);
+    return;
+  }
+
+  await game.settings.set("marvel-multiverse", "migrationVersion", MIGRATION_VERSION);
+  if (changed) {
+    ui.notifications.info(
+      `Marvel Multiverse: updated ${changed} half-damage power${changed === 1 ? "" : "s"} on existing characters.`
+    );
+  }
+}
+
+Hooks.once("ready", () => _runWorldMigrations());
 
 Hooks.once("ready", () => {
   game.socket.on(MM_SOCKET, async (data) => {
@@ -8600,5 +8700,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, collectHalfDamageUpdates, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

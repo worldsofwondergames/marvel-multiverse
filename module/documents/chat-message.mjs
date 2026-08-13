@@ -1,5 +1,10 @@
 import { MarvelMultiverseRoll } from "../dice/roll.mjs";
 import { MARVEL_MULTIVERSE } from "../config.mjs";
+import {
+  computeDamage,
+  damageReductionPath,
+  isTargetHit,
+} from "../helpers/damage-application.mjs";
 
 export class ChatMessageMarvel extends ChatMessage {
   /** @inheritDoc */
@@ -190,7 +195,7 @@ export class ChatMessageMarvel extends ChatMessage {
     evaluation.classList.add("marvel-multiverse", "evaluation");
     evaluation.innerHTML = targets
       .map(({ name, img, ac, uuid }) => {
-        const isMiss = !attackRoll.isFantastic && attackRoll.total < ac;
+        const isMiss = !isTargetHit(attackRoll, ac);
         return [
           `
         <li data-uuid="${uuid}" class="target ${isMiss ? "miss" : "hit"}">
@@ -279,47 +284,63 @@ export class ChatMessageMarvel extends ChatMessage {
     const damageMultiplier =
       actor.system.abilities[abilityAbr].damageMultiplier;
 
-    const targetTokens = (canvas.tokens?.objects?.children ?? []).filter(
-      (t) => t.isTargeted
-    );
-
     const abilityValue = actor.system.abilities[abilityAbr].value;
 
-    const targets = targetTokens.map((t) => t.actor);
+    // Who was targeted when the attack was rolled, not who happens to be
+    // targeted now. Reading live canvas targeting here meant retargeting
+    // between the attack and this click damaged the wrong actors, and it left
+    // the handler with no defense value to tell a hit from a miss.
+    const attackRoll = chatMessage.rolls[0];
+    const declaredTargets = chatMessage.getFlag("marvel-multiverse", "targets") ?? [];
+    const resolvedTargets = [];
+    for (const declared of declaredTargets) {
+      const targetActor = await fromUuid(declared.uuid);
+      if (!targetActor) continue;
+      resolvedTargets.push({
+        ...declared,
+        actor: targetActor,
+        hit: isTargetHit(attackRoll, declared.ac),
+      });
+    }
+    const targets = resolvedTargets.filter((t) => t.hit).map((t) => t.actor);
 
-    const damageContent = targets.map((t) => {
-      const damageReduction =
-        damageType && damageType === "focus"
-          ? t.system.focusDamageReduction
-          : t.system.healthDamageReduction;
-      // Rulebook: once DR meets or exceeds the damage multiplier the attack
-      // "does no damage at all, not even from the attacker's Ability score
-      // bonus". Clamping first also stops DR above the multiplier producing a
-      // negative total.
-      const dmgMultiplier = Math.max(0, damageMultiplier - damageReduction);
-      let dmg =
-        dmgMultiplier === 0
-          ? 0
-          : marvelDie.total * dmgMultiplier + abilityValue;
-      if (fantastic) {
-        dmg = dmg * 2;
+    /** Per-target amounts, recorded on the message so the button never has to read them back out of the rendered text. */
+    const damageFlagTargets = [];
+
+    const damageContent = resolvedTargets.map((t) => {
+      if (!t.hit) {
+        damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: 0, hit: false });
+        return `<div class="mm-damage-target -miss" data-target-uuid="${t.uuid}"><p><b>${t.name}</b> — Miss, no damage.</p></div>`;
       }
-      return `<p><b>${t.name}</b> takes <b>${dmg} ${
+      const damageReduction =
+        t.actor.system[damageReductionPath(damageType)] ?? 0;
+      const { amount: dmg, effectiveMultiplier: dmgMultiplier } = computeDamage({
+        marvelDieTotal: marvelDie.total,
+        damageMultiplier,
+        damageReduction,
+        abilityValue,
+        fantastic: !!fantastic,
+      });
+      damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
+      return `<div class="mm-damage-target" data-target-uuid="${t.uuid}"><p><b>${t.name}</b> takes <b>${dmg} ${
         fantastic ? "Fantastic" : ""
       } </b> ${damageType} damage.<br/> re: MarvelDie: ${
         marvelDie.total
       } &#42; damage multiplier: &#40; ${
         actor.system.abilities[abilityAbr].damageMultiplier
-      } - damageReduction: ${damageReduction} &#61; ${dmgMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
+      } - damageReduction: ${damageReduction} &#61; ${dmgMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>
+      <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button></div>`;
     });
 
     if (damageContent.length === 0) {
-      // Same rule with no target selected: a multiplier of 0 deals nothing.
-      let dmg =
-        damageMultiplier <= 0 ? 0 : marvelDie.total * damageMultiplier + abilityValue;
-      if (fantastic) {
-        dmg = dmg * 2;
-      }
+      // No target was declared, so there is nobody to apply the damage to and
+      // the card keeps its plain form: the number, and no button.
+      const { amount: dmg } = computeDamage({
+        marvelDieTotal: marvelDie.total,
+        damageMultiplier,
+        abilityValue,
+        fantastic: !!fantastic,
+      });
       damageContent.push(
         `<p>target(s) take <b>${dmg} ${
           fantastic ? "Fantastic" : ""
@@ -335,6 +356,8 @@ export class ChatMessageMarvel extends ChatMessage {
           `<p><b>Fantastic Elemental Effect (${elementConfig.label}):</b> ${elementConfig.fantasticEffect}</p>`
         );
         if (elementConfig.statusId) {
+          // Only targets the attack actually hit. Before the handler could tell
+          // a hit from a miss it applied the status to everyone targeted.
           for (const target of targets) {
             await target.toggleStatusEffect(elementConfig.statusId, { active: true });
             const cdr = target.system.conditionDamageReduction ?? 0;
@@ -354,6 +377,17 @@ export class ChatMessageMarvel extends ChatMessage {
       flavor: flavorText,
       content: damageContent.join(""),
     };
+    if (damageFlagTargets.length) {
+      msgData.flags = {
+        "marvel-multiverse": {
+          damage: {
+            damageType: damageType ?? "health",
+            targets: damageFlagTargets,
+            applied: [],
+          },
+        },
+      };
+    }
     ChatMessageMarvel.create(msgData);
   }
 

@@ -14,6 +14,109 @@ function _getAttackTargets(attackTargetAbility) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Whether an attack roll beat a target's defense.
+ *
+ * A Fantastic result hits regardless of the number, so it is checked before the
+ * comparison rather than folded into it. `_enrichAttackTargets` draws the
+ * Hit/Miss list from this and the damage card decides who gets a button from
+ * the same call, so the two can never disagree about what a hit is.
+ *
+ * @param {{isFantastic?: boolean, total?: number}} attackRoll
+ * @param {number} ac  The target's defense against the attacking ability.
+ * @returns {boolean}
+ */
+function isTargetHit(attackRoll, ac) {
+  if (attackRoll?.isFantastic) return true;
+  return Number(attackRoll?.total) >= Number(ac);
+}
+
+/**
+ * Damage after the target's damage reduction is taken off the attacker's
+ * multiplier.
+ *
+ * Rulebook: once DR meets or exceeds the multiplier the attack "does no damage
+ * at all, not even from the attacker's Ability score bonus", so a zeroed
+ * multiplier returns 0 rather than the bare ability score. Clamping the
+ * multiplier first also stops DR above it from producing negative damage.
+ *
+ * @param {object} args
+ * @param {number} args.marvelDieTotal
+ * @param {number} args.damageMultiplier   The attacker's multiplier for the ability used.
+ * @param {number} [args.damageReduction]  The target's DR for this damage type.
+ * @param {number} args.abilityValue       The attacker's score in the ability used.
+ * @param {boolean} [args.fantastic]
+ * @returns {{amount: number, effectiveMultiplier: number}}
+ */
+function computeDamage({
+  marvelDieTotal,
+  damageMultiplier,
+  damageReduction = 0,
+  abilityValue,
+  fantastic = false,
+}) {
+  const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
+  let amount =
+    effectiveMultiplier === 0
+      ? 0
+      : marvelDieTotal * effectiveMultiplier + abilityValue;
+  if (fantastic) amount = amount * 2;
+  return { amount, effectiveMultiplier };
+}
+
+/**
+ * The actor field a damage type comes out of. Only `focus` diverts; everything
+ * else, including an attack that named no damage type, comes off Health.
+ * @param {string} damageType
+ * @returns {string}
+ */
+function damageValuePath(damageType) {
+  return damageType === "focus" ? "system.focus.value" : "system.health.value";
+}
+
+/**
+ * The DR field a damage type is reduced by, matching damageValuePath.
+ * @param {string} damageType
+ * @returns {string}
+ */
+function damageReductionPath(damageType) {
+  return damageType === "focus"
+    ? "focusDamageReduction"
+    : "healthDamageReduction";
+}
+
+/**
+ * Whether this user may apply damage to this actor. The damage message is sent
+ * to everyone, so the button has to be removed per viewer at render time rather
+ * than left out when the message is built.
+ * @param {User} user
+ * @param {Actor} actor
+ * @returns {boolean}
+ */
+function canApplyDamage(user, actor) {
+  if (!user || !actor) return false;
+  if (user.isGM) return true;
+  return actor.testUserPermission?.(user, "OWNER") === true;
+}
+
+/**
+ * The applied list after a target's damage has been taken.
+ *
+ * A list rather than a keyed object because actor uuids contain a period
+ * ("Actor.4kNqW..."), and Foundry expands periods in a flag key into nested
+ * objects — a uuid used as a key would silently become a tree of one-character
+ * levels.
+ *
+ * @param {string[]} applied  The existing list, if any.
+ * @param {string} uuid
+ * @returns {string[]}  A new list; the input is not modified.
+ */
+function withApplied(applied, uuid) {
+  const list = Array.isArray(applied) ? applied : [];
+  if (list.includes(uuid)) return [...list];
+  return [...list, uuid];
+}
+
 function _toTitleCase(str) {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
@@ -2019,7 +2122,7 @@ class ChatMessageMarvel extends ChatMessage {
     evaluation.style.cssText = "list-style:none;padding:4px 0;margin:4px 0 0;border-top:1px solid #ddd;";
     evaluation.innerHTML = targets
       .map(({ name, img, ac, uuid }) => {
-        const isMiss = !attackRoll.isFantastic && attackRoll.total < ac;
+        const isMiss = !isTargetHit(attackRoll, ac);
         const color = isMiss ? "#a00" : "#0a0";
         const icon = isMiss ? "fa-times" : "fa-check";
         const label = isMiss ? "Miss" : "Hit";
@@ -2128,31 +2231,47 @@ class ChatMessageMarvel extends ChatMessage {
     const damageMultiplier =
       actor.system.abilities[abilityAbr].damageMultiplier;
 
-    const targetTokens = (canvas.tokens?.objects?.children ?? []).filter(
-      (t) => t.isTargeted
-    );
-
     const abilityValue = actor.system.abilities[abilityAbr].value;
 
-    const targets = targetTokens.map((t) => t.actor);
+    // Who was targeted when the attack was rolled, not who happens to be
+    // targeted now. Reading live canvas targeting here meant retargeting
+    // between the attack and this click damaged the wrong actors, and it left
+    // the handler with no defense value to tell a hit from a miss.
+    const attackRoll = chatMessage.rolls[0];
+    const declaredTargets = chatMessage.getFlag("marvel-multiverse", "targets") ?? [];
+    const resolvedTargets = [];
+    for (const declared of declaredTargets) {
+      const targetActor = await fromUuid(declared.uuid);
+      if (!targetActor) continue;
+      resolvedTargets.push({
+        ...declared,
+        actor: targetActor,
+        hit: isTargetHit(attackRoll, declared.ac),
+      });
+    }
+    const hitActors = resolvedTargets.filter((t) => t.hit).map((t) => t.actor);
 
-    const damageContent = targets.map((t) => {
-      const damageReduction =
-        damageType && damageType === "focus"
-          ? t.system.focusDamageReduction
-          : t.system.healthDamageReduction;
-      const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
-      // Rulebook: once DR meets or exceeds the damage multiplier the attack
-      // "does no damage at all, not even from the attacker's Ability score
-      // bonus" — so the ability score is not added to a zeroed multiplier.
-      let dmg =
-        effectiveMultiplier === 0
-          ? 0
-          : marvelDie.total * effectiveMultiplier + abilityValue;
-      if (fantastic) {
-        dmg = dmg * 2;
-      }
+    /** Per-target amounts, recorded on the message so the button never has to read them back out of the rendered text. */
+    const damageFlagTargets = [];
+
+    const damageContent = resolvedTargets.map((t) => {
       const dmgTypeLabel = damageType ? ` ${damageType}` : "";
+      if (!t.hit) {
+        damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: 0, hit: false });
+        return `<div class="mm-damage-target -miss" data-target-uuid="${t.uuid}">
+          <p style="margin:4px 0;"><b>${t.name}</b> — <span style="color:#a00;font-weight:700;"><i class="fas fa-times"></i> Miss</span>, no damage</p>
+        </div>`;
+      }
+      const damageReduction =
+        t.actor.system[damageReductionPath(damageType)] ?? 0;
+      const { amount: dmg, effectiveMultiplier } = computeDamage({
+        marvelDieTotal: marvelDie.total,
+        damageMultiplier,
+        damageReduction,
+        abilityValue,
+        fantastic: !!fantastic,
+      });
+      damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
       const fantasticLabel = fantastic ? " Fantastic" : "";
       const drLine = damageReduction > 0
         ? `<br/><span style="font-size:11px;color:#555;">Multiplier ${damageMultiplier} − DR ${damageReduction} = ${effectiveMultiplier}</span>`
@@ -2161,17 +2280,22 @@ class ChatMessageMarvel extends ChatMessage {
         ? `(Multiplier - DR) ${effectiveMultiplier}`
         : `Multiplier ${damageMultiplier}`;
       const fantasticMult = fantastic ? " × 2" : "";
-      return `<p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${fantasticMult}${drLine}</p>`;
+      return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
+        <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${fantasticMult}${drLine}</p>
+        <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
+      </div>`;
     });
 
     if (damageContent.length === 0) {
-      // Same rule with no target selected: a multiplier of 0 deals nothing.
-      let dmg =
-        damageMultiplier <= 0 ? 0 : marvelDie.total * damageMultiplier + abilityValue;
-      if (fantastic) {
-        dmg = dmg * 2;
-      }
+      // No target was declared, so there is nobody to apply the damage to and
+      // the card keeps its plain form: the number, and no button.
+      const { amount: dmg } = computeDamage({
+        marvelDieTotal: marvelDie.total,
+        damageMultiplier,
+        abilityValue,
+        fantastic: !!fantastic,
+      });
       const dmgTypeLabel = damageType ? ` ${damageType}` : "";
       const fantasticLabel = fantastic ? " Fantastic" : "";
       const fantasticMult = fantastic ? " × 2" : "";
@@ -2189,7 +2313,9 @@ class ChatMessageMarvel extends ChatMessage {
           `<p><b>Fantastic Elemental Effect (${elementConfig.label}):</b> ${elementConfig.fantasticEffect}</p>`
         );
         if (elementConfig.statusId) {
-          for (const target of targets) {
+          // Only targets the attack actually hit. Before the handler could tell
+          // a hit from a miss it applied the status to everyone targeted.
+          for (const target of hitActors) {
             await target.toggleStatusEffect(elementConfig.statusId, { active: true });
             const cdr = target.system.conditionDamageReduction ?? 0;
             if (cdr > 0) {
@@ -2208,6 +2334,17 @@ class ChatMessageMarvel extends ChatMessage {
       flavor: flavorText,
       content: damageContent.join(""),
     };
+    if (damageFlagTargets.length) {
+      msgData.flags = {
+        "marvel-multiverse": {
+          damage: {
+            damageType: damageType ?? "health",
+            targets: damageFlagTargets,
+            applied: [],
+          },
+        },
+      };
+    }
     ChatMessageMarvel.create(msgData);
   }
 
@@ -7440,6 +7577,146 @@ Handlebars.registerHelper("gt", (a, b) => a > b);
 
 
 
+/* -------------------------------------------- */
+/*  Take Damage                                 */
+/* -------------------------------------------- */
+
+/** Socket channel for relaying an applied-damage record to a GM. */
+const MM_SOCKET = "system.marvel-multiverse";
+
+/** Turn a live Take Damage button into the spent state. */
+function _markButtonApplied(button) {
+  button.disabled = true;
+  button.classList.add("-applied");
+  button.innerHTML = '<i class="fa-solid fa-check"></i> Applied';
+}
+
+/**
+ * Record on the message that a target's damage has been taken, so the button
+ * stays spent for everyone and survives a reload.
+ *
+ * A defending player is usually not the damage message's author and so cannot
+ * write its flags. Their actor update still succeeds; only this bookkeeping
+ * needs relaying to a GM.
+ *
+ * @returns {Promise<boolean>}  Whether the applied state was persisted.
+ */
+async function _markDamageApplied(message, uuid) {
+  const flag = message.getFlag("marvel-multiverse", "damage");
+  if (!flag) return false;
+
+  if (message.canUserModify(game.user, "update")) {
+    await message.setFlag("marvel-multiverse", "damage", {
+      ...flag,
+      applied: withApplied(flag.applied, uuid),
+    });
+    return true;
+  }
+
+  if (!game.users.activeGM) {
+    ui.notifications.warn(
+      "Damage was applied, but no GM is connected to save it — the button will be available again after a reload."
+    );
+    return false;
+  }
+
+  game.socket.emit(MM_SOCKET, {
+    type: "markDamageApplied",
+    messageId: message.id,
+    uuid,
+  });
+  return true;
+}
+
+/**
+ * Subtract a target's recorded damage from its Health or Focus.
+ *
+ * The amount comes from the message flag rather than the rendered text: the
+ * text is prose a module or a translation could reshape, and re-parsing it
+ * would make the number a viewer sees and the number applied two separate
+ * things that can disagree.
+ */
+async function _applyDamageFromMessage(message, uuid, button) {
+  const flag = message.getFlag("marvel-multiverse", "damage");
+  const entry = flag?.targets?.find((t) => t.uuid === uuid);
+  if (!entry?.hit) return;
+
+  const actor = await fromUuid(uuid);
+  if (!actor) {
+    ui.notifications.warn("That target no longer exists.");
+    return;
+  }
+
+  const path = damageValuePath(flag.damageType);
+  const current = foundry.utils.getProperty(actor, path) ?? 0;
+  // Health and Focus are allowed below zero. The schema's min of -300 is the
+  // only floor, and a character below zero is a state the rules use, so no
+  // clamp at zero is applied here.
+  await actor.update({ [path]: current - entry.amount });
+
+  _markButtonApplied(button);
+  await _markDamageApplied(message, uuid);
+}
+
+/**
+ * Wire the damage card's Take Damage buttons. The message content is sent to
+ * every user, so who may click and what has already been spent are both decided
+ * per viewer at render time.
+ */
+Hooks.on("renderChatMessageHTML", (message, html) => {
+  const el = html instanceof HTMLElement ? html : html?.[0];
+  const buttons = el?.querySelectorAll?.("button.mm-take-damage");
+  if (!buttons?.length) return;
+
+  const flag = message.getFlag("marvel-multiverse", "damage");
+  const applied = Array.isArray(flag?.applied) ? flag.applied : [];
+
+  for (const button of buttons) {
+    const uuid = button.dataset.targetUuid;
+    const actor = fromUuidSync(uuid);
+    if (!canApplyDamage(game.user, actor)) {
+      button.remove();
+      continue;
+    }
+    if (applied.includes(uuid)) {
+      _markButtonApplied(button);
+      continue;
+    }
+
+    // The hook fires more than once per message in v14. Binding again on the
+    // same element would apply the damage twice from a single click.
+    if (button.dataset.mmBound === "1") continue;
+    button.dataset.mmBound = "1";
+
+    button.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      button.disabled = true;
+      try {
+        await _applyDamageFromMessage(message, uuid, button);
+      } catch (err) {
+        button.disabled = false;
+        throw err;
+      }
+    });
+  }
+});
+
+Hooks.once("ready", () => {
+  game.socket.on(MM_SOCKET, async (data) => {
+    if (data?.type !== "markDamageApplied") return;
+    // One GM writes. Without this every connected GM would race on the same
+    // flag and the last write would win by chance.
+    if (game.users.activeGM?.id !== game.user.id) return;
+    const message = game.messages.get(data.messageId);
+    const flag = message?.getFlag("marvel-multiverse", "damage");
+    if (!flag) return;
+    await message.setFlag("marvel-multiverse", "damage", {
+      ...flag,
+      applied: withApplied(flag.applied, data.uuid),
+    });
+  });
+});
+
 /**
  * Wire the chat card's Activate button, and hide it from anyone who may not use
  * it. The button is in the message content, which every user receives, so the
@@ -8209,5 +8486,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, dice, models, rollAbilityCheck, rollCheckMacro, rollItemMacro };
+export { ChatMessageMarvel, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

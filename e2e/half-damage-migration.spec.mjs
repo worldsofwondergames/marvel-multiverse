@@ -74,6 +74,79 @@ test.describe('half-damage powers already owned by a character', () => {
   });
 
   /**
+   * The repair that matters in play. A power imported before the attack fields
+   * were populated has no ability, and `Item#roll` needs one — so the power
+   * never rolls, and a scale it cannot carry onto a message is worth nothing.
+   */
+  test('a power with no ability is made rollable again from the compendium', async ({ foundryPage: page }) => {
+    await page.waitForFunction(() => window.game?.ready === true, { timeout: 60_000 });
+    await createActorViaAPI(page, HERO);
+
+    // Copy a real compendium power, then strip it the way an old import is.
+    const setup = await page.evaluate(async (name) => {
+      const actor = game.actors.find((a) => a.name === name);
+      let reference = null;
+      for (const pack of game.packs) {
+        if (pack.documentName !== 'Item') continue;
+        const index = await pack.getIndex({ fields: ['type', 'system.ability', 'system.attack'] });
+        const hit = index.find((e) => e.type === 'power' && e.system?.ability && e.system?.attack);
+        if (hit) { reference = await pack.getDocument(hit._id); break; }
+      }
+      if (!reference) return { error: 'no attack power in any compendium' };
+
+      const data = reference.toObject();
+      delete data._id;
+      data.system.ability = '';
+      data.system.attack = false;
+      const [owned] = await actor.createEmbeddedDocuments('Item', [data]);
+      await game.settings.set('marvel-multiverse', 'migrationVersion', 0);
+      return {
+        name: owned.name,
+        ability: owned.system.ability,
+        attack: owned.system.attack,
+        referenceAbility: reference.system.ability,
+      };
+    }, HERO);
+
+    expect(setup.error).toBeUndefined();
+    // Presence before absence: the stripped state has to be real first.
+    expect(setup.ability).toBe('');
+    expect(setup.attack).toBe(false);
+    expect(setup.referenceAbility).toBeTruthy();
+
+    await page.reload();
+    await page.waitForFunction(() => window.game?.ready === true, { timeout: 60_000 });
+    await page.waitForFunction(
+      () => game.settings.get('marvel-multiverse', 'migrationVersion') >= 2,
+      { timeout: 60_000 },
+    );
+
+    const after = await page.evaluate(({ name, powerName }) => {
+      const actor = game.actors.find((a) => a.name === name);
+      const item = actor.items.find((i) => i.name === powerName);
+      return { ability: item.system.ability, attack: item.system.attack };
+    }, { name: HERO, powerName: setup.name });
+
+    expect(after.ability).toBe(setup.referenceAbility);
+    expect(after.attack).toBe(true);
+
+    // The ability is what Item#roll requires, so the power now actually rolls.
+    const rolled = await page.evaluate(async ({ name, powerName }) => {
+      const actor = game.actors.find((a) => a.name === name);
+      const item = actor.items.find((i) => i.name === powerName);
+      const before = new Set(game.messages.contents.map((m) => m.id));
+      await item.roll();
+      await new Promise((r) => setTimeout(r, 1200));
+      const created = game.messages.contents.filter((m) => !before.has(m.id));
+      const hasRoll = created.some((m) => m.rolls?.length);
+      for (const m of created) await m.delete();
+      return hasRoll;
+    }, { name: HERO, powerName: setup.name });
+
+    expect(rolled).toBe(true);
+  });
+
+  /**
    * Once the pass has run, a GM must be able to put a power back to full damage
    * and have it stay there. Without the recorded version the pass would run on
    * every load and reclaim it, since a scale of 1 is exactly what it looks for.

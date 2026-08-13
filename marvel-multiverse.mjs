@@ -120,6 +120,59 @@ function collectHalfDamageUpdates(items) {
 }
 
 /**
+ * The fields that decide whether and how a power rolls as an attack.
+ *
+ * `formula` is deliberately absent: it holds the dice rather than the attack
+ * configuration, it showed no drift, and it is the field a GM is most likely to
+ * have altered on purpose.
+ */
+const POWER_ATTACK_FIELDS = [
+  "ability",
+  "attack",
+  "attackTarget",
+  "attackKind",
+  "damageType",
+  "damageScale",
+];
+
+/**
+ * Bring owned powers back in line with the compendium they came from.
+ *
+ * Powers imported before the attack fields were populated carry an empty
+ * `ability` and `attack: false`, and a power in that state does not roll at
+ * all -- `Item#roll` needs both a formula and an ability. That is why powers
+ * whose scale was corrected still dealt full damage: they were never rolled as
+ * powers, so nothing carried the scale onto the message.
+ *
+ * The reference values win outright. That is a deliberate choice: these fields
+ * describe what the published power is, not how one character uses it.
+ * @param {Iterable<object>} items
+ * @param {Map<string, object>} referenceByName
+ * @returns {Array<object>}
+ */
+function collectPowerSyncUpdates(items, referenceByName) {
+  const updates = [];
+  for (const item of items ?? []) {
+    if (item?.type !== "power") continue;
+    const reference = referenceByName?.get?.(item.name);
+    if (!reference) continue;
+
+    const update = {};
+    for (const field of POWER_ATTACK_FIELDS) {
+      const target = reference[field];
+      // A field the reference does not define is not a reason to blank the
+      // owned copy.
+      if (target === undefined) continue;
+      if (item.system?.[field] === target) continue;
+      update[`system.${field}`] = target;
+    }
+    if (Object.keys(update).length === 0) continue;
+    updates.push({ _id: item.id ?? item._id, ...update });
+  }
+  return updates;
+}
+
+/**
  * The fraction of regular damage an item's power deals, or null when it deals
  * the usual amount.
  *
@@ -7840,7 +7893,66 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 });
 
 /** Bumped when a new repair is added below. */
-const MIGRATION_VERSION = 1;
+const MIGRATION_VERSION = 2;
+
+/**
+ * Power name -> attack configuration, gathered from every Item compendium.
+ *
+ * Every compendium is consulted rather than one named pack, so the system stays
+ * independent of any particular content module. The index is asked for the
+ * specific fields, which avoids loading each document in full.
+ * @returns {Promise<Map<string, object>>}
+ */
+async function _referencePowerFields() {
+  const byName = new Map();
+  const fields = ["type", ...POWER_ATTACK_FIELDS.map((f) => `system.${f}`)];
+  for (const pack of game.packs ?? []) {
+    if (pack.documentName !== "Item") continue;
+    let index;
+    try {
+      index = await pack.getIndex({ fields });
+    } catch (err) {
+      console.warn(`marvel-multiverse | could not index ${pack.collection}`, err);
+      continue;
+    }
+    for (const entry of index) {
+      if (entry.type !== "power") continue;
+      // First pack wins, so a later module cannot quietly redefine a power an
+      // earlier one already described.
+      if (byName.has(entry.name)) continue;
+      byName.set(entry.name, entry.system ?? {});
+    }
+  }
+  return byName;
+}
+
+/**
+ * Copy the attack configuration from the compendium onto every owned power.
+ *
+ * Without this a power sits with no ability and `attack: false`, which means it
+ * cannot be rolled as a power at all -- and a power that is never rolled cannot
+ * carry its damage scale onto the chat card.
+ * @returns {Promise<number>}  How many items were updated.
+ */
+async function _syncOwnedPowerFields() {
+  const reference = await _referencePowerFields();
+  if (!reference.size) return 0;
+
+  let changed = 0;
+  for (const actor of game.actors) {
+    const updates = collectPowerSyncUpdates(actor.items, reference);
+    if (!updates.length) continue;
+    await actor.updateEmbeddedDocuments("Item", updates);
+    changed += updates.length;
+  }
+
+  const worldUpdates = collectPowerSyncUpdates(game.items, reference);
+  if (worldUpdates.length) {
+    await Item.updateDocuments(worldUpdates);
+    changed += worldUpdates.length;
+  }
+  return changed;
+}
 
 /**
  * Bring already-imported powers in line with a compendium backfill.
@@ -7860,29 +7972,33 @@ async function _runWorldMigrations() {
 
   let changed = 0;
   try {
-    for (const actor of game.actors) {
-      const updates = collectHalfDamageUpdates(actor.items);
-      if (!updates.length) continue;
-      await actor.updateEmbeddedDocuments("Item", updates);
-      changed += updates.length;
+    if (done < 1) {
+      for (const actor of game.actors) {
+        const updates = collectHalfDamageUpdates(actor.items);
+        if (!updates.length) continue;
+        await actor.updateEmbeddedDocuments("Item", updates);
+        changed += updates.length;
+      }
+
+      const worldUpdates = collectHalfDamageUpdates(game.items);
+      if (worldUpdates.length) {
+        await Item.updateDocuments(worldUpdates);
+        changed += worldUpdates.length;
+      }
     }
 
-    const worldUpdates = collectHalfDamageUpdates(game.items);
-    if (worldUpdates.length) {
-      await Item.updateDocuments(worldUpdates);
-      changed += worldUpdates.length;
-    }
+    if (done < 2) changed += await _syncOwnedPowerFields();
   } catch (err) {
     // Leave the version unbumped so the pass is retried next load rather than
     // being recorded as done after a partial run.
-    console.error("marvel-multiverse | half damage migration failed", err);
+    console.error("marvel-multiverse | world migration failed", err);
     return;
   }
 
   await game.settings.set("marvel-multiverse", "migrationVersion", MIGRATION_VERSION);
   if (changed) {
     ui.notifications.info(
-      `Marvel Multiverse: updated ${changed} half-damage power${changed === 1 ? "" : "s"} on existing characters.`
+      `Marvel Multiverse: repaired ${changed} power${changed === 1 ? "" : "s"} on existing characters.`
     );
   }
 }
@@ -8700,5 +8816,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, collectHalfDamageUpdates, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, collectHalfDamageUpdates, collectPowerSyncUpdates, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

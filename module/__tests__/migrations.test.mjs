@@ -6,7 +6,11 @@
  * Imported from the shipping monolith, since that is the only file
  * `system.json` loads. The last block runs the same cases through the twin.
  */
-import { collectHalfDamageUpdates, needsHalfDamageScale } from '../../marvel-multiverse.mjs';
+import {
+  collectHalfDamageUpdates,
+  collectPowerSyncUpdates,
+  needsHalfDamageScale,
+} from '../../marvel-multiverse.mjs';
 import * as twin from '../helpers/migrations.mjs';
 
 /** Invented prose, so no published sentence is stored in this repo. */
@@ -87,6 +91,101 @@ describe('the updates the pass produces', () => {
   });
 });
 
+/**
+ * A power imported before the attack fields were populated has no ability and
+ * `attack: false`, and such a power cannot be rolled at all — which is why
+ * correcting its damage scale changed nothing in play.
+ */
+describe('bringing owned powers back in line with the compendium', () => {
+  const REFERENCE = new Map([
+    ['Stomping Power', {
+      ability: 'mle',
+      attack: true,
+      attackTarget: 'agl',
+      attackKind: 'melee',
+      damageType: 'health',
+      damageScale: 0.5,
+    }],
+  ]);
+
+  /** An owned copy as it was imported before those fields existed. */
+  function stale(overrides = {}) {
+    return {
+      id: 'own1',
+      type: 'power',
+      name: 'Stomping Power',
+      system: {
+        ability: '',
+        attack: false,
+        attackTarget: '',
+        attackKind: '',
+        damageType: 'health',
+        damageScale: 0.5,
+        ...overrides,
+      },
+    };
+  }
+
+  test('the fields that differ are updated and the rest left out', () => {
+    expect(collectPowerSyncUpdates([stale()], REFERENCE)).toEqual([
+      {
+        _id: 'own1',
+        'system.ability': 'mle',
+        'system.attack': true,
+        'system.attackTarget': 'agl',
+        'system.attackKind': 'melee',
+      },
+    ]);
+  });
+
+  // Restoring the ability is the whole point: Item#roll needs one, so without
+  // it the power never rolls and never carries its scale.
+  test('an empty ability is restored', () => {
+    const [update] = collectPowerSyncUpdates([stale()], REFERENCE);
+    expect(update['system.ability']).toBe('mle');
+  });
+
+  test('a power already matching produces no update', () => {
+    const current = stale({
+      ability: 'mle',
+      attack: true,
+      attackTarget: 'agl',
+      attackKind: 'melee',
+    });
+    expect(collectPowerSyncUpdates([current], REFERENCE)).toEqual([]);
+  });
+
+  // The reference wins outright, which is what was chosen over filling blanks.
+  test('a differing value is overwritten, not preserved', () => {
+    const customised = stale({ ability: 'ego', attack: true, attackTarget: 'agl', attackKind: 'melee' });
+    expect(collectPowerSyncUpdates([customised], REFERENCE)).toEqual([
+      { _id: 'own1', 'system.ability': 'mle' },
+    ]);
+  });
+
+  test('a power absent from the reference is left alone', () => {
+    const unknown = { ...stale(), name: 'Not In Any Compendium' };
+    expect(collectPowerSyncUpdates([unknown], REFERENCE)).toEqual([]);
+  });
+
+  test('an item that is not a power is left alone', () => {
+    expect(collectPowerSyncUpdates([{ ...stale(), type: 'weapon' }], REFERENCE)).toEqual([]);
+  });
+
+  // A reference that omits a field must not blank the owned value.
+  test('a field the reference does not define is not cleared', () => {
+    const sparse = new Map([['Stomping Power', { ability: 'mle' }]]);
+    expect(collectPowerSyncUpdates([stale()], sparse)).toEqual([
+      { _id: 'own1', 'system.ability': 'mle' },
+    ]);
+  });
+
+  test('no reference at all produces no updates', () => {
+    expect(collectPowerSyncUpdates([stale()], new Map())).toEqual([]);
+    expect(collectPowerSyncUpdates([stale()], undefined)).toEqual([]);
+  });
+});
+
 describe('the twin agrees with the shipping monolith', () => {
   const CASES = [
     power(HALF),
@@ -102,5 +201,28 @@ describe('the twin agrees with the shipping monolith', () => {
 
   test('collectHalfDamageUpdates matches', () => {
     expect(twin.collectHalfDamageUpdates(CASES)).toEqual(collectHalfDamageUpdates(CASES));
+  });
+
+  test('collectPowerSyncUpdates matches', () => {
+    const reference = new Map([['Stomping Power', { ability: 'mle', attack: true }]]);
+    const items = [
+      { id: 'a', type: 'power', name: 'Stomping Power', system: { ability: '', attack: false } },
+      { id: 'b', type: 'power', name: 'Unknown Power', system: { ability: '', attack: false } },
+      { id: 'c', type: 'weapon', name: 'Stomping Power', system: { ability: '', attack: false } },
+    ];
+    expect(twin.collectPowerSyncUpdates(items, reference)).toEqual(
+      collectPowerSyncUpdates(items, reference)
+    );
+  });
+
+  test('both trees sync the same fields', () => {
+    expect(twin.POWER_ATTACK_FIELDS).toEqual([
+      'ability',
+      'attack',
+      'attackTarget',
+      'attackKind',
+      'damageType',
+      'damageScale',
+    ]);
   });
 });

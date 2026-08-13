@@ -12,6 +12,7 @@ import {
   clearTargets,
   deleteScene,
   clickDamageButton,
+  forceHit,
   getLastChatMessage,
   clearChatMessages,
   dismissNotifications,
@@ -41,7 +42,17 @@ async function triggerNpcAbilityRoll(page, actorName, abilityKey) {
     );
     const speaker = ChatMessage.getSpeaker({ actor });
     const flavor = `[ability] ${label}`;
-    await roll.toMessage({ speaker, flavor, rollMode: 'publicroll' });
+    const messageData = { speaker, flavor, rollMode: 'publicroll' };
+    const targets = Array.from(game.user.targets)
+      .map((token) => ({
+        name: token.name,
+        img: token.document?.texture?.src ?? token.actor?.img ?? '',
+        ac: token.actor?.system?.abilities?.[abilityKey]?.defense ?? null,
+        uuid: token.actor?.uuid ?? '',
+      }))
+      .filter((t) => t.ac !== null);
+    if (targets.length) messageData['flags.marvel-multiverse.targets'] = targets;
+    await roll.toMessage(messageData, { rollMode: 'publicroll' });
   }, { actorName, abilityKey });
   await page.waitForTimeout(2000);
 }
@@ -143,6 +154,7 @@ test.describe('NPC Damage Calculation (Issues #91, #89)', () => {
       name: 'Armor 2',
       changes: [{ key: 'system.healthDamageReduction', mode: 2, value: '2' }],
     });
+    await forceHit(page, DEFENDER_NAME, 'mle');
 
     await createScene(page, SCENE_NAME);
     await activateScene(page, SCENE_NAME);
@@ -173,6 +185,7 @@ test.describe('NPC Damage Calculation (Issues #91, #89)', () => {
       name: 'Mental Shield 1',
       changes: [{ key: 'system.focusDamageReduction', mode: 2, value: '1' }],
     });
+    await forceHit(page, DEFENDER_NAME, 'ego');
 
     await createScene(page, SCENE_NAME);
     await activateScene(page, SCENE_NAME);
@@ -188,7 +201,17 @@ test.describe('NPC Damage Calculation (Issues #91, #89)', () => {
       );
       const speaker = ChatMessage.getSpeaker({ actor });
       const flavor = '[ability] Ego [damageType] focus';
-      await roll.toMessage({ speaker, flavor, rollMode: 'publicroll' });
+      const messageData = { speaker, flavor, rollMode: 'publicroll' };
+      const targets = Array.from(game.user.targets)
+        .map((token) => ({
+          name: token.name,
+          img: token.document?.texture?.src ?? token.actor?.img ?? '',
+          ac: token.actor?.system?.abilities?.ego?.defense ?? null,
+          uuid: token.actor?.uuid ?? '',
+        }))
+        .filter((t) => t.ac !== null);
+      if (targets.length) messageData['flags.marvel-multiverse.targets'] = targets;
+      await roll.toMessage(messageData, { rollMode: 'publicroll' });
     }, { actorName: NPC_NAME });
     await page.waitForTimeout(2000);
 

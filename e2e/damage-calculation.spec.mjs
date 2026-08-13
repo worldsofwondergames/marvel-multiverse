@@ -12,6 +12,7 @@ import {
   deleteScene,
   triggerAbilityRoll,
   clickDamageButton,
+  forceHit,
   getLastChatMessage,
   clearChatMessages,
   dismissNotifications,
@@ -72,6 +73,7 @@ test.describe('Damage Calculation', () => {
     await updateActorData(page, DEFENDER, {
       'system.abilities.mle.value': 1,
     });
+    await forceHit(page, DEFENDER, 'mle');
 
     await createScene(page, SCENE_NAME);
     await activateScene(page, SCENE_NAME);
@@ -103,6 +105,7 @@ test.describe('Damage Calculation', () => {
       name: 'Sturdy 2',
       changes: [{ key: 'system.healthDamageReduction', mode: 2, value: '2' }],
     });
+    await forceHit(page, DEFENDER, 'mle');
 
     await createScene(page, SCENE_NAME);
     await activateScene(page, SCENE_NAME);
@@ -134,6 +137,7 @@ test.describe('Damage Calculation', () => {
       name: 'Mental Shield',
       changes: [{ key: 'system.focusDamageReduction', mode: 2, value: '1' }],
     });
+    await forceHit(page, DEFENDER, 'ego');
 
     await createScene(page, SCENE_NAME);
     await activateScene(page, SCENE_NAME);
@@ -150,7 +154,17 @@ test.describe('Damage Calculation', () => {
       );
       const speaker = ChatMessage.getSpeaker({ actor });
       const flavor = '[ability] Ego [damageType] focus';
-      await roll.toMessage({ speaker, flavor, rollMode: 'publicroll' });
+      const messageData = { speaker, flavor, rollMode: 'publicroll' };
+      const targets = Array.from(game.user.targets)
+        .map((token) => ({
+          name: token.name,
+          img: token.document?.texture?.src ?? token.actor?.img ?? '',
+          ac: token.actor?.system?.abilities?.ego?.defense ?? null,
+          uuid: token.actor?.uuid ?? '',
+        }))
+        .filter((t) => t.ac !== null);
+      if (targets.length) messageData['flags.marvel-multiverse.targets'] = targets;
+      await roll.toMessage(messageData, { rollMode: 'publicroll' });
     }, { actorName: ATTACKER });
     await page.waitForTimeout(2000);
 
@@ -204,6 +218,7 @@ test.describe('Damage Calculation', () => {
       'system.attributes.rank.value': 3,
     });
     await createActorViaAPI(page, DEFENDER);
+    await forceHit(page, DEFENDER, 'mle');
 
     await createScene(page, SCENE_NAME);
     await activateScene(page, SCENE_NAME);
@@ -249,6 +264,7 @@ test.describe('Damage Calculation', () => {
       name: 'Matched DR',
       changes: [{ key: 'system.healthDamageReduction', mode: 2, value: String(damageMultiplier) }],
     });
+    await forceHit(page, DEFENDER, 'mle');
 
     const defender = await readCombatStats(page, DEFENDER);
     expect(defender.healthDR).toBe(damageMultiplier);
@@ -287,6 +303,7 @@ test.describe('Damage Calculation', () => {
       name: 'Overwhelming DR',
       changes: [{ key: 'system.healthDamageReduction', mode: 2, value: String(damageMultiplier + 2) }],
     });
+    await forceHit(page, DEFENDER, 'mle');
 
     await createScene(page, SCENE_NAME);
     await activateScene(page, SCENE_NAME);

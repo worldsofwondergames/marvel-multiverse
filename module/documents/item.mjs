@@ -195,16 +195,21 @@ export class MarvelMultiverseItem extends Item {
     // plain label instead, so the lines are not shown twice.
     const cardLabel = `${label}${_buildItemMeta(this.system)}`;
 
+    // The italic marks the description as flavor text sitting above roman
+    // rules text. Only powers define an `effect`, so on every other item type
+    // the description IS the rules text and must stay roman.
+    const hasEffect = _hasContent(this.system.effect);
+
     ChatMessage.create({
       speaker: speaker,
       rollMode: rollMode,
       flavor: cardLabel,
       content: `<div class="mm-chat-body">${
         _hasContent(this.system.description)
-          ? `<div class="mm-chat-description">${this.system.description}</div>`
+          ? `<div class="mm-chat-description${hasEffect ? " -flavor" : ""}">${this.system.description}</div>`
           : ""
       }${
-        _hasContent(this.system.effect)
+        hasEffect
           ? `<div class="mm-chat-effect">${this.system.effect}</div>`
           : ""
       }</div>`,

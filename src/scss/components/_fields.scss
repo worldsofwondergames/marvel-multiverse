@@ -182,7 +182,11 @@
     background: $mm-input-bg;
     z-index: 2;
 
+    // The `.editor-container` floor below only exists while the editor is
+    // active. This is the element that renders the rest of the time, and
+    // without a floor an empty field collapses to its padding.
     > .editor-content {
+      min-height: 33px;
       padding: $mm-spacing-sm;
     }
   }

@@ -691,6 +691,7 @@
   z-index: 2;
 }
 .mm-styled-input .editor > .editor-content {
+  min-height: 33px;
   padding: 4px;
 }
 .mm-styled-input .editor-menu {

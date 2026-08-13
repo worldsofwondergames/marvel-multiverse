@@ -80,6 +80,14 @@ describe('damage arithmetic', () => {
     ).toEqual({ amount: 0, effectiveMultiplier: 0 });
   });
 
+  test('an unscaled attack is not rounded away from its exact total', () => {
+    // scale defaults to 1, so the ceil that halving needs must leave an
+    // ordinary attack untouched.
+    expect(
+      computeDamage({ marvelDieTotal: 5, damageMultiplier: 3, abilityValue: 4 }).amount
+    ).toBe(19);
+  });
+
   test('a Fantastic attack doubles the total after the ability score is added', () => {
     // ((4 × 3) + 2) × 2 = 28. Doubling before the score would give 26.
     expect(
@@ -90,6 +98,52 @@ describe('damage arithmetic', () => {
         fantastic: true,
       }).amount
     ).toBe(28);
+  });
+});
+
+/**
+ * Powers such as Ground-Shaking Stomp read "take half regular damage", with a
+ * Fantastic success dealing full damage instead.
+ */
+describe('a power that deals a fraction of regular damage', () => {
+  /** Marvel die 3 x multiplier 3 + Melee 2 = 11, an odd regular total. */
+  const ODD = { marvelDieTotal: 3, damageMultiplier: 3, abilityValue: 2 };
+
+  test('regular damage is what the scale is taken from', () => {
+    expect(computeDamage(ODD).amount).toBe(11);
+  });
+
+  test('half of an odd total rounds up', () => {
+    // Marvel Multiverse rounds up throughout: the core rulebook turns a Run
+    // Speed of 5 into a Climb Speed of 3, never 2.
+    expect(computeDamage({ ...ODD, scale: 0.5 }).amount).toBe(6);
+  });
+
+  // The Fantastic case must land on the total before halving, not on double the
+  // rounded-up half -- that would give 12 here and overshoot regular damage.
+  test('a Fantastic on a half-damage power deals the pre-halving total', () => {
+    expect(computeDamage({ ...ODD, scale: 0.5, fantastic: true }).amount).toBe(11);
+    expect(computeDamage({ ...ODD, scale: 0.5, fantastic: true }).amount).toBe(
+      computeDamage(ODD).amount
+    );
+  });
+
+  test('an even total halves without rounding', () => {
+    const even = { marvelDieTotal: 4, damageMultiplier: 3, abilityValue: 2 };
+    expect(computeDamage(even).amount).toBe(14);
+    expect(computeDamage({ ...even, scale: 0.5 }).amount).toBe(7);
+  });
+
+  test('a scale of zero deals nothing however large the roll', () => {
+    expect(computeDamage({ ...ODD, scale: 0 }).amount).toBe(0);
+  });
+
+  // Damage reduction zeroes the attack before the scale is considered, so a
+  // fraction of nothing stays nothing rather than rounding up to 1.
+  test('a scaled attack stopped by damage reduction still deals nothing', () => {
+    expect(
+      computeDamage({ ...ODD, damageReduction: 3, scale: 0.5 }).amount
+    ).toBe(0);
   });
 });
 
@@ -173,6 +227,8 @@ describe('the twin agrees with the shipping monolith', () => {
     { marvelDieTotal: 4, damageMultiplier: 3, damageReduction: 0, abilityValue: 2, fantastic: false },
     { marvelDieTotal: 4, damageMultiplier: 3, damageReduction: 1, abilityValue: 2, fantastic: true },
     { marvelDieTotal: 6, damageMultiplier: 2, damageReduction: 9, abilityValue: 5, fantastic: false },
+    { marvelDieTotal: 3, damageMultiplier: 3, damageReduction: 0, abilityValue: 2, fantastic: false, scale: 0.5 },
+    { marvelDieTotal: 3, damageMultiplier: 3, damageReduction: 0, abilityValue: 2, fantastic: true, scale: 0.5 },
   ];
 
   test.each(DAMAGE_CASES)('computeDamage matches for %o', (args) => {

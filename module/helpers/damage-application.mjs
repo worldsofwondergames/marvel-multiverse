@@ -34,12 +34,24 @@ export function isTargetHit(attackRoll, ac) {
  * multiplier returns 0 rather than the bare ability score. Clamping the
  * multiplier first also stops DR above it from producing negative damage.
  *
+ * A power that deals a fraction of regular damage passes it as `scale` — 0.5
+ * for text reading "take half regular damage". Scale and the Fantastic doubling
+ * are multiplied together and rounded **once**, at the end. Rounding the half
+ * first and doubling that would overshoot regular damage on an odd total: for
+ * 11, ceil(5.5) × 2 is 12, while ceil(11 × 0.5 × 2) is 11, which is what a
+ * Fantastic on a half-damage power is meant to deal.
+ *
+ * Marvel Multiverse rounds up. The core rulebook works this through for
+ * movement — a Run Speed of 5 gives a Climb Speed of 3, not 2 — and no rule in
+ * the books rounds down.
+ *
  * @param {object} args
  * @param {number} args.marvelDieTotal
  * @param {number} args.damageMultiplier   The attacker's multiplier for the ability used.
  * @param {number} [args.damageReduction]  The target's DR for this damage type.
  * @param {number} args.abilityValue       The attacker's score in the ability used.
  * @param {boolean} [args.fantastic]
+ * @param {number} [args.scale]            Fraction of regular damage the power deals.
  * @returns {{amount: number, effectiveMultiplier: number}}
  */
 export function computeDamage({
@@ -48,13 +60,14 @@ export function computeDamage({
   damageReduction = 0,
   abilityValue,
   fantastic = false,
+  scale = 1,
 }) {
   const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
-  let amount =
+  const regular =
     effectiveMultiplier === 0
       ? 0
       : marvelDieTotal * effectiveMultiplier + abilityValue;
-  if (fantastic) amount = amount * 2;
+  const amount = Math.ceil(regular * scale * (fantastic ? 2 : 1));
   return { amount, effectiveMultiplier };
 }
 

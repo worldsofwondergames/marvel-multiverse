@@ -30,6 +30,18 @@ const SCENE_NAME = 'E2E Take Damage Scene';
 const PLAYER_NAME = 'E2E Take Damage Player';
 
 /**
+ * Wait out anything still navigating the page.
+ *
+ * Foundry reloads the client on its own account between tests -- deleting the
+ * active scene is one trigger -- and a page.evaluate issued during that window
+ * dies with "execution context was destroyed". waitForFunction re-evaluates
+ * after a navigation, so this waits rather than races.
+ */
+async function awaitStableGame(page) {
+  await page.waitForFunction(() => window.game?.ready === true, { timeout: 60_000 });
+}
+
+/**
  * Wait until the canvas is actually showing the named scene.
  *
  * `canvas.ready` stays true across a scene change, so it is not enough on its
@@ -43,17 +55,30 @@ async function waitForCanvasScene(page, name) {
   );
 }
 
-/** Click the damage button on the attack card, failing loudly if it is not there. */
+/**
+ * Click the damage button on the attack card, failing loudly if it is not there.
+ *
+ * Returns whether the card counts this roll as Fantastic, read from the same
+ * rendered die the handler reads. `Roll#isFantastic` is a different question —
+ * it also requires the total to meet a target — so a test that used it would
+ * disagree with the card about when damage doubles.
+ */
 async function openDamageCard(page) {
-  await page.evaluate(() => {
+  const fantastic = await page.evaluate(() => {
     const buttons = document.querySelectorAll('button.damage');
     if (!buttons.length) throw new Error('No damage button rendered on the attack card');
-    buttons[buttons.length - 1].click();
+    const button = buttons[buttons.length - 1];
+    const marked = !!button.parentNode.querySelector(
+      'li.roll.marvel-roll.fantastic:not(.discarded)',
+    );
+    button.click();
+    return marked;
   });
   await page.waitForFunction(
     () => document.querySelectorAll('button.mm-take-damage, .mm-damage-target').length > 0,
     { timeout: 15_000 },
   );
+  return { fantastic };
 }
 
 /** The damage flag the card recorded, read off the message document. */
@@ -220,7 +245,7 @@ test.describe('applying damage from the chat card', () => {
     // Deleting the active scene in the previous test's teardown can still be
     // settling here. waitForFunction re-evaluates after a navigation, so this
     // waits the page out instead of racing it.
-    await foundryPage.waitForFunction(() => window.game?.ready === true, { timeout: 60_000 });
+    await awaitStableGame(foundryPage);
     await clearChatMessages(foundryPage);
     await dismissNotifications(foundryPage);
   });
@@ -399,6 +424,92 @@ test.describe('applying damage from the chat card', () => {
     expect(missEntry.amount).toBe(0);
   });
 
+  /**
+   * A power whose text reads "take half regular damage" carries
+   * `system.damageScale`. The value has to survive the trip from the item, onto
+   * the attack message, and into the amount the button applies.
+   */
+  test('a half-damage power halves what the card records and the button applies', async ({ foundryPage: page }) => {
+    await createActorViaAPI(page, ATTACKER);
+    await updateActorData(page, ATTACKER, {
+      'system.abilities.mle.value': 5,
+      'system.attributes.rank.value': 3,
+    });
+    await createActorViaAPI(page, DEFENDER);
+    await forceHit(page, DEFENDER, 'agl');
+
+    await createScene(page, SCENE_NAME);
+    await activateScene(page, SCENE_NAME);
+    await waitForCanvasScene(page, SCENE_NAME);
+    await placeToken(page, ATTACKER, 200, 200);
+    await placeToken(page, DEFENDER, 400, 200);
+    await targetToken(page, DEFENDER);
+
+    const rolled = await page.evaluate(async (name) => {
+      const actor = game.actors.find((a) => a.name === name);
+      const [power] = await actor.createEmbeddedDocuments('Item', [{
+        name: 'E2E Half Damage Power',
+        type: 'power',
+        system: {
+          ability: 'mle',
+          attack: true,
+          formula: '{1d6,1dm,1d6}',
+          attackTarget: 'agl',
+          damageType: 'health',
+          damageScale: 0.5,
+        },
+      }]);
+      await power.roll();
+      await new Promise((r) => setTimeout(r, 1200));
+
+      const attack = [...game.messages.contents].reverse().find((m) => m.rolls?.length);
+      const roll = attack.rolls[0];
+      return {
+        scaleFlag: attack.getFlag('marvel-multiverse', 'damageScale') ?? null,
+        targetsFlag: attack.getFlag('marvel-multiverse', 'targets') ?? null,
+        itemIdFlag: attack.getFlag('marvel-multiverse', 'itemId') ?? null,
+        marvelDie: roll.terms[0].rolls[1].dice[0].total,
+        damageMultiplier: actor.system.abilities.mle.damageMultiplier,
+        abilityValue: actor.system.abilities.mle.value,
+      };
+    }, ATTACKER);
+
+    // The flag is the channel; if it never reached the message nothing below
+    // could distinguish a halved card from an ordinary one.
+    expect(rolled.scaleFlag).toBe(0.5);
+    // Rolling an item passes an itemId, and toMessage writes that as a nested
+    // flags object. A flag added as a flat "flags.a.b" key is wiped out by it,
+    // which took the declared targets with it and left power attacks with no
+    // Take Damage button at all.
+    expect(rolled.itemIdFlag).not.toBeNull();
+    expect(rolled.targetsFlag).toHaveLength(1);
+
+    const { fantastic } = await openDamageCard(page);
+    const flag = await damageFlag(page);
+    const entry = flag.targets.find((t) => t.hit);
+
+    // Rebuilt from the actor and the die that were actually rolled, so the
+    // expectation cannot drift into agreeing with a wrong constant.
+    const regular = rolled.marvelDie * rolled.damageMultiplier + rolled.abilityValue;
+    const expected = Math.ceil(regular * 0.5 * (fantastic ? 2 : 1));
+    expect(regular).toBeGreaterThan(0);
+    expect(entry.amount).toBe(expected);
+    // A Fantastic deals the total before halving; otherwise it is a real cut.
+    expect(entry.amount).toBe(fantastic ? regular : Math.ceil(regular / 2));
+    if (!fantastic) expect(entry.amount).toBeLessThan(regular);
+
+    const before = await pools(page, entry.uuid);
+    await clickTakeDamage(page, entry.uuid);
+    await page.waitForTimeout(1500);
+    const after = await pools(page, entry.uuid);
+    expect(after.health).toBe(before.health - expected);
+
+    await page.evaluate(async (name) => {
+      const actor = game.actors.find((a) => a.name === name);
+      for (const i of actor.items.filter((i) => i.name === 'E2E Half Damage Power')) await i.delete();
+    }, ATTACKER);
+  });
+
   test('an attack that declared no target produces a card with no button', async ({ foundryPage: page }) => {
     await createActorViaAPI(page, ATTACKER);
     await updateActorData(page, ATTACKER, {
@@ -446,7 +557,7 @@ test.describe('who the button is shown to', () => {
   });
 
   test('a player sees the button only for the target they own', async ({ foundryPage: page, browser }) => {
-    await page.waitForFunction(() => window.game?.ready === true, { timeout: 60_000 });
+    await awaitStableGame(page);
     await clearChatMessages(page);
     await dismissNotifications(page);
 
@@ -475,6 +586,9 @@ test.describe('who the button is shown to', () => {
     await forceHit(page, DEFENDER, 'mle');
     await forceHit(page, BYSTANDER, 'mle');
 
+    // Several documents were created above; check the page is still settled
+    // before building the scene against it.
+    await awaitStableGame(page);
     await createScene(page, SCENE_NAME);
     await activateScene(page, SCENE_NAME);
     await waitForCanvasScene(page, SCENE_NAME);

@@ -120,6 +120,12 @@
         </div>
       </div>
       <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left" title="Fraction of regular damage this power deals. 0.5 for a power whose text says targets take half regular damage."><span>Damage Scale</span></label>
+        <div class="mm-styled-input">
+          <input type="number" name="system.damageScale" value="{{system.damageScale}}" step="0.05" min="0" data-dtype="Number"/>
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
         <label class="mm-styled-label -align-left"><span>Attack Ability</span></label>
         <div class="mm-styled-input">
           <select name="system.ability">

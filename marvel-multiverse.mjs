@@ -40,12 +40,24 @@ function isTargetHit(attackRoll, ac) {
  * multiplier returns 0 rather than the bare ability score. Clamping the
  * multiplier first also stops DR above it from producing negative damage.
  *
+ * A power that deals a fraction of regular damage passes it as `scale` -- 0.5
+ * for text reading "take half regular damage". Scale and the Fantastic doubling
+ * are multiplied together and rounded **once**, at the end. Rounding the half
+ * first and doubling that would overshoot regular damage on an odd total: for
+ * 11, ceil(5.5) x 2 is 12, while ceil(11 x 0.5 x 2) is 11, which is what a
+ * Fantastic on a half-damage power is meant to deal.
+ *
+ * Marvel Multiverse rounds up. The core rulebook works this through for
+ * movement -- a Run Speed of 5 gives a Climb Speed of 3, not 2 -- and no rule
+ * in the books rounds down.
+ *
  * @param {object} args
  * @param {number} args.marvelDieTotal
  * @param {number} args.damageMultiplier   The attacker's multiplier for the ability used.
  * @param {number} [args.damageReduction]  The target's DR for this damage type.
  * @param {number} args.abilityValue       The attacker's score in the ability used.
  * @param {boolean} [args.fantastic]
+ * @param {number} [args.scale]            Fraction of regular damage the power deals.
  * @returns {{amount: number, effectiveMultiplier: number}}
  */
 function computeDamage({
@@ -54,14 +66,31 @@ function computeDamage({
   damageReduction = 0,
   abilityValue,
   fantastic = false,
+  scale = 1,
 }) {
   const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
-  let amount =
+  const regular =
     effectiveMultiplier === 0
       ? 0
       : marvelDieTotal * effectiveMultiplier + abilityValue;
-  if (fantastic) amount = amount * 2;
+  const amount = Math.ceil(regular * scale * (fantastic ? 2 : 1));
   return { amount, effectiveMultiplier };
+}
+
+/**
+ * The fraction of regular damage an item's power deals, or null when it deals
+ * the usual amount.
+ *
+ * Recorded on the attack message rather than read from the item when the button
+ * is clicked: by then the item may have been edited or deleted, and the card
+ * would apply a number it never printed.
+ * @param {Item} item
+ * @returns {number|null}
+ */
+function damageScaleOf(item) {
+  const scale = Number(item?.system?.damageScale);
+  if (!Number.isFinite(scale) || scale === 1) return null;
+  return scale;
 }
 
 /**
@@ -703,6 +732,10 @@ class MarvelMultiverseRoll extends Roll {
     // Add appropriate edge mode message flavor and mmrpg roll flags
     messageData.flavor = messageData.flavor || this.options.flavor;
     messageData.fantastic = this.isFantastic;
+    // Callers must add their own flags with setProperty too, never as a flat
+    // "flags.a.b" key on messageData. mergeObject inside Roll#toMessage expands
+    // a dotted key into a nested object, and the one built here then replaces
+    // it wholesale -- the flat key's value is silently dropped.
     if (options.itemId) {
       foundry.utils.setProperty(
         messageData,
@@ -1061,7 +1094,19 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       };
       const attackTargets = _getAttackTargets(this.system.attackTarget || this.system.ability);
       if (attackTargets.length) {
-        messageData["flags.marvel-multiverse.targets"] = attackTargets;
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.targets",
+          attackTargets
+        );
+      }
+      const damageScale = damageScaleOf(this);
+      if (damageScale !== null) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.damageScale",
+          damageScale
+        );
       }
       roll.toMessage(messageData, { rollMode: rollMode, itemId: this._id });
 
@@ -2243,6 +2288,8 @@ class ChatMessageMarvel extends ChatMessage {
     // between the attack and this click damaged the wrong actors, and it left
     // the handler with no defense value to tell a hit from a miss.
     const attackRoll = chatMessage.rolls[0];
+    // A power dealing a fraction of regular damage recorded it on the attack.
+    const damageScale = chatMessage.getFlag("marvel-multiverse", "damageScale") ?? 1;
     const declaredTargets = chatMessage.getFlag("marvel-multiverse", "targets") ?? [];
     const resolvedTargets = [];
     for (const declared of declaredTargets) {
@@ -2275,6 +2322,7 @@ class ChatMessageMarvel extends ChatMessage {
         damageReduction,
         abilityValue,
         fantastic: !!fantastic,
+        scale: damageScale,
       });
       damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
       const fantasticLabel = fantastic ? " Fantastic" : "";
@@ -2285,9 +2333,10 @@ class ChatMessageMarvel extends ChatMessage {
         ? `(Multiplier - DR) ${effectiveMultiplier}`
         : `Multiplier ${damageMultiplier}`;
       const fantasticMult = fantastic ? " × 2" : "";
+      const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
       return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
         <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${fantasticMult}${drLine}</p>
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}</p>
         <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
       </div>`;
     });
@@ -2300,6 +2349,7 @@ class ChatMessageMarvel extends ChatMessage {
         damageMultiplier,
         abilityValue,
         fantastic: !!fantastic,
+        scale: damageScale,
       });
       const dmgTypeLabel = damageType ? ` ${damageType}` : "";
       const fantasticLabel = fantastic ? " Fantastic" : "";
@@ -3677,7 +3727,19 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       const attackAbility = item?.system?.attackTarget || dataset.abilityKey;
       const attackTargets = _getAttackTargets(attackAbility);
       if (attackTargets.length) {
-        messageData["flags.marvel-multiverse.targets"] = attackTargets;
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.targets",
+          attackTargets
+        );
+      }
+      const damageScale = damageScaleOf(item);
+      if (damageScale !== null) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.damageScale",
+          damageScale
+        );
       }
       roll.toMessage(messageData, { rollMode: rollMode, itemId: itemId });
       return roll;
@@ -4831,7 +4893,19 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       const npcAttackAbility = npcItem?.system?.attackTarget || dataset.abilityKey;
       const npcTargets = _getAttackTargets(npcAttackAbility);
       if (npcTargets.length) {
-        messageData["flags.marvel-multiverse.targets"] = npcTargets;
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.targets",
+          npcTargets
+        );
+      }
+      const damageScale = damageScaleOf(npcItem);
+      if (damageScale !== null) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.damageScale",
+          damageScale
+        );
       }
       roll.toMessage(messageData);
       return roll;
@@ -6449,6 +6523,15 @@ class MarvelMultiversePower extends MarvelMultiverseItemBase {
     schema.attackMultiplier = new fields.NumberField({
       ...requiredInteger,
       initial: 0,
+      min: 0,
+    });
+    // What fraction of regular damage the power deals -- 0.5 for a power whose
+    // text says targets "take half regular damage". Deliberately not an integer
+    // field: a half is the whole point.
+    schema.damageScale = new fields.NumberField({
+      required: true,
+      nullable: false,
+      initial: 1,
       min: 0,
     });
     (schema.isElemental = new fields.BooleanField({
@@ -8464,7 +8547,11 @@ async function rollAbilityCheck(actor, abilityKey, { noncom = false, tn = null }
   };
   const attackTargets = _getAttackTargets(abilityKey);
   if (attackTargets.length) {
-    messageData["flags.marvel-multiverse.targets"] = attackTargets;
+    foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.targets",
+          attackTargets
+        );
   }
 
   roll.toMessage(messageData, { rollMode: rollMode });

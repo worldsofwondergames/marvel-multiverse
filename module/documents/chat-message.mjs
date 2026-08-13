@@ -291,6 +291,8 @@ export class ChatMessageMarvel extends ChatMessage {
     // between the attack and this click damaged the wrong actors, and it left
     // the handler with no defense value to tell a hit from a miss.
     const attackRoll = chatMessage.rolls[0];
+    // A power dealing a fraction of regular damage recorded it on the attack.
+    const damageScale = chatMessage.getFlag("marvel-multiverse", "damageScale") ?? 1;
     const declaredTargets = chatMessage.getFlag("marvel-multiverse", "targets") ?? [];
     const resolvedTargets = [];
     for (const declared of declaredTargets) {
@@ -320,6 +322,7 @@ export class ChatMessageMarvel extends ChatMessage {
         damageReduction,
         abilityValue,
         fantastic: !!fantastic,
+        scale: damageScale,
       });
       damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
       return `<div class="mm-damage-target" data-target-uuid="${t.uuid}"><p><b>${t.name}</b> takes <b>${dmg} ${
@@ -340,6 +343,7 @@ export class ChatMessageMarvel extends ChatMessage {
         damageMultiplier,
         abilityValue,
         fantastic: !!fantastic,
+        scale: damageScale,
       });
       damageContent.push(
         `<p>target(s) take <b>${dmg} ${

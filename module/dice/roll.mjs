@@ -188,6 +188,10 @@ export class MarvelMultiverseRoll extends Roll {
     // Add appropriate edge mode message flavor and mmrpg roll flags
     messageData.flavor = messageData.flavor || this.options.flavor;
     messageData.fantastic = this.isFantastic;
+    // Callers must add their own flags with setProperty too, never as a flat
+    // "flags.a.b" key on messageData. mergeObject inside Roll#toMessage expands
+    // a dotted key into a nested object, and the one built here then replaces
+    // it wholesale -- the flat key's value is silently dropped.
     if (options.itemId) {
       foundry.utils.setProperty(
         messageData,

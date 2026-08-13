@@ -41,6 +41,25 @@ describe("phrases that must not become rolls", () => {
   test("a word merely starting with check is left alone", () => {
     expect(links("The character reaches the Ego checkpoint")).toEqual([]);
   });
+
+  // Prose that names a class of rolls a bonus applies to is describing scope,
+  // not asking for a roll now. Nothing instructs the reader to roll, so there
+  // is nothing to click.
+  test("an edge applying to a whole class of attacks is left alone", () => {
+    expect(links("The character gains an edge on all close attacks this round.")).toEqual([]);
+  });
+
+  test("a bonus applying to a whole class of checks is left alone", () => {
+    expect(links("gain a +2 bonus to Agility checks of any other kind")).toEqual([]);
+  });
+
+  test("trouble applying to a whole class of checks is left alone", () => {
+    expect(links("Enemies have trouble on all Melee checks against the character.")).toEqual([]);
+  });
+
+  test("a ranged attack named as a category is left alone", () => {
+    expect(links("This power may be used with ranged attacks.")).toEqual([]);
+  });
 });
 
 describe("ability checks and attacks", () => {
@@ -65,11 +84,20 @@ describe("ability checks and attacks", () => {
     ]);
   });
 
-  test("plurals are matched", () => {
-    expect(links("gain a +2 bonus to Agility checks of any other kind")).toEqual([
-      { abilityKey: "agl", kind: "check", tn: null, label: "Agility checks" },
+  test("a counted instruction is matched, plural and all", () => {
+    expect(links("The character makes two Melee attacks against the same foe.")).toEqual([
+      { abilityKey: "mle", kind: "attack", tn: null, label: "Melee attacks" },
     ]);
   });
+
+  test.each(["may make", "must make", "can make", "rolls", "attempts"])(
+    "%s introduces a roll",
+    (cue) => {
+      expect(links(`The character ${cue} an Ego check to resist.`)).toEqual([
+        { abilityKey: "ego", kind: "check", tn: null, label: "Ego check" },
+      ]);
+    }
+  );
 
   test.each(EXPECTED_KEYS)("a %s check rolls %s", (name, key) => {
     expect(links(`makes a ${name} check`)).toEqual([
@@ -112,8 +140,17 @@ describe("several phrases in one passage", () => {
 
 describe("pattern mechanics", () => {
   test("the pattern is global so repeated scans do not stall on lastIndex", () => {
-    const text = "makes an Ego check and then a Logic check";
+    const text = "makes an Ego check and then makes a Logic check";
     expect(links(text)).toHaveLength(2);
     expect(links(text)).toHaveLength(2);
+  });
+
+  // Each phrase needs its own cue. A second phrase joined by a conjunction to
+  // the first carries no cue of its own, so it is left alone rather than
+  // guessed at.
+  test("a phrase sharing an earlier cue by conjunction is left alone", () => {
+    expect(links("makes an Ego check and then a Logic check")).toEqual([
+      { abilityKey: "ego", kind: "check", tn: null, label: "Ego check" },
+    ]);
   });
 });

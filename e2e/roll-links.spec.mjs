@@ -85,13 +85,25 @@ test.describe('roll links in power text', () => {
   test('close and ranged attacks resolve to their implied abilities', async ({ foundryPage: page }) => {
     const card = await renderCard(
       page,
-      '<p>The character makes a close attack, then a ranged attack.</p>'
+      '<p>The character makes a close attack, then makes a ranged attack.</p>'
     );
 
     expect(card.links).toEqual([
       { ability: 'mle', kind: 'attack', tn: null, text: 'close attack' },
       { ability: 'agl', kind: 'attack', tn: null, text: 'ranged attack' },
     ]);
+  });
+
+  // Prose naming the class of rolls a bonus covers is not an instruction to
+  // roll, so nothing on that line is clickable.
+  test('an attack named as the scope of a bonus stays plain text', async ({ foundryPage: page }) => {
+    const card = await renderCard(
+      page,
+      '<p>The character gains an edge on all close attacks this round.</p>'
+    );
+
+    expect(card.text).toContain('close attacks');
+    expect(card.links).toEqual([]);
   });
 
   test('a stated target number is carried onto the link', async ({ foundryPage: page }) => {

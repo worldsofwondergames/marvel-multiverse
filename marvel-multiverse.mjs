@@ -8205,6 +8205,26 @@ const IMPLIED_ABILITY = {
 const ROLL_LINK_ABILITIES = Object.keys(ABILITY_BY_NAME).join("|");
 
 /**
+ * Words allowed between the cue verb and the phrase: articles and counts, so
+ * "makes an Ego check" and "makes two Melee attacks" both qualify.
+ */
+const ROLL_LINK_CUE_FILLER = "(?:a|an|the|another|one|two|three|four|five|six|\\d+)";
+
+/**
+ * A phrase names a roll only when something tells the reader to make it.
+ * "makes a close attack" is an instruction; "gains an edge on all close
+ * attacks" names the class of rolls a bonus applies to and is not clickable.
+ *
+ * Written as a lookbehind so the cue decides whether to match without becoming
+ * part of the link text -- the anchor still reads "close attack".
+ *
+ * "made" is left out on purpose: "on all action checks made while this is in
+ * effect" is a description, not an instruction.
+ */
+const ROLL_LINK_INSTRUCTION_CUE =
+  `(?<=\\b(?:makes?|making|rolls?|rolling|requires?|attempts?)\\s+(?:${ROLL_LINK_CUE_FILLER}\\s+)*)`;
+
+/**
  * One pattern rather than several, because alternation is ordered: at a given
  * position the first alternative that matches wins. That is what stops the
  * bare "Melee check" branch from eating the "Melee check (target number 20)"
@@ -8214,8 +8234,10 @@ const ROLL_LINK_ABILITIES = Object.keys(ABILITY_BY_NAME).join("|");
  *   - "Ego defense" and friends, which are the number being rolled against
  *   - bare "the attack", which refers back to a roll already made
  *   - bare "action check", which describes a bonus and names no ability
+ *   - any phrase with no instruction cue in front of it, per the cue above
  */
 const ROLL_LINK_PATTERN = new RegExp(
+  ROLL_LINK_INSTRUCTION_CUE +
   "\\b(?:" +
     // "makes an Ego vs. TN 12 action check"
     `(?<tnAbility>${ROLL_LINK_ABILITIES})\\s+vs\\.?\\s+TN\\s+(?<tnValue>\\d+)\\s+action\\s+checks?\\b` +

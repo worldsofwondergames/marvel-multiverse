@@ -1204,7 +1204,7 @@
 .mm-chat-body p {
   margin-block: 0;
 }
-.mm-chat-body .mm-chat-description {
+.mm-chat-body .mm-chat-description.-flavor {
   font-style: italic;
 }
 

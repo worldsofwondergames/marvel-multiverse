@@ -47,9 +47,11 @@ $mm-chat-font-size: 12px;
     margin-block: 0;
   }
 
-  // The description is flavour text and is italicised; the effect is the rules
-  // text and stays roman.
-  .mm-chat-description {
+  // The description is italicized only when an effect block accompanies it, so
+  // the flavor text reads differently from the roman rules text below. A card
+  // whose description IS its rules text — every item type but `power` — carries
+  // no modifier and stays roman.
+  .mm-chat-description.-flavor {
     font-style: italic;
   }
 }

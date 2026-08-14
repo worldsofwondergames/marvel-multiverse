@@ -1154,6 +1154,11 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       speaker: speaker,
       rollMode: rollMode,
       flavor: cardLabel,
+      // Names the power behind this card, so a roll link in its text can
+      // find the power it belongs to when clicked. Written as a nested
+      // object rather than a flat "flags.a.b" key, which document creation
+      // does not expand.
+      flags: { "marvel-multiverse": { itemId: this.id } },
       content: `<div class="mm-chat-body">${
         _hasContent(this.system.description)
           ? `<div class="mm-chat-description${hasEffect ? " -flavor" : ""}">${this.system.description}</div>`
@@ -8658,6 +8663,35 @@ function resolveRollLinkActor(anchor) {
 }
 
 /**
+ * The power a roll link sits inside, when it came from one.
+ *
+ * Some powers are rolled by clicking the check named in their own text rather
+ * than from a control on the sheet. Without the power behind it that click is a
+ * bare ability check: it knows nothing of the power's damage type, of which
+ * defense it should be compared against, or of any damage scale it carries.
+ * @param {HTMLElement} anchor
+ * @returns {Item|null}
+ */
+function resolveRollLinkItem(anchor) {
+  const messageEl = anchor.closest("[data-message-id]");
+  if (messageEl) {
+    const message = game.messages.get(messageEl.dataset.messageId);
+    const itemId = message?.getFlag("marvel-multiverse", "itemId");
+    const owned = itemId ? message.speakerActor?.items?.get(itemId) : null;
+    if (owned) return owned;
+  }
+
+  const appEl = anchor.closest("[data-appid]");
+  if (appEl) {
+    const app = ui.windows?.[appEl.dataset.appid];
+    const doc = app?.document ?? app?.object;
+    if (doc?.documentName === "Item") return doc;
+  }
+
+  return null;
+}
+
+/**
  * Roll the check a link names. Bound once on the document, since these links
  * appear in chat, on sheets and in journals alike.
  * @param {PointerEvent} event
@@ -8679,7 +8713,10 @@ async function _onRollLinkClick(event) {
   }
 
   const tn = anchor.dataset.tn ? Number(anchor.dataset.tn) : null;
-  return rollAbilityCheck(actor, anchor.dataset.ability, { tn });
+  return rollAbilityCheck(actor, anchor.dataset.ability, {
+    tn,
+    item: resolveRollLinkItem(anchor),
+  });
 }
 
 /**
@@ -8695,7 +8732,11 @@ async function _onRollLinkClick(event) {
  *                                           text, if it gave one
  * @returns {Promise<MarvelMultiverseRoll|null>}
  */
-async function rollAbilityCheck(actor, abilityKey, { noncom = false, tn = null } = {}) {
+async function rollAbilityCheck(
+  actor,
+  abilityKey,
+  { noncom = false, tn = null, item = null } = {}
+) {
   const abilityData = actor?.system?.abilities?.[abilityKey];
   if (!abilityData) {
     ui.notifications.warn(
@@ -8712,7 +8753,12 @@ async function rollAbilityCheck(actor, abilityKey, { noncom = false, tn = null }
   let flavor = _buildRollFlavor({
     tokenImg: _getTokenImg(actor),
     actorName: actor.name,
+    // When the roll came from a power's text, the card names the power and
+    // carries its damage type -- the damage button reads that type from here.
+    powerName: item?.name,
     ability: abilityLabel,
+    damageType: item?.system?.damageType,
+    element: item?.system?.isElemental ? item?.system?.element : null,
   });
 
   let edgeMode = MarvelMultiverseRoll.EDGE_MODE.NORMAL;
@@ -8761,13 +8807,26 @@ async function rollAbilityCheck(actor, abilityKey, { noncom = false, tn = null }
     rollMode: rollMode,
     title: "",
   };
-  const attackTargets = _getAttackTargets(abilityKey);
+  // A power names the defense it is compared against, which is not always the
+  // ability being rolled, so the ability is only the fallback.
+  const attackTargets = _getAttackTargets(item?.system?.attackTarget || abilityKey);
   if (attackTargets.length) {
     foundry.utils.setProperty(
-          messageData,
-          "flags.marvel-multiverse.targets",
-          attackTargets
-        );
+      messageData,
+      "flags.marvel-multiverse.targets",
+      attackTargets
+    );
+  }
+  const linkDamageScale = damageScaleOf(item);
+  if (linkDamageScale !== null) {
+    foundry.utils.setProperty(
+      messageData,
+      "flags.marvel-multiverse.damageScale",
+      linkDamageScale
+    );
+  }
+  if (item?.id) {
+    foundry.utils.setProperty(messageData, "flags.marvel-multiverse.itemId", item.id);
   }
 
   roll.toMessage(messageData, { rollMode: rollMode });

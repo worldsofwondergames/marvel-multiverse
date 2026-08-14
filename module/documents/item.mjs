@@ -204,6 +204,11 @@ export class MarvelMultiverseItem extends Item {
       speaker: speaker,
       rollMode: rollMode,
       flavor: cardLabel,
+      // Names the power behind this card, so a roll link in its text can
+      // find the power it belongs to when clicked. Written as a nested
+      // object rather than a flat "flags.a.b" key, which document creation
+      // does not expand.
+      flags: { "marvel-multiverse": { itemId: this.id } },
       content: `<div class="mm-chat-body">${
         _hasContent(this.system.description)
           ? `<div class="mm-chat-description${hasEffect ? " -flavor" : ""}">${this.system.description}</div>`

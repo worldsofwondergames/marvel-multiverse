@@ -331,7 +331,7 @@ export class ChatMessageMarvel extends ChatMessage {
         marvelDie.total
       } &#42; damage multiplier: &#40; ${
         actor.system.abilities[abilityAbr].damageMultiplier
-      } - damageReduction: ${damageReduction} &#61; ${dmgMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>
+      } - damageReduction: ${damageReduction} &#61; ${dmgMultiplier} &#41; + ${ability} score ${abilityValue}${damageScale !== 1 ? ` &#42; ${damageScale}` : ""} of damage.</p>
       <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button></div>`;
     });
 
@@ -350,7 +350,9 @@ export class ChatMessageMarvel extends ChatMessage {
           fantastic ? "Fantastic" : ""
         } </b> ${damageType} damage.<br/> re: MarvelDie: ${
           marvelDie.total
-        } &#42; damage multiplier: ${damageMultiplier} + ${ability} score ${abilityValue} of damage.</p>`
+        } &#42; damage multiplier: ${damageMultiplier} + ${ability} score ${abilityValue}${
+          damageScale !== 1 ? ` &#42; ${damageScale}` : ""
+        } of damage.</p>`
       );
     }
     if (fantastic && elementMatch) {

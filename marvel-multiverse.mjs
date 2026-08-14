@@ -78,6 +78,122 @@ function computeDamage({
 }
 
 /**
+ * Powers whose rules text says targets take half damage.
+ *
+ * Matched on the rule rather than on a list of power names: the system repo
+ * carries no content, and a name list here would both duplicate the compendium
+ * and go stale the moment content is added.
+ */
+const HALF_DAMAGE_RULE = /half\s+regular\s+damage/i;
+
+/** The scale such a power should carry. */
+const HALF_DAMAGE_SCALE = 0.5;
+
+/**
+ * Whether one item still needs the half-damage scale applied.
+ *
+ * A value other than 1 is left alone, so a deliberate choice by a GM -- or a
+ * later correction -- is never overwritten by this running again.
+ * @param {object} item
+ * @returns {boolean}
+ */
+function needsHalfDamageScale(item) {
+  if (item?.type !== "power") return false;
+  const scale = item?.system?.damageScale;
+  if (scale !== undefined && scale !== null && scale !== 1) return false;
+  return HALF_DAMAGE_RULE.test(item?.system?.effect ?? "");
+}
+
+/**
+ * The updates required to bring a collection of items in line. Returns payloads
+ * rather than applying them, so what changes is testable without a database.
+ * @param {Iterable<object>} items
+ * @returns {Array<object>}
+ */
+function collectHalfDamageUpdates(items) {
+  const updates = [];
+  for (const item of items ?? []) {
+    if (!needsHalfDamageScale(item)) continue;
+    updates.push({ _id: item.id ?? item._id, "system.damageScale": HALF_DAMAGE_SCALE });
+  }
+  return updates;
+}
+
+/**
+ * Whether a power's own text names the check that rolls it.
+ *
+ * Nearly every attack power is written as an instruction to make a check, and
+ * that phrase is enriched into the link used to roll it. Rolling again when the
+ * power itself is clicked would put two attacks in the log for one action, so
+ * the click posts the card and the link does the rolling.
+ * @param {object} system  An item's system data.
+ * @returns {boolean}
+ */
+function powerRollsFromItsText(system) {
+  const effect = String(system?.effect ?? "").replace(/<[^>]*>/g, " ");
+  if (!effect.trim()) return false;
+  // matchAll rather than test: the pattern is global, and test() would
+  // advance its lastIndex and make the next call on the same text miss.
+  for (const match of effect.matchAll(ROLL_LINK_PATTERN)) {
+    if (describeRollLink(match)?.abilityKey) return true;
+  }
+  return false;
+}
+
+/**
+ * The fields that decide whether and how a power rolls as an attack.
+ *
+ * `formula` is deliberately absent: it holds the dice rather than the attack
+ * configuration, it showed no drift, and it is the field a GM is most likely to
+ * have altered on purpose.
+ */
+const POWER_ATTACK_FIELDS = [
+  "ability",
+  "attack",
+  "attackTarget",
+  "attackKind",
+  "damageType",
+  "damageScale",
+];
+
+/**
+ * Bring owned powers back in line with the compendium they came from.
+ *
+ * Powers imported before the attack fields were populated carry an empty
+ * `ability` and `attack: false`, and a power in that state does not roll at
+ * all -- `Item#roll` needs both a formula and an ability. That is why powers
+ * whose scale was corrected still dealt full damage: they were never rolled as
+ * powers, so nothing carried the scale onto the message.
+ *
+ * The reference values win outright. That is a deliberate choice: these fields
+ * describe what the published power is, not how one character uses it.
+ * @param {Iterable<object>} items
+ * @param {Map<string, object>} referenceByName
+ * @returns {Array<object>}
+ */
+function collectPowerSyncUpdates(items, referenceByName) {
+  const updates = [];
+  for (const item of items ?? []) {
+    if (item?.type !== "power") continue;
+    const reference = referenceByName?.get?.(item.name);
+    if (!reference) continue;
+
+    const update = {};
+    for (const field of POWER_ATTACK_FIELDS) {
+      const target = reference[field];
+      // A field the reference does not define is not a reason to blank the
+      // owned copy.
+      if (target === undefined) continue;
+      if (item.system?.[field] === target) continue;
+      update[`system.${field}`] = target;
+    }
+    if (Object.keys(update).length === 0) continue;
+    updates.push({ _id: item.id ?? item._id, ...update });
+  }
+  return updates;
+}
+
+/**
  * The fraction of regular damage an item's power deals, or null when it deals
  * the usual amount.
  *
@@ -1059,6 +1175,11 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       speaker: speaker,
       rollMode: rollMode,
       flavor: cardLabel,
+      // Names the power behind this card, so a roll link in its text can
+      // find the power it belongs to when clicked. Written as a nested
+      // object rather than a flat "flags.a.b" key, which document creation
+      // does not expand.
+      flags: { "marvel-multiverse": { itemId: this.id } },
       content: `<div class="mm-chat-body">${
         _hasContent(this.system.description)
           ? `<div class="mm-chat-description${hasEffect ? " -flavor" : ""}">${this.system.description}</div>`
@@ -1077,7 +1198,11 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       }</div>`,
     });
 
-    if (this.system.formula && this.system.ability) {
+    if (
+      this.system.formula &&
+      this.system.ability &&
+      !powerRollsFromItsText(this.system)
+    ) {
       // Retrieve roll data.
       const rollData = this.getRollData();
       // Invoke the roll and submit it to chat.
@@ -2354,9 +2479,10 @@ class ChatMessageMarvel extends ChatMessage {
       const dmgTypeLabel = damageType ? ` ${damageType}` : "";
       const fantasticLabel = fantastic ? " Fantastic" : "";
       const fantasticMult = fantastic ? " × 2" : "";
+      const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
       damageContent.push(
         `<p style="margin:4px 0;">Deals <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${fantasticMult}</p>`
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}</p>`
       );
     }
     // const content = `<p>Delivers <b>${dmg}</b> points re: MarvelDie: ${marvelDie.total} &#42; damage multiplier: &#40; ${actor.system.abilities[abilityAbr].damageMultiplier} - damageReduction: ${damageReduction} &#61; ${damageMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
@@ -3668,6 +3794,10 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       }
     }
     if (dataset.formula) {
+      // The power states its own check, so the link in that text is how it is
+      // rolled. Posting the card is all this control should do.
+      if (item && powerRollsFromItsText(item.system)) return item.roll();
+
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
@@ -7161,6 +7291,14 @@ Hooks.once("init", () => {
     hqTrait: MarvelMultiverseHqTrait,
   };
 
+  // Records world repairs that have already run, so each is applied once.
+  game.settings.register("marvel-multiverse", "migrationVersion", {
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 0,
+  });
+
   game.settings.register("marvel-multiverse", "autoPopulateOrigin", {
     name: "Auto-Populate Origin Items",
     hint: "When adding an Origin or Occupation to a character, automatically create its associated powers, traits, and tags.",
@@ -7788,6 +7926,119 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     });
   }
 });
+
+/** Bumped when a new repair is added below. */
+const MIGRATION_VERSION = 2;
+
+/**
+ * Power name -> attack configuration, gathered from every Item compendium.
+ *
+ * Every compendium is consulted rather than one named pack, so the system stays
+ * independent of any particular content module. The index is asked for the
+ * specific fields, which avoids loading each document in full.
+ * @returns {Promise<Map<string, object>>}
+ */
+async function _referencePowerFields() {
+  const byName = new Map();
+  const fields = ["type", ...POWER_ATTACK_FIELDS.map((f) => `system.${f}`)];
+  for (const pack of game.packs ?? []) {
+    if (pack.documentName !== "Item") continue;
+    let index;
+    try {
+      index = await pack.getIndex({ fields });
+    } catch (err) {
+      console.warn(`marvel-multiverse | could not index ${pack.collection}`, err);
+      continue;
+    }
+    for (const entry of index) {
+      if (entry.type !== "power") continue;
+      // First pack wins, so a later module cannot quietly redefine a power an
+      // earlier one already described.
+      if (byName.has(entry.name)) continue;
+      byName.set(entry.name, entry.system ?? {});
+    }
+  }
+  return byName;
+}
+
+/**
+ * Copy the attack configuration from the compendium onto every owned power.
+ *
+ * Without this a power sits with no ability and `attack: false`, which means it
+ * cannot be rolled as a power at all -- and a power that is never rolled cannot
+ * carry its damage scale onto the chat card.
+ * @returns {Promise<number>}  How many items were updated.
+ */
+async function _syncOwnedPowerFields() {
+  const reference = await _referencePowerFields();
+  if (!reference.size) return 0;
+
+  let changed = 0;
+  for (const actor of game.actors) {
+    const updates = collectPowerSyncUpdates(actor.items, reference);
+    if (!updates.length) continue;
+    await actor.updateEmbeddedDocuments("Item", updates);
+    changed += updates.length;
+  }
+
+  const worldUpdates = collectPowerSyncUpdates(game.items, reference);
+  if (worldUpdates.length) {
+    await Item.updateDocuments(worldUpdates);
+    changed += worldUpdates.length;
+  }
+  return changed;
+}
+
+/**
+ * Bring already-imported powers in line with a compendium backfill.
+ *
+ * `damageScale` was added to the schema and set on the twelve powers whose text
+ * reads "half regular damage", but a compendium edit does not reach copies that
+ * are already owned by an actor. Without this pass those powers keep dealing
+ * full damage in every world that imported them before the field existed.
+ *
+ * GM only, and recorded in a setting so it runs once per world rather than on
+ * every load.
+ */
+async function _runWorldMigrations() {
+  if (!game.user.isGM) return;
+  const done = game.settings.get("marvel-multiverse", "migrationVersion");
+  if (done >= MIGRATION_VERSION) return;
+
+  let changed = 0;
+  try {
+    if (done < 1) {
+      for (const actor of game.actors) {
+        const updates = collectHalfDamageUpdates(actor.items);
+        if (!updates.length) continue;
+        await actor.updateEmbeddedDocuments("Item", updates);
+        changed += updates.length;
+      }
+
+      const worldUpdates = collectHalfDamageUpdates(game.items);
+      if (worldUpdates.length) {
+        await Item.updateDocuments(worldUpdates);
+        changed += worldUpdates.length;
+      }
+    }
+
+    if (done < 2) changed += await _syncOwnedPowerFields();
+  } catch (err) {
+    // Leave the version unbumped so the pass is retried next load rather than
+    // being recorded as done after a partial run.
+    console.error("marvel-multiverse | world migration failed", err);
+    return;
+  }
+
+  await game.settings.set("marvel-multiverse", "migrationVersion", MIGRATION_VERSION);
+  if (changed) {
+    ui.notifications.info(
+      `Marvel Multiverse: repaired ${changed} power${changed === 1 ? "" : "s"} on existing characters.`
+    );
+  }
+}
+
+Hooks.once("ready", () => _runWorldMigrations());
 
 Hooks.once("ready", () => {
   game.socket.on(MM_SOCKET, async (data) => {
@@ -8442,6 +8693,35 @@ function resolveRollLinkActor(anchor) {
 }
 
 /**
+ * The power a roll link sits inside, when it came from one.
+ *
+ * Some powers are rolled by clicking the check named in their own text rather
+ * than from a control on the sheet. Without the power behind it that click is a
+ * bare ability check: it knows nothing of the power's damage type, of which
+ * defense it should be compared against, or of any damage scale it carries.
+ * @param {HTMLElement} anchor
+ * @returns {Item|null}
+ */
+function resolveRollLinkItem(anchor) {
+  const messageEl = anchor.closest("[data-message-id]");
+  if (messageEl) {
+    const message = game.messages.get(messageEl.dataset.messageId);
+    const itemId = message?.getFlag("marvel-multiverse", "itemId");
+    const owned = itemId ? message.speakerActor?.items?.get(itemId) : null;
+    if (owned) return owned;
+  }
+
+  const appEl = anchor.closest("[data-appid]");
+  if (appEl) {
+    const app = ui.windows?.[appEl.dataset.appid];
+    const doc = app?.document ?? app?.object;
+    if (doc?.documentName === "Item") return doc;
+  }
+
+  return null;
+}
+
+/**
  * Roll the check a link names. Bound once on the document, since these links
  * appear in chat, on sheets and in journals alike.
  * @param {PointerEvent} event
@@ -8463,7 +8743,10 @@ async function _onRollLinkClick(event) {
   }
 
   const tn = anchor.dataset.tn ? Number(anchor.dataset.tn) : null;
-  return rollAbilityCheck(actor, anchor.dataset.ability, { tn });
+  return rollAbilityCheck(actor, anchor.dataset.ability, {
+    tn,
+    item: resolveRollLinkItem(anchor),
+  });
 }
 
 /**
@@ -8479,7 +8762,11 @@ async function _onRollLinkClick(event) {
  *                                           text, if it gave one
  * @returns {Promise<MarvelMultiverseRoll|null>}
  */
-async function rollAbilityCheck(actor, abilityKey, { noncom = false, tn = null } = {}) {
+async function rollAbilityCheck(
+  actor,
+  abilityKey,
+  { noncom = false, tn = null, item = null } = {}
+) {
   const abilityData = actor?.system?.abilities?.[abilityKey];
   if (!abilityData) {
     ui.notifications.warn(
@@ -8496,7 +8783,12 @@ async function rollAbilityCheck(actor, abilityKey, { noncom = false, tn = null }
   let flavor = _buildRollFlavor({
     tokenImg: _getTokenImg(actor),
     actorName: actor.name,
+    // When the roll came from a power's text, the card names the power and
+    // carries its damage type -- the damage button reads that type from here.
+    powerName: item?.name,
     ability: abilityLabel,
+    damageType: item?.system?.damageType,
+    element: item?.system?.isElemental ? item?.system?.element : null,
   });
 
   let edgeMode = MarvelMultiverseRoll.EDGE_MODE.NORMAL;
@@ -8545,13 +8837,26 @@ async function rollAbilityCheck(actor, abilityKey, { noncom = false, tn = null }
     rollMode: rollMode,
     title: "",
   };
-  const attackTargets = _getAttackTargets(abilityKey);
+  // A power names the defense it is compared against, which is not always the
+  // ability being rolled, so the ability is only the fallback.
+  const attackTargets = _getAttackTargets(item?.system?.attackTarget || abilityKey);
   if (attackTargets.length) {
     foundry.utils.setProperty(
-          messageData,
-          "flags.marvel-multiverse.targets",
-          attackTargets
-        );
+      messageData,
+      "flags.marvel-multiverse.targets",
+      attackTargets
+    );
+  }
+  const linkDamageScale = damageScaleOf(item);
+  if (linkDamageScale !== null) {
+    foundry.utils.setProperty(
+      messageData,
+      "flags.marvel-multiverse.damageScale",
+      linkDamageScale
+    );
+  }
+  if (item?.id) {
+    foundry.utils.setProperty(messageData, "flags.marvel-multiverse.itemId", item.id);
   }
 
   roll.toMessage(messageData, { rollMode: rollMode });
@@ -8600,5 +8905,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, collectHalfDamageUpdates, collectPowerSyncUpdates, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

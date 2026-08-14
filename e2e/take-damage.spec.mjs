@@ -551,6 +551,134 @@ test.describe('applying damage from the chat card', () => {
  * line, so this needs a second client actually joined as a player. Nothing
  * about the rule can be observed from the GM's session.
  */
+/**
+ * An open sheet must show the new value straight away (AC10), and a player who
+ * is not the message's author cannot write its flags, so the applied state has
+ * to reach a GM over the socket (AC13).
+ */
+test.describe('applying damage from other clients and other windows', () => {
+  test.afterEach(async ({ foundryPage }) => {
+    await purgeTestData(foundryPage);
+  });
+
+  test('an open sheet shows the reduced Health without a reload', async ({ foundryPage: page }) => {
+    await attackDefender(page);
+    const flag = await damageFlag(page);
+    const entry = flag.targets.find((t) => t.hit);
+
+    const shown = await page.evaluate(async (uuid) => {
+      const actor = fromUuidSync(uuid);
+      await actor.sheet.render(true);
+      await new Promise((r) => setTimeout(r, 900));
+      const read = () => {
+        const el = actor.sheet.element instanceof HTMLElement
+          ? actor.sheet.element
+          : actor.sheet.element?.[0];
+        return Number(el?.querySelector('input[name="system.health.value"]')?.value);
+      };
+      return { before: read(), stored: actor.system.health.value };
+    }, entry.uuid);
+
+    // The sheet has to be showing the pre-damage number first, or "it changed"
+    // would mean nothing.
+    expect(shown.before).toBe(shown.stored);
+
+    await clickTakeDamage(page, entry.uuid);
+    await page.waitForTimeout(1800);
+
+    const after = await page.evaluate((uuid) => {
+      const actor = fromUuidSync(uuid);
+      const el = actor.sheet.element instanceof HTMLElement
+        ? actor.sheet.element
+        : actor.sheet.element?.[0];
+      return {
+        rendered: actor.sheet.rendered,
+        shown: Number(el?.querySelector('input[name="system.health.value"]')?.value),
+        stored: actor.system.health.value,
+      };
+    }, entry.uuid);
+
+    expect(after.rendered).toBe(true);
+    expect(after.stored).toBe(shown.stored - entry.amount);
+    // No reload happened between the click and this read.
+    expect(after.shown).toBe(after.stored);
+
+    await page.evaluate(async (uuid) => {
+      const actor = fromUuidSync(uuid);
+      await actor.sheet.close();
+    }, entry.uuid);
+  });
+
+  test('a player applying damage has the applied state saved through a GM', async ({ foundryPage: page, browser }) => {
+    await attackDefender(page);
+    const flag = await damageFlag(page);
+    const entry = flag.targets.find((t) => t.hit);
+
+    const playerId = await page.evaluate(async ({ name, uuid }) => {
+      const stale = game.users.filter((u) => u.name === name);
+      if (stale.length) await User.deleteDocuments(stale.map((u) => u.id));
+      const user = await User.create({ name, role: CONST.USER_ROLES.PLAYER });
+      // The player owns the target but did not author the damage message.
+      const actor = fromUuidSync(uuid);
+      await actor.update({ [`ownership.${user.id}`]: 3 });
+      return user.id;
+    }, { name: PLAYER_NAME, uuid: entry.uuid });
+
+    const before = await pools(page, entry.uuid);
+    const authorIsPlayer = await page.evaluate((id) => {
+      const msg = [...game.messages.contents].reverse().find((m) => m.getFlag('marvel-multiverse', 'damage'));
+      return msg.author?.id === id;
+    }, playerId);
+    // The relay only matters because the player is not the author.
+    expect(authorIsPlayer).toBe(false);
+
+    const context = await browser.newContext({
+      viewport: { width: 1600, height: 900 },
+      baseURL: 'http://localhost:30000',
+    });
+    const playerPage = await context.newPage();
+    try {
+      await playerPage.goto('/join');
+      await playerPage.waitForSelector('select[name="userid"]', { timeout: 30_000 });
+      await playerPage.selectOption('select[name="userid"]', playerId);
+      await playerPage.locator('button[name="join"]').click();
+      await playerPage.waitForURL('**/game', { timeout: 60_000 });
+      await playerPage.waitForFunction(() => window.game?.ready === true, { timeout: 60_000 });
+      await playerPage.waitForFunction(
+        (uuid) => !!document.querySelector(`button.mm-take-damage[data-target-uuid="${uuid}"]`),
+        entry.uuid,
+        { timeout: 30_000 },
+      );
+
+      const canWrite = await playerPage.evaluate(() => {
+        const msg = [...game.messages.contents].reverse().find((m) => m.getFlag('marvel-multiverse', 'damage'));
+        return msg.canUserModify(game.user, 'update');
+      });
+      // If the player could write the flag directly the socket would never run.
+      expect(canWrite).toBe(false);
+
+      await playerPage.evaluate((uuid) => {
+        const buttons = document.querySelectorAll(`button.mm-take-damage[data-target-uuid="${uuid}"]`);
+        buttons[buttons.length - 1].click();
+      }, entry.uuid);
+      await playerPage.waitForTimeout(2500);
+
+      // The actor update is the player's own doing, since they own the target.
+      const after = await pools(page, entry.uuid);
+      expect(after.health).toBe(before.health - entry.amount);
+
+      // The applied record could only have been written by the GM client.
+      const appliedOnGm = await page.evaluate(() => {
+        const msg = [...game.messages.contents].reverse().find((m) => m.getFlag('marvel-multiverse', 'damage'));
+        return msg.getFlag('marvel-multiverse', 'damage').applied;
+      });
+      expect(appliedOnGm).toContain(entry.uuid);
+    } finally {
+      await context.close();
+    }
+  });
+});
+
 test.describe('who the button is shown to', () => {
   test.afterEach(async ({ foundryPage }) => {
     await purgeTestData(foundryPage);

@@ -3,7 +3,7 @@ import { _parseFocusCost, _maxFocusSpend } from '../documents/item.mjs';
 
 /**
  * Cost is free text on the power. These shapes are the ones that actually occur
- * across the 407 powers in marvel-multiverse-data: 194 flat, 24 "or more",
+ * across the 407 powers in the content module: 194 flat, 24 "or more",
  * 10 per turn or per round, and 6 that name no number at all.
  */
 describe('_parseFocusCost', () => {

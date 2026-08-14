@@ -85,8 +85,12 @@
 
   .damage {
     border: 2px solid $mm-primary-red;
+    // Block with auto side margins, so the button sits centered under the roll
+    // total instead of against the left edge of the card.
+    display: block;
     font-size: 16px;
     margin-block-start: $mm-spacing-md;
+    margin-inline: auto;
     padding: $mm-spacing-md;
   }
 

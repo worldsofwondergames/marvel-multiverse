@@ -19,6 +19,14 @@
       "Titanic": "Titanic",
       "Gigantic": "Gigantic"
     },
+    "Schooling": {
+      "Title": "Advancement",
+      "Reward": {
+        "Ability": "Ability point",
+        "Power": "Power",
+        "Trait": "Trait"
+      }
+    },
     "Ability": {
       "Mel": {
         "long": "Melee",

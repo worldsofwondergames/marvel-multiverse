@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 3.1.0
+
+### Applying Damage
+
+- The damage chat card now carries a **Take Damage** button on each target the attack hit. Clicking it subtracts that target's damage from Health, or from Focus when the attack does Focus damage. The amount comes from the card, so it matches what the card printed.
+- The GM sees the button on every hit target. A player sees it only on targets they own, and a user who owns none of the targets sees the card with no buttons.
+- Once a target's damage has been taken the button reads **Applied** and stops responding, for every connected client and after a reload. When a player applies damage the record is saved through a connected GM; with no GM connected the damage still applies and the player is told the button will come back.
+- Health and Focus are allowed below zero, as before. Nothing is clamped.
+- **Fixed:** the damage card was built from whoever was targeted at the moment the Damage button was clicked, not from the targets declared when the attack was rolled. Retargeting in between damaged the wrong actors. It now reads the targets recorded on the attack, which is also what lets it tell a hit from a miss — missed targets are listed as misses and take nothing.
+- A Fantastic elemental effect now applies its status only to targets the attack hit, instead of to everyone who was targeted.
+
+### Concentration
+
+- Activating a power whose duration is Concentration now records it against the character. A character can hold one per rank, on separate powers, as the core rulebook requires; a further power, or the same power twice, is refused before any Focus is spent.
+- A **Concentrating** marker appears in the token HUD while at least one power is held. Clearing it ends everything the character is holding.
+- Concentration ends automatically on becoming unconscious, demoralized, stunned or prone, and when the encounter ends. Blinded, deafened and paralyzed break it only when the power requires sight, hearing, or a Melee or Agility check, which the power data does not record, so those stay manual — as does knockback, which is not a condition.
+- Powers that charge every turn or round — 7 of the 125 concentration powers — prompt at the start of the character's turn in combat. Continuing spends the cost again; declining ends that concentration. The other 118 are free to maintain and never prompt.
+- A control on the power row ends a single concentration, at no action cost.
+
+### Conditions
+
+- **Conditions reworked to follow the rulebooks.** `Grappled` is renamed to `Grabbed`, and `Encumbered` and `Restrained` are replaced by `Demoralized` and `Pinned` — the names the core rulebook uses for those exact effects. `Demoralized`, `Pinned`, `Shattered` and `Damage Reduction` are added. `Damage Reduction` exists as a condition in addition to the existing numeric damage-reduction fields, which are unchanged. `Frightened`, `Flying` and `Invisible` are kept even though the books do not define them.
+- The Force and Iron elemental Fantastic effects now apply `Demoralized` and `Pinned` instead of `Encumbered` and `Restrained`. Their behaviour is unchanged; only the condition name differs. Swarm still applies `Frightened`.
+- **Action required:** tokens already carrying Grappled, Encumbered or Restrained keep a status id the system no longer registers, so they will show a stale icon that cannot be cleared from the HUD. Clear and reapply the condition on any affected token.
+
 ## 3.0.0
 
 ### Hotbar Macros

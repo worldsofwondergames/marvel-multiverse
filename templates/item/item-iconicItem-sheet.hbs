@@ -41,13 +41,13 @@
       <div class="mm-styled-field -fill">
         <label class="mm-styled-label -align-left" for="system.description"><span>Description</span></label>
         <div class="mm-styled-input">
-          {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false editable=editable}}
+          {{editor enriched.description target="system.description" button=true engine="prosemirror" collaborate=false editable=editable}}
         </div>
       </div>
       <div class="mm-styled-field -fill">
         <label class="mm-styled-label -align-left" for="system.notes"><span>Notes</span></label>
         <div class="mm-styled-input">
-          {{editor system.notes target="system.notes" button=false engine="prosemirror" collaborate=false editable=editable}}
+          {{editor enriched.notes target="system.notes" button=true engine="prosemirror" collaborate=false editable=editable}}
         </div>
       </div>
     </div>
@@ -188,7 +188,7 @@
           <div class="mm-styled-field -fill">
             <label class="mm-styled-label -align-left" for="system.intelligenceDescription"><span>Intelligence Description</span></label>
             <div class="mm-styled-input">
-              {{editor system.intelligenceDescription target="system.intelligenceDescription" button=false engine="prosemirror" collaborate=false editable=editable}}
+              {{editor enriched.intelligenceDescription target="system.intelligenceDescription" button=true engine="prosemirror" collaborate=false editable=editable}}
             </div>
           </div>
         {{/if}}

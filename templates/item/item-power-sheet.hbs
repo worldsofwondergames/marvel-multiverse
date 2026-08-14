@@ -33,13 +33,13 @@
       <div class="mm-styled-field -fill">
         <label class="mm-styled-label -align-left rollable" for="system.description" data-label="description"><span>Description</span></label>
         <div class="mm-styled-input">
-          {{editor system.description target="system.description" button=false engine="prosemirror" collaborate=false}}
+          {{editor enriched.description target="system.description" button=true engine="prosemirror" collaborate=false editable=editable}}
         </div>
       </div>
       <div class="mm-styled-field -fill">
         <label class="mm-styled-label -align-left rollable" for="system.effect" data-label="effect"><span>Effect</span></label>
         <div class="mm-styled-input">
-          {{editor system.effect target="system.effect" button=false engine="prosemirror" collaborate=false}}
+          {{editor enriched.effect target="system.effect" button=true engine="prosemirror" collaborate=false editable=editable}}
         </div>
       </div>
       <div class="mm-styled-field -fill">
@@ -117,6 +117,12 @@
         <label class="mm-styled-label -align-left"><span>Attack Multiplier</span></label>
         <div class="mm-styled-input">
           <input type="number" name="system.attackMultiplier" value="{{system.attackMultiplier}}" data-dtype="Number"/>
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left" title="Fraction of regular damage this power deals. 0.5 for a power whose text says targets take half regular damage."><span>Damage Scale</span></label>
+        <div class="mm-styled-input">
+          <input type="number" name="system.damageScale" value="{{system.damageScale}}" step="0.05" min="0" data-dtype="Number"/>
         </div>
       </div>
       <div class="mm-styled-field -fill">

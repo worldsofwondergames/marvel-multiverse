@@ -3,6 +3,7 @@ import {
   prepareActiveEffectCategories,
 } from "../helpers/effects.mjs";
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
+import { enrichSheetFields } from "../helpers/enrich.mjs";
 
 /**
  * Extend the basic actor sheet with some very simple modifications
@@ -22,6 +23,11 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
           contentSelector: ".sheet-body",
           initial: "traits",
         },
+        {
+          navSelector: ".mm-subtabs",
+          contentSelector: ".mm-bio-body",
+          initial: "details",
+        },
       ],
     });
   }
@@ -34,7 +40,7 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
   /* -------------------------------------------- */
 
   /** @override */
-  getData() {
+  async getData() {
     // Retrieve the data structure from the base sheet. You can inspect or log
     // the context variable to see the structure, but some key properties for
     // sheets are the actor object, the data object, whether or not it's
@@ -56,6 +62,16 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
     context.rollData = context.actor.getRollData();
 
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
+
+    // Ten schooling boxes, labelled from the printed chart. Bound directly to
+    // the schema path so the stock sheet submit persists them.
+    const schoolingBoxes = this.actor.system.schooling.boxes;
+    context.schoolingBoxes = CONFIG.MARVEL_MULTIVERSE.schoolingChart.map((reward, i) => ({
+      index: i,
+      name: `system.schooling.boxes.box${i}`,
+      label: game.i18n.localize(reward.label),
+      checked: schoolingBoxes[`box${i}`],
+    }));
 
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [
@@ -150,6 +166,12 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
 
       context.formData = { isPrimary, isAlternate, forms, primaryActors };
     }
+
+    // Rich text is shown enriched so content links, inline rolls and the
+    // roll links registered by this system all work on the sheet.
+    context.enriched = await enrichSheetFields(this.actor, {
+      rollData: context.rollData,
+    });
 
     return context;
   }

@@ -138,6 +138,15 @@
                 </div>
               </div>
               {{/if}}
+              {{#if editable}}
+              {{!-- Sits under the DR box. When Condition DR is shown it occupies
+                    that same corner, so the button shifts left of the column. --}}
+              <div class="mm-stat-reset-slot{{#if (gt system.conditionDamageReduction 0)}} -shifted{{/if}}">
+                <button type="button" class="mm-stat-reset" data-reset="health" title="Reset Health to its maximum">
+                  <i class="fas fa-rotate-left"></i>
+                </button>
+              </div>
+              {{/if}}
             </div>
             {{!-- Focus & Focus DR --}}
             <div class="flexrow -relative">
@@ -155,6 +164,13 @@
                   {{#if (gt system.focusDamageReduction 0)}}-{{/if}}{{system.focusDamageReduction}}
                 </div>
               </div>
+              {{#if editable}}
+              <div class="mm-stat-reset-slot">
+                <button type="button" class="mm-stat-reset" data-reset="focus" title="Reset Focus to its maximum">
+                  <i class="fas fa-rotate-left"></i>
+                </button>
+              </div>
+              {{/if}}
             </div>
             {{!-- Speed & Initative --}}
             <div class="flexrow -relative">
@@ -280,12 +296,34 @@
     {{!-- Biography --}}
     <div class="tab items" data-group="primary" data-tab="biography">
       <div class="mm-bio-block">
-        {{!-- Character Details --}}
-        <div class="flexcol -static-children">
-           {{> "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs"}}
+        {{!-- Biography sub-tabs. A distinct nav class is required: the primary
+              tab controller binds to ".sheet-tabs" and would otherwise capture
+              this nav as well. --}}
+        <nav class="mm-subtabs tabs" data-group="biography">
+          <a class="item active" data-tab="details">Details</a>
+          <a class="item" data-tab="background">Background</a>
+          <a class="item" data-tab="advancement">Advancement</a>
+        </nav>
+
+        <div class="mm-bio-body">
+          {{!-- Character detail fields, plus alternate forms --}}
+          <div class="tab active" data-group="biography" data-tab="details">
+            <div class="flexcol -static-children">
+              {{> "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs"}}
+            </div>
+            {{> "systems/marvel-multiverse/templates/actor/parts/actor-alternate-forms.hbs"}}
+          </div>
+
+          {{!-- History, Personality, Features --}}
+          <div class="tab" data-group="biography" data-tab="background">
+            {{> "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs"}}
+          </div>
+
+          {{!-- Schooling Advancement Chart --}}
+          <div class="tab" data-group="biography" data-tab="advancement">
+            {{> "systems/marvel-multiverse/templates/actor/parts/actor-schooling.hbs"}}
+          </div>
         </div>
-        {{> "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs"}}
-        {{> "systems/marvel-multiverse/templates/actor/parts/actor-alternate-forms.hbs"}}
       </div>
     </div>
 

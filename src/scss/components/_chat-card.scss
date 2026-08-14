@@ -1,0 +1,130 @@
+@use "../utils/colors" as *;
+
+// Power chat card. One gap value governs both the space below the
+// Action/Trigger/Duration/Cost block and the space between the description and
+// the effect, so the two read as the same paragraph break.
+$mm-chat-gap: 4px;
+
+// One size for the whole card. The flavor wrapper already sets this inline, so
+// the body is brought down to match rather than the header being pushed up.
+$mm-chat-font-size: 12px;
+
+// The power name heads the card. The flavor wrapper and .mm-chat-body share
+// 8px of side padding, so this line, the meta rows, the ability row, the
+// description and the effect all sit on one left edge.
+.mm-roll-power-name {
+  color: $mm-secondary-red;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mm-chat-meta {
+  // Inherits the flavor wrapper's font size so Action/Trigger/Duration/Cost
+  // match the Power line above them and the Ability row below.
+  font-size: inherit;
+
+  .mm-chat-meta-row {
+    font-size: inherit;
+  }
+}
+
+.mm-chat-body {
+  font-size: $mm-chat-font-size;
+  padding-inline: 8px;
+  margin-block-start: 0;
+
+  > * {
+    margin-block-end: $mm-chat-gap;
+
+    &:last-child {
+      margin-block-end: 0;
+    }
+  }
+
+  // ProseMirror wraps content in <p>; its default margins would add a second,
+  // larger gap on top of the one above.
+  p {
+    margin-block: 0;
+  }
+
+  // The description is italicized only when an effect block accompanies it, so
+  // the flavor text reads differently from the roman rules text below. A card
+  // whose description IS its rules text — every item type but `power` — carries
+  // no modifier and stays roman.
+  .mm-chat-description.-flavor {
+    font-style: italic;
+  }
+}
+
+// Activate button on a power card.
+.mm-chat-activate {
+  margin-block-start: $mm-chat-gap;
+
+  .mm-activate-power {
+    font-size: $mm-chat-font-size;
+    width: 100%;
+  }
+}
+
+// One target's line on a damage card. Targets the attack missed are dimmed so
+// the eye goes to the ones that still need applying.
+.mm-damage-target {
+  & + & {
+    margin-block-start: $mm-chat-gap;
+    border-block-start: 1px solid rgba(0, 0, 0, 0.1);
+    padding-block-start: $mm-chat-gap;
+  }
+
+  &.-miss {
+    opacity: 0.65;
+  }
+}
+
+// Take Damage button on a damage card. Centered in the card rather than filling
+// it, so the eye lands on it as a control instead of reading it as a banner.
+.mm-take-damage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  min-width: 50%;
+  margin: $mm-chat-gap auto 0;
+  padding-inline: 12px;
+  font-size: $mm-chat-font-size;
+  background: $mm-secondary-red;
+  border: 1px solid $mm-secondary-red;
+  // Both the label and the icon are set explicitly. Foundry's button color is
+  // dark, and an icon inside a button does not inherit a color set only on the
+  // button in every theme, so leaving either implicit puts dark on red.
+  color: #fff;
+
+  i {
+    color: #fff;
+  }
+
+  &:hover:not(:disabled) {
+    background: $mm-primary-red;
+    border-color: $mm-primary-red;
+    color: #fff;
+
+    i {
+      color: #fff;
+    }
+  }
+
+  // Already taken. Kept in place rather than removed so the card still records
+  // that this target's damage was applied.
+  &.-applied,
+  &:disabled {
+    background: transparent;
+    border-color: $mm-subtext-color;
+    color: $mm-subtext-color;
+    cursor: default;
+    opacity: 1;
+
+    i {
+      color: $mm-subtext-color;
+    }
+  }
+}

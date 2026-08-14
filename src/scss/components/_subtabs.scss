@@ -1,0 +1,45 @@
+@use "../utils/colors" as *;
+@use "../utils/typography" as *;
+@use "../utils/variables" as *;
+
+// Secondary tab strip used inside the Biography tab. Sits on red, so every
+// label is white explicitly rather than inheriting the dark body colour.
+.sheet nav.mm-subtabs {
+  border: none;
+  display: flex;
+  gap: 2px;
+  margin: 0 0 $mm-spacing-sm 0;
+
+  .item {
+    background: $mm-secondary-red;
+    border: none;
+    color: white;
+    flex: 1 1 auto;
+    font-family: $font-secondary;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 4px 12px;
+    text-align: center;
+    text-transform: uppercase;
+
+    &:hover {
+      color: white;
+      text-shadow: none;
+    }
+
+    &.active {
+      background: $mm-primary-red;
+      color: white;
+    }
+  }
+}
+
+.mm-bio-body {
+  > .tab {
+    display: none;
+
+    &.active {
+      display: block;
+    }
+  }
+}

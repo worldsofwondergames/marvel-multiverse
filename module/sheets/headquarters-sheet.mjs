@@ -1,3 +1,5 @@
+import { enrichSheetFields } from "../helpers/enrich.mjs";
+
 /**
  * Extend the basic actor sheet to handle Headquarters actors.
  * @extends {foundry.appv1.sheets.ActorSheet}
@@ -20,7 +22,7 @@ export class MarvelMultiverseHeadquartersSheet extends foundry.appv1.sheets.Acto
   }
 
   /** @override */
-  getData() {
+  async getData() {
     const context = super.getData();
     const actorData = context.data;
     context.system = this.actor.system;
@@ -29,6 +31,12 @@ export class MarvelMultiverseHeadquartersSheet extends foundry.appv1.sheets.Acto
     this._prepareMembers(context);
     context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
     context.rollData = context.actor.getRollData();
+    // Rich text is shown enriched so content links, inline rolls and the
+    // roll links registered by this system all work on the sheet.
+    context.enriched = await enrichSheetFields(this.actor, {
+      rollData: context.rollData,
+    });
+
     return context;
   }
 

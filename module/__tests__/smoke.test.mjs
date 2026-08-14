@@ -35,7 +35,7 @@ describe('MarvelMultiverseActor', () => {
 
     test('getRollData includes abilities and rank', () => {
         const actor = new MarvelMultiverseActor({
-            name: 'Thor',
+            name: 'Fixture Hero',
             flags: {},
             system: {
                 abilities: {
@@ -54,8 +54,8 @@ describe('MarvelMultiverseActor', () => {
 
 describe('MarvelMultiverseItem', () => {
     test('can be instantiated', () => {
-        const item = new MarvelMultiverseItem({ name: 'Web-Shooters', type: 'power', system: {} });
-        expect(item.name).toBe('Web-Shooters');
+        const item = new MarvelMultiverseItem({ name: 'Line Launcher', type: 'power', system: {} });
+        expect(item.name).toBe('Line Launcher');
         expect(item.type).toBe('power');
     });
 

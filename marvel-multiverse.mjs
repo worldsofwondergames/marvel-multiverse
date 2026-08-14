@@ -14,6 +14,254 @@ function _getAttackTargets(attackTargetAbility) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Whether an attack roll beat a target's defense.
+ *
+ * A Fantastic result hits regardless of the number, so it is checked before the
+ * comparison rather than folded into it. `_enrichAttackTargets` draws the
+ * Hit/Miss list from this and the damage card decides who gets a button from
+ * the same call, so the two can never disagree about what a hit is.
+ *
+ * @param {{isFantastic?: boolean, total?: number}} attackRoll
+ * @param {number} ac  The target's defense against the attacking ability.
+ * @returns {boolean}
+ */
+function isTargetHit(attackRoll, ac) {
+  if (attackRoll?.isFantastic) return true;
+  return Number(attackRoll?.total) >= Number(ac);
+}
+
+/**
+ * Damage after the target's damage reduction is taken off the attacker's
+ * multiplier.
+ *
+ * Rulebook: once DR meets or exceeds the multiplier the attack "does no damage
+ * at all, not even from the attacker's Ability score bonus", so a zeroed
+ * multiplier returns 0 rather than the bare ability score. Clamping the
+ * multiplier first also stops DR above it from producing negative damage.
+ *
+ * A power that deals a fraction of regular damage passes it as `scale` -- 0.5
+ * for text reading "take half regular damage". Scale and the Fantastic doubling
+ * are multiplied together and rounded **once**, at the end. Rounding the half
+ * first and doubling that would overshoot regular damage on an odd total: for
+ * 11, ceil(5.5) x 2 is 12, while ceil(11 x 0.5 x 2) is 11, which is what a
+ * Fantastic on a half-damage power is meant to deal.
+ *
+ * Marvel Multiverse rounds up. The core rulebook works this through for
+ * movement -- a Run Speed of 5 gives a Climb Speed of 3, not 2 -- and no rule
+ * in the books rounds down.
+ *
+ * @param {object} args
+ * @param {number} args.marvelDieTotal
+ * @param {number} args.damageMultiplier   The attacker's multiplier for the ability used.
+ * @param {number} [args.damageReduction]  The target's DR for this damage type.
+ * @param {number} args.abilityValue       The attacker's score in the ability used.
+ * @param {boolean} [args.fantastic]
+ * @param {number} [args.scale]            Fraction of regular damage the power deals.
+ * @returns {{amount: number, effectiveMultiplier: number}}
+ */
+function computeDamage({
+  marvelDieTotal,
+  damageMultiplier,
+  damageReduction = 0,
+  abilityValue,
+  fantastic = false,
+  scale = 1,
+}) {
+  const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
+  const regular =
+    effectiveMultiplier === 0
+      ? 0
+      : marvelDieTotal * effectiveMultiplier + abilityValue;
+  const amount = Math.ceil(regular * scale * (fantastic ? 2 : 1));
+  return { amount, effectiveMultiplier };
+}
+
+/**
+ * Powers whose rules text says targets take half damage.
+ *
+ * Matched on the rule rather than on a list of power names: the system repo
+ * carries no content, and a name list here would both duplicate the compendium
+ * and go stale the moment content is added.
+ */
+const HALF_DAMAGE_RULE = /half\s+regular\s+damage/i;
+
+/** The scale such a power should carry. */
+const HALF_DAMAGE_SCALE = 0.5;
+
+/**
+ * Whether one item still needs the half-damage scale applied.
+ *
+ * A value other than 1 is left alone, so a deliberate choice by a GM -- or a
+ * later correction -- is never overwritten by this running again.
+ * @param {object} item
+ * @returns {boolean}
+ */
+function needsHalfDamageScale(item) {
+  if (item?.type !== "power") return false;
+  const scale = item?.system?.damageScale;
+  if (scale !== undefined && scale !== null && scale !== 1) return false;
+  return HALF_DAMAGE_RULE.test(item?.system?.effect ?? "");
+}
+
+/**
+ * The updates required to bring a collection of items in line. Returns payloads
+ * rather than applying them, so what changes is testable without a database.
+ * @param {Iterable<object>} items
+ * @returns {Array<object>}
+ */
+function collectHalfDamageUpdates(items) {
+  const updates = [];
+  for (const item of items ?? []) {
+    if (!needsHalfDamageScale(item)) continue;
+    updates.push({ _id: item.id ?? item._id, "system.damageScale": HALF_DAMAGE_SCALE });
+  }
+  return updates;
+}
+
+/**
+ * Whether a power's own text names the check that rolls it.
+ *
+ * Nearly every attack power is written as an instruction to make a check, and
+ * that phrase is enriched into the link used to roll it. Rolling again when the
+ * power itself is clicked would put two attacks in the log for one action, so
+ * the click posts the card and the link does the rolling.
+ * @param {object} system  An item's system data.
+ * @returns {boolean}
+ */
+function powerRollsFromItsText(system) {
+  const effect = String(system?.effect ?? "").replace(/<[^>]*>/g, " ");
+  if (!effect.trim()) return false;
+  // matchAll rather than test: the pattern is global, and test() would
+  // advance its lastIndex and make the next call on the same text miss.
+  for (const match of effect.matchAll(ROLL_LINK_PATTERN)) {
+    if (describeRollLink(match)?.abilityKey) return true;
+  }
+  return false;
+}
+
+/**
+ * The fields that decide whether and how a power rolls as an attack.
+ *
+ * `formula` is deliberately absent: it holds the dice rather than the attack
+ * configuration, it showed no drift, and it is the field a GM is most likely to
+ * have altered on purpose.
+ */
+const POWER_ATTACK_FIELDS = [
+  "ability",
+  "attack",
+  "attackTarget",
+  "attackKind",
+  "damageType",
+  "damageScale",
+];
+
+/**
+ * Bring owned powers back in line with the compendium they came from.
+ *
+ * Powers imported before the attack fields were populated carry an empty
+ * `ability` and `attack: false`, and a power in that state does not roll at
+ * all -- `Item#roll` needs both a formula and an ability. That is why powers
+ * whose scale was corrected still dealt full damage: they were never rolled as
+ * powers, so nothing carried the scale onto the message.
+ *
+ * The reference values win outright. That is a deliberate choice: these fields
+ * describe what the published power is, not how one character uses it.
+ * @param {Iterable<object>} items
+ * @param {Map<string, object>} referenceByName
+ * @returns {Array<object>}
+ */
+function collectPowerSyncUpdates(items, referenceByName) {
+  const updates = [];
+  for (const item of items ?? []) {
+    if (item?.type !== "power") continue;
+    const reference = referenceByName?.get?.(item.name);
+    if (!reference) continue;
+
+    const update = {};
+    for (const field of POWER_ATTACK_FIELDS) {
+      const target = reference[field];
+      // A field the reference does not define is not a reason to blank the
+      // owned copy.
+      if (target === undefined) continue;
+      if (item.system?.[field] === target) continue;
+      update[`system.${field}`] = target;
+    }
+    if (Object.keys(update).length === 0) continue;
+    updates.push({ _id: item.id ?? item._id, ...update });
+  }
+  return updates;
+}
+
+/**
+ * The fraction of regular damage an item's power deals, or null when it deals
+ * the usual amount.
+ *
+ * Recorded on the attack message rather than read from the item when the button
+ * is clicked: by then the item may have been edited or deleted, and the card
+ * would apply a number it never printed.
+ * @param {Item} item
+ * @returns {number|null}
+ */
+function damageScaleOf(item) {
+  const scale = Number(item?.system?.damageScale);
+  if (!Number.isFinite(scale) || scale === 1) return null;
+  return scale;
+}
+
+/**
+ * The actor field a damage type comes out of. Only `focus` diverts; everything
+ * else, including an attack that named no damage type, comes off Health.
+ * @param {string} damageType
+ * @returns {string}
+ */
+function damageValuePath(damageType) {
+  return damageType === "focus" ? "system.focus.value" : "system.health.value";
+}
+
+/**
+ * The DR field a damage type is reduced by, matching damageValuePath.
+ * @param {string} damageType
+ * @returns {string}
+ */
+function damageReductionPath(damageType) {
+  return damageType === "focus"
+    ? "focusDamageReduction"
+    : "healthDamageReduction";
+}
+
+/**
+ * Whether this user may apply damage to this actor. The damage message is sent
+ * to everyone, so the button has to be removed per viewer at render time rather
+ * than left out when the message is built.
+ * @param {User} user
+ * @param {Actor} actor
+ * @returns {boolean}
+ */
+function canApplyDamage(user, actor) {
+  if (!user || !actor) return false;
+  if (user.isGM) return true;
+  return actor.testUserPermission?.(user, "OWNER") === true;
+}
+
+/**
+ * The applied list after a target's damage has been taken.
+ *
+ * A list rather than a keyed object because actor uuids contain a period
+ * ("Actor.4kNqW..."), and Foundry expands periods in a flag key into nested
+ * objects — a uuid used as a key would silently become a tree of one-character
+ * levels.
+ *
+ * @param {string[]} applied  The existing list, if any.
+ * @param {string} uuid
+ * @returns {string[]}  A new list; the input is not modified.
+ */
+function withApplied(applied, uuid) {
+  const list = Array.isArray(applied) ? applied : [];
+  if (list.includes(uuid)) return [...list];
+  return [...list, uuid];
+}
+
 function _toTitleCase(str) {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
@@ -36,9 +284,362 @@ function _getTokenImg(actor) {
   return actor?.img || "";
 }
 
-function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element }) {
+/**
+ * True when rich-text content has something worth showing. ProseMirror stores
+ * an emptied editor as `<p></p>`, which is not blank as a string but renders as
+ * nothing, so tags are stripped before testing. An image-only body counts as
+ * content.
+ */
+function _hasContent(html) {
+  const raw = String(html ?? "");
+  if (/<img\b/i.test(raw)) return true;
+  return raw.replace(/<[^>]*>/g, "").trim().length > 0;
+}
+
+/**
+ * Action / Trigger / Duration / Cost rows for an item's chat card, in the order
+ * the item sheet lists them. A field with no value contributes no row at all --
+ * no empty label, no blank line -- and the block itself disappears when none of
+ * the four are set. Item types that lack these fields simply produce nothing.
+ */
+function _buildItemMeta(system) {
+  const rows = [
+    ["Action", system?.action],
+    ["Trigger", system?.trigger],
+    ["Duration", system?.duration],
+    ["Cost", system?.cost],
+  ].filter(([, value]) => String(value ?? "").trim().length > 0);
+
+  if (!rows.length) return "";
+  // No side padding here: this block is nested inside the flavor wrapper, which
+  // already provides the 8px that every line on the card shares.
+  return `<div class="mm-chat-meta">${rows
+    .map(
+      ([label, value]) =>
+        `<div class="mm-chat-meta-row" data-meta="${label.toLowerCase()}"><b>${label}:</b> ${String(value).trim()}</div>`
+    )
+    .join("")}</div>`;
+}
+
+/**
+ * Read a power's Focus cost out of its free-text `cost` field.
+ *
+ * Returns null when there is no cost, when the text names no Focus at all
+ * ("Varies", "Same as the character's Elemental Protection power"), or when the
+ * wording is not one of the recognised shapes. A null result means no activate
+ * control is offered, which is the safe outcome: better to leave the player to
+ * adjust Focus by hand than to deduct a guessed amount.
+ *
+ * @param {string} text
+ * @returns {{kind: 'flat'|'variable'|'recurring', amount: number, period: string|null}|null}
+ */
+function _parseFocusCost(text) {
+  const raw = String(text ?? "").trim();
+  if (!raw || !/focus/i.test(raw)) return null;
+
+  // "5 or more Focus" -- the number is a floor, the player chooses the rest.
+  const orMore = /^(\d+)\s+or\s+more\s+focus$/i.exec(raw);
+  if (orMore) return { kind: "variable", amount: Number(orMore[1]), period: null };
+
+  // "5 Focus per turn", "15 Focus per round" -- charged again each turn or round.
+  const per = /^(\d+)\s+focus\s+per\s+(turn|round)$/i.exec(raw);
+  if (per) return { kind: "recurring", amount: Number(per[1]), period: per[2].toLowerCase() };
+
+  // "10 Focus" -- a fixed price.
+  const flat = /^(\d+)\s+focus$/i.exec(raw);
+  if (flat) return { kind: "flat", amount: Number(flat[1]), period: null };
+
+  return null;
+}
+
+/**
+ * The most Focus a character may spend at once: five times their rank, per the
+ * core rulebook's "Spending Focus". Applies to every cost, flat or chosen.
+ */
+function _maxFocusSpend(actor) {
+  const rank = Number(actor?.system?.attributes?.rank?.value ?? 0);
+  return rank * 5;
+}
+
+/**
+ * True when a power lasts for as long as the character concentrates on it.
+ * Duration is free text, but every concentration power in the data module
+ * spells it exactly "Concentration".
+ */
+function _isConcentrationPower(system) {
+  return /concentration/i.test(String(system?.duration ?? ""));
+}
+
+/**
+ * How many powers a character may concentrate on at once: one per rank, per the
+ * core rulebook's "Breaking Concentration".
+ */
+function _concentrationLimit(actor) {
+  return Number(actor?.system?.attributes?.rank?.value ?? 0);
+}
+
+/**
+ * Whether a new concentration may start, and if not, why.
+ *
+ * Kept separate from the actor so the rule can be tested without Foundry: the
+ * caller passes the ids already held, the id being added, and the limit.
+ *
+ * @returns {{ok: true}|{ok: false, reason: "duplicate"|"limit"}}
+ */
+function _checkConcentration({ held = [], itemId, limit = 0 }) {
+  if (held.includes(itemId)) return { ok: false, reason: "duplicate" };
+  if (held.length >= limit) return { ok: false, reason: "limit" };
+  return { ok: true };
+}
+
+/**
+ * Conditions that break concentration and can be detected from actor state.
+ *
+ * The rulebook also breaks it on blinded, deafened and paralyzed, but only when
+ * the power needs line of sight, hearing, or a Melee or Agility check. Nothing
+ * in the power schema records those requirements, so those stay manual, as does
+ * knockback, which is not a condition at all.
+ */
+const CONCENTRATION_BREAKERS = ["unconscious", "demoralized", "stunned", "prone"];
+
+/** Whether this user may activate powers on the actor: its owner, or a GM. */
+function _canActivatePowers(actor) {
+  return !!(game.user?.isGM || actor?.isOwner);
+}
+
+/**
+ * Ask the player how much Focus to spend. Used for costs that state a floor
+ * ("5 or more Focus") and for recurring ones, which are prefilled with a single
+ * period's price.
+ *
+ * @returns {Promise<number|null>} the chosen amount, or null if cancelled
+ */
+function _promptFocusAmount({ powerName, min, max }) {
+  return new Promise((resolve) => {
+    const content = `<form>
+      <div class="form-group mm-spend-group">
+        <label for="mm-focus-amount"><b>${powerName}</b> - Focus to spend (min ${min}, max ${max})</label>
+        <div class="mm-quantity">
+          <button type="button" class="minus" aria-label="Decrease">&minus;</button>
+          <input id="mm-focus-amount" class="input-box" type="number" name="amount" value="${min}" min="${min}" max="${max}" step="1" autofocus/>
+          <button type="button" class="plus" aria-label="Increase">&plus;</button>
+        </div>
+      </div>
+    </form>`;
+    let settled = false;
+    const done = (value) => { if (!settled) { settled = true; resolve(value); } };
+
+    new Dialog({
+      title: "Spend Focus",
+      content,
+      buttons: {
+        spend: {
+          icon: '<i class="fas fa-bolt"></i>',
+          label: "Spend",
+          callback: (html) => {
+            const raw = Number(html.find('input[name="amount"]').val());
+            if (!Number.isFinite(raw)) return done(null);
+            if (raw < min) {
+              ui.notifications.warn(`${powerName} costs at least ${min} Focus.`);
+              return done(null);
+            }
+            if (raw > max) {
+              ui.notifications.warn(`A character cannot spend more than ${max} Focus at once.`);
+              return done(null);
+            }
+            done(Math.trunc(raw));
+          },
+        },
+        cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", callback: () => done(null) },
+      },
+      default: "spend",
+      // Stepper buttons, wired here rather than with inline onclick attributes so
+      // they clamp to both bounds and do not depend on named-element globals.
+      render: (html) => {
+        const root = html instanceof HTMLElement ? html : html?.[0];
+        const input = root?.querySelector('input[name="amount"]');
+        if (!input) return;
+        const step = (delta) => {
+          const next = Math.min(max, Math.max(min, (Number(input.value) || min) + delta));
+          input.value = String(next);
+        };
+        root.querySelector("button.minus")?.addEventListener("click", () => step(-1));
+        root.querySelector("button.plus")?.addEventListener("click", () => step(1));
+      },
+      close: () => done(null),
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
+  });
+}
+
+/** Confirm a spend that would take the character below zero Focus. */
+function _confirmOverspend({ powerName, cost, current }) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value) => { if (!settled) { settled = true; resolve(value); } };
+    new Dialog({
+      title: "Not enough Focus",
+      content: `<p><b>${powerName}</b> costs ${cost} Focus, but the character has ${current}.</p>
+                <p>Spending it anyway leaves them at ${current - cost}.</p>`,
+      buttons: {
+        yes: { icon: '<i class="fas fa-check"></i>', label: "Spend anyway", callback: () => done(true) },
+        no: { icon: '<i class="fas fa-times"></i>', label: "Cancel", callback: () => done(false) },
+      },
+      default: "no",
+      close: () => done(false),
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
+  });
+}
+
+/**
+ * Spend a power's Focus cost and announce it.
+ *
+ * Shared by the sheet control and the chat card button so the two cannot drift.
+ * The message is always public, whatever the current roll mode.
+ *
+ * @returns {Promise<boolean>} whether Focus was actually spent
+ */
+/** Concentration ids on the actor, with any deleted powers dropped. */
+function _heldConcentrations(actor) {
+  const held = actor?.system?.concentrating ?? [];
+  return held.filter((id) => actor.items.get(id));
+}
+
+/** The single user answering for this actor: an owning player, else the GM. */
+function _isResponsibleFor(actor) {
+  const owners = game.users?.filter((u) => u.active && actor.testUserPermission(u, "OWNER")) ?? [];
+  const responsible = owners.find((u) => !u.isGM) ?? owners.find((u) => u.isGM);
+  return responsible?.id === game.user?.id;
+}
+
+/** Stop concentrating on one power, or on every power when no id is given. */
+async function _endConcentration(actor, itemId = null, { announce = true, reason = "" } = {}) {
+  const held = _heldConcentrations(actor);
+  const ending = itemId ? held.filter((id) => id === itemId) : held;
+  if (!ending.length) return false;
+
+  const remaining = held.filter((id) => !ending.includes(id));
+  await actor.update({ "system.concentrating": remaining });
+  // The marker reflects "holding at least one", so it clears only when the last
+  // one goes. Removing it here is what makes toggling it off symmetrical.
+  if (!remaining.length && actor.statuses?.has("concentrating")) {
+    await actor.toggleStatusEffect("concentrating", { active: false });
+  }
+
+  if (announce) {
+    const names = ending.map((id) => actor.items.get(id)?.name).filter(Boolean).join(", ");
+    if (names) {
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor, token: _getTokenDoc(actor) }),
+        flavor: _buildRollFlavor({ tokenImg: _getTokenImg(actor), actorName: actor.name }),
+        content: `<div class="mm-chat-body"><div class="mm-concentration-ended">Concentration on <b>${names}</b> ends${reason ? ` — ${reason}` : ""}.</div></div>`,
+      });
+    }
+  }
+  return true;
+}
+
+/**
+ * Record a new concentration, refusing when the character is already at their
+ * rank's worth or already concentrating on that same power.
+ *
+ * @returns {Promise<boolean>} whether it was recorded
+ */
+async function _startConcentration(actor, item) {
+  const held = _heldConcentrations(actor);
+  const limit = _concentrationLimit(actor);
+  const check = _checkConcentration({ held, itemId: item.id, limit });
+  if (!check.ok) {
+    if (check.reason === "duplicate") {
+      ui.notifications.warn(`${actor.name} is already concentrating on ${item.name}.`);
+    } else {
+      const names = held.map((id) => actor.items.get(id)?.name).filter(Boolean).join(", ");
+      ui.notifications.warn(
+        `${actor.name} can concentrate on ${limit} power${limit === 1 ? "" : "s"} at a time` +
+        `${names ? `, and is already holding ${names}` : ""}.`
+      );
+    }
+    return false;
+  }
+  await actor.update({ "system.concentrating": [...held, item.id] });
+  if (!actor.statuses?.has("concentrating")) {
+    await actor.toggleStatusEffect("concentrating", { active: true });
+  }
+  return true;
+}
+
+async function _activatePower(actor, item) {
+  if (!actor || !item) return false;
+  if (!_canActivatePowers(actor)) {
+    ui.notifications.warn("You do not have permission to activate powers on this character.");
+    return false;
+  }
+
+  const cost = _parseFocusCost(item.system?.cost);
+  if (!cost) {
+    ui.notifications.warn(`${item.name} has no Focus cost that can be worked out automatically.`);
+    return false;
+  }
+
+  // Checked before anything is spent, so a refused concentration costs nothing.
+  const concentrates = _isConcentrationPower(item.system);
+  if (concentrates) {
+    const check = _checkConcentration({
+      held: _heldConcentrations(actor),
+      itemId: item.id,
+      limit: _concentrationLimit(actor),
+    });
+    if (!check.ok) {
+      await _startConcentration(actor, item); // reports the reason
+      return false;
+    }
+  }
+
+  const max = _maxFocusSpend(actor);
+  // The rulebook caps a single spend at five times rank. A flat cost above that
+  // ceiling cannot be paid at all, so say so rather than deducting it.
+  if (cost.amount > max) {
+    ui.notifications.warn(
+      `${item.name} costs ${cost.amount} Focus, but this character cannot spend more than ${max} at once.`
+    );
+    return false;
+  }
+
+  let amount = cost.amount;
+  if (cost.kind !== "flat") {
+    amount = await _promptFocusAmount({ powerName: item.name, min: cost.amount, max });
+    if (amount === null) return false;
+  }
+
+  const current = Number(actor.system?.focus?.value ?? 0);
+  if (amount > current) {
+    const ok = await _confirmOverspend({ powerName: item.name, cost: amount, current });
+    if (!ok) return false;
+  }
+
+  await actor.update({ "system.focus.value": current - amount });
+
+  const period = cost.period ? ` per ${cost.period}` : "";
+  const flavor = _buildRollFlavor({
+    tokenImg: _getTokenImg(actor),
+    actorName: actor.name,
+    powerName: item.name,
+  });
+  if (concentrates) await _startConcentration(actor, item);
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor, token: _getTokenDoc(actor) }),
+    flavor,
+    content: `<div class="mm-chat-body"><div class="mm-power-activated">Activated, spending <b>${amount} Focus</b>${period}.${concentrates ? " Concentrating." : ""}</div></div>`,
+  });
+  return true;
+}
+
+function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType, element, meta }) {
   let detailHtml = "";
-  if (powerName) detailHtml += `<div><b>Power:</b> ${powerName}</div>`;
+  if (powerName) detailHtml += `<div class="mm-roll-power-name">${powerName}</div>`;
+  // Action / Trigger / Duration / Cost sit directly under Power and above the
+  // ability row, sharing the wrapper's font size so every line matches.
+  if (meta) detailHtml += meta;
   const cols = [];
   if (ability) cols.push(`<b>Ability:</b> ${_toTitleCase(ability)}`);
   if (damageType) cols.push(`<b>Type:</b> ${_toTitleCase(damageType)}`);
@@ -50,7 +651,10 @@ function _buildRollFlavor({ tokenImg, actorName, powerName, ability, damageType,
   }
   const tags = `<span style="display:none;">ability: ${ability || ""}${damageType ? " damagetype: " + damageType : ""}${element ? " element: " + element : ""}</span>`;
   const tokenData = tokenImg ? ` data-token-img="${tokenImg}"` : "";
-  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 0;font-size:12px;">${detailHtml}</div>${tags}</div>`;
+  // Bottom padding is 2px rather than 4px so the gap between this block and the
+  // card body matches the gap between the description and the effect. The 8px
+  // side padding matches .mm-chat-body, so every line shares one left edge.
+  return `<div class="mm-roll-flavor"${tokenData}><div style="padding:4px 8px 2px;font-size:12px;">${detailHtml}</div>${tags}</div>`;
 }
 
 
@@ -244,6 +848,10 @@ class MarvelMultiverseRoll extends Roll {
     // Add appropriate edge mode message flavor and mmrpg roll flags
     messageData.flavor = messageData.flavor || this.options.flavor;
     messageData.fantastic = this.isFantastic;
+    // Callers must add their own flags with setProperty too, never as a flat
+    // "flags.a.b" key on messageData. mergeObject inside Roll#toMessage expands
+    // a dotted key into a nested object, and the one built here then replaces
+    // it wholesale -- the flat key's value is silently dropped.
     if (options.itemId) {
       foundry.utils.setProperty(
         messageData,
@@ -318,7 +926,7 @@ class MarvelMultiverseRoll extends Roll {
           close: () => resolve(null),
         },
         options
-      ).render(true);
+      , { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
     });
   }
 
@@ -544,25 +1152,57 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
     const abilityName = CONFIG.MARVEL_MULTIVERSE.damageAbility[this.system.ability];
     const tokenImg = _getTokenImg(this.actor);
     const elementKey = this.system.isElemental ? this.system.element : null;
-    const label = _buildRollFlavor({
+    const flavorParts = {
       tokenImg,
       actorName: this.actor?.name,
       powerName: this.name,
       ability: abilityName ?? this.system.ability,
       damageType: this.system.damageType,
       element: elementKey,
-    });
+    };
+    // The description card carries the Action/Trigger/Duration/Cost block; the
+    // roll message below it reuses the same flavor without, so the four lines
+    // are not repeated twice in the log.
+    const label = _buildRollFlavor(flavorParts);
+    const cardLabel = _buildRollFlavor({ ...flavorParts, meta: _buildItemMeta(this.system) });
+
+    // The italic marks the description as flavor text sitting above roman
+    // rules text. Only powers define an `effect`, so on every other item type
+    // the description IS the rules text and must stay roman.
+    const hasEffect = _hasContent(this.system.effect);
 
     ChatMessage.create({
       speaker: speaker,
       rollMode: rollMode,
-      flavor: label,
-      content: `<div style="padding:4px 8px;" class="mm-chat-description">${this.system.description}</div>${
-        this.system.effect ? `<div style="padding:0 8px;" class="mm-chat-effect">${this.system.effect}</div>` : ""
-      }`,
+      flavor: cardLabel,
+      // Names the power behind this card, so a roll link in its text can
+      // find the power it belongs to when clicked. Written as a nested
+      // object rather than a flat "flags.a.b" key, which document creation
+      // does not expand.
+      flags: { "marvel-multiverse": { itemId: this.id } },
+      content: `<div class="mm-chat-body">${
+        _hasContent(this.system.description)
+          ? `<div class="mm-chat-description${hasEffect ? " -flavor" : ""}">${this.system.description}</div>`
+          : ""
+      }${
+        hasEffect
+          ? `<div class="mm-chat-effect">${this.system.effect}</div>`
+          : ""
+      }${
+        // Same routine as the sheet control. Rendered for everyone, but the
+        // listener refuses anyone who is neither an owner nor a GM, and the
+        // button is hidden from them on render.
+        _parseFocusCost(this.system.cost)
+          ? `<div class="mm-chat-activate"><button type="button" class="mm-activate-power" data-actor-id="${this.actor?.id ?? ""}" data-item-id="${this.id}">Activate (${this.system.cost})</button></div>`
+          : ""
+      }</div>`,
     });
 
-    if (this.system.formula && this.system.ability) {
+    if (
+      this.system.formula &&
+      this.system.ability &&
+      !powerRollsFromItsText(this.system)
+    ) {
       // Retrieve roll data.
       const rollData = this.getRollData();
       // Invoke the roll and submit it to chat.
@@ -579,7 +1219,19 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       };
       const attackTargets = _getAttackTargets(this.system.attackTarget || this.system.ability);
       if (attackTargets.length) {
-        messageData["flags.marvel-multiverse.targets"] = attackTargets;
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.targets",
+          attackTargets
+        );
+      }
+      const damageScale = damageScaleOf(this);
+      if (damageScale !== null) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.damageScale",
+          damageScale
+        );
       }
       roll.toMessage(messageData, { rollMode: rollMode, itemId: this._id });
 
@@ -693,6 +1345,26 @@ MARVEL_MULTIVERSE.sizes = {
     sizeMultiplier: 320,
   },
 };
+
+/**
+ * The Schooling Advancement Chart. Ten boxes divide the space between one rank
+ * and the next; indices 0-4 are the chart's left column and 5-9 its right
+ * column, so rendering `i` beside `i + 5` reproduces the printed five rows of
+ * two.
+ * @type {Array<{key: string, label: string}>}
+ */
+MARVEL_MULTIVERSE.schoolingChart = [
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "ability", label: "MARVEL_MULTIVERSE.Schooling.Reward.Ability" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "power", label: "MARVEL_MULTIVERSE.Schooling.Reward.Power" },
+  { key: "trait", label: "MARVEL_MULTIVERSE.Schooling.Reward.Trait" },
+];
 
 MARVEL_MULTIVERSE.powersets = {
   basic: { label: "Basic" },
@@ -830,10 +1502,10 @@ MARVEL_MULTIVERSE.elements = {
   electricity: { label: "Electricity", fantasticEffect: "Stuns target for one round.", statusId: "stunned" },
   energy: { label: "Energy", fantasticEffect: "Blinds target for one round.", statusId: "blinded" },
   fire: { label: "Fire", fantasticEffect: "Sets target ablaze.", statusId: "ablaze" },
-  force: { label: "Force", fantasticEffect: "Target has trouble on all actions for one round.", statusId: "encumbered" },
+  force: { label: "Force", fantasticEffect: "Target has trouble on all actions for one round.", statusId: "demoralized" },
   hellfire: { label: "Hellfire", fantasticEffect: "Splits damage equally between Health and Focus." },
   ice: { label: "Ice", fantasticEffect: "Paralyzes target for one round.", statusId: "paralyzed" },
-  iron: { label: "Iron", fantasticEffect: "Pins target for one round.", statusId: "restrained" },
+  iron: { label: "Iron", fantasticEffect: "Pins target for one round.", statusId: "pinned" },
   sound: { label: "Sound", fantasticEffect: "Deafens target for one round.", statusId: "deafened" },
   swarm: { label: "Swarm", fantasticEffect: "The target is frightened.", statusId: "frightened" },
   toxin: { label: "Toxin", fantasticEffect: "The target is poisoned.", statusId: "poisoned" },
@@ -1625,7 +2297,7 @@ class ChatMessageMarvel extends ChatMessage {
     evaluation.style.cssText = "list-style:none;padding:4px 0;margin:4px 0 0;border-top:1px solid #ddd;";
     evaluation.innerHTML = targets
       .map(({ name, img, ac, uuid }) => {
-        const isMiss = !attackRoll.isFantastic && attackRoll.total < ac;
+        const isMiss = !isTargetHit(attackRoll, ac);
         const color = isMiss ? "#a00" : "#0a0";
         const icon = isMiss ? "fa-times" : "fa-check";
         const label = isMiss ? "Miss" : "Hit";
@@ -1734,31 +2406,50 @@ class ChatMessageMarvel extends ChatMessage {
     const damageMultiplier =
       actor.system.abilities[abilityAbr].damageMultiplier;
 
-    const targetTokens = (canvas.tokens?.objects?.children ?? []).filter(
-      (t) => t.isTargeted
-    );
-
     const abilityValue = actor.system.abilities[abilityAbr].value;
 
-    const targets = targetTokens.map((t) => t.actor);
+    // Who was targeted when the attack was rolled, not who happens to be
+    // targeted now. Reading live canvas targeting here meant retargeting
+    // between the attack and this click damaged the wrong actors, and it left
+    // the handler with no defense value to tell a hit from a miss.
+    const attackRoll = chatMessage.rolls[0];
+    // A power dealing a fraction of regular damage recorded it on the attack.
+    const damageScale = chatMessage.getFlag("marvel-multiverse", "damageScale") ?? 1;
+    const declaredTargets = chatMessage.getFlag("marvel-multiverse", "targets") ?? [];
+    const resolvedTargets = [];
+    for (const declared of declaredTargets) {
+      const targetActor = await fromUuid(declared.uuid);
+      if (!targetActor) continue;
+      resolvedTargets.push({
+        ...declared,
+        actor: targetActor,
+        hit: isTargetHit(attackRoll, declared.ac),
+      });
+    }
+    const hitActors = resolvedTargets.filter((t) => t.hit).map((t) => t.actor);
 
-    const damageContent = targets.map((t) => {
-      const damageReduction =
-        damageType && damageType === "focus"
-          ? t.system.focusDamageReduction
-          : t.system.healthDamageReduction;
-      const effectiveMultiplier = Math.max(0, damageMultiplier - damageReduction);
-      // Rulebook: once DR meets or exceeds the damage multiplier the attack
-      // "does no damage at all, not even from the attacker's Ability score
-      // bonus" — so the ability score is not added to a zeroed multiplier.
-      let dmg =
-        effectiveMultiplier === 0
-          ? 0
-          : marvelDie.total * effectiveMultiplier + abilityValue;
-      if (fantastic) {
-        dmg = dmg * 2;
-      }
+    /** Per-target amounts, recorded on the message so the button never has to read them back out of the rendered text. */
+    const damageFlagTargets = [];
+
+    const damageContent = resolvedTargets.map((t) => {
       const dmgTypeLabel = damageType ? ` ${damageType}` : "";
+      if (!t.hit) {
+        damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: 0, hit: false });
+        return `<div class="mm-damage-target -miss" data-target-uuid="${t.uuid}">
+          <p style="margin:4px 0;"><b>${t.name}</b> — <span style="color:#a00;font-weight:700;"><i class="fas fa-times"></i> Miss</span>, no damage</p>
+        </div>`;
+      }
+      const damageReduction =
+        t.actor.system[damageReductionPath(damageType)] ?? 0;
+      const { amount: dmg, effectiveMultiplier } = computeDamage({
+        marvelDieTotal: marvelDie.total,
+        damageMultiplier,
+        damageReduction,
+        abilityValue,
+        fantastic: !!fantastic,
+        scale: damageScale,
+      });
+      damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
       const fantasticLabel = fantastic ? " Fantastic" : "";
       const drLine = damageReduction > 0
         ? `<br/><span style="font-size:11px;color:#555;">Multiplier ${damageMultiplier} − DR ${damageReduction} = ${effectiveMultiplier}</span>`
@@ -1767,23 +2458,31 @@ class ChatMessageMarvel extends ChatMessage {
         ? `(Multiplier - DR) ${effectiveMultiplier}`
         : `Multiplier ${damageMultiplier}`;
       const fantasticMult = fantastic ? " × 2" : "";
-      return `<p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${fantasticMult}${drLine}</p>`;
+      const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
+      return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
+        <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}</p>
+        <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
+      </div>`;
     });
 
     if (damageContent.length === 0) {
-      // Same rule with no target selected: a multiplier of 0 deals nothing.
-      let dmg =
-        damageMultiplier <= 0 ? 0 : marvelDie.total * damageMultiplier + abilityValue;
-      if (fantastic) {
-        dmg = dmg * 2;
-      }
+      // No target was declared, so there is nobody to apply the damage to and
+      // the card keeps its plain form: the number, and no button.
+      const { amount: dmg } = computeDamage({
+        marvelDieTotal: marvelDie.total,
+        damageMultiplier,
+        abilityValue,
+        fantastic: !!fantastic,
+        scale: damageScale,
+      });
       const dmgTypeLabel = damageType ? ` ${damageType}` : "";
       const fantasticLabel = fantastic ? " Fantastic" : "";
       const fantasticMult = fantastic ? " × 2" : "";
+      const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
       damageContent.push(
         `<p style="margin:4px 0;">Deals <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${fantasticMult}</p>`
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}</p>`
       );
     }
     // const content = `<p>Delivers <b>${dmg}</b> points re: MarvelDie: ${marvelDie.total} &#42; damage multiplier: &#40; ${actor.system.abilities[abilityAbr].damageMultiplier} - damageReduction: ${damageReduction} &#61; ${damageMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
@@ -1795,7 +2494,9 @@ class ChatMessageMarvel extends ChatMessage {
           `<p><b>Fantastic Elemental Effect (${elementConfig.label}):</b> ${elementConfig.fantasticEffect}</p>`
         );
         if (elementConfig.statusId) {
-          for (const target of targets) {
+          // Only targets the attack actually hit. Before the handler could tell
+          // a hit from a miss it applied the status to everyone targeted.
+          for (const target of hitActors) {
             await target.toggleStatusEffect(elementConfig.statusId, { active: true });
             const cdr = target.system.conditionDamageReduction ?? 0;
             if (cdr > 0) {
@@ -1814,6 +2515,17 @@ class ChatMessageMarvel extends ChatMessage {
       flavor: flavorText,
       content: damageContent.join(""),
     };
+    if (damageFlagTargets.length) {
+      msgData.flags = {
+        "marvel-multiverse": {
+          damage: {
+            damageType: damageType ?? "health",
+            targets: damageFlagTargets,
+            applied: [],
+          },
+        },
+      };
+    }
     ChatMessageMarvel.create(msgData);
   }
 
@@ -2266,6 +2978,11 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
           contentSelector: ".sheet-body",
           initial: "traits",
         },
+        {
+          navSelector: ".mm-subtabs",
+          contentSelector: ".mm-bio-body",
+          initial: "details",
+        },
       ],
     });
   }
@@ -2292,7 +3009,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
   /* -------------------------------------------- */
 
   /** @override */
-  getData() {
+  async getData() {
     // Retrieve the data structure from the base sheet. You can inspect or log
     // the context variable to see the structure, but some key properties for
     // sheets are the actor object, the data object, whether or not it's
@@ -2315,6 +3032,20 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
 
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
     context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
+
+    // Only an owner or a GM sees the activate control on a power.
+    context.canActivatePowers = _canActivatePowers(this.actor);
+    context.concentrating = _heldConcentrations(this.actor);
+
+    // Ten schooling boxes, labelled from the printed chart. Bound directly to
+    // the schema path so the stock sheet submit persists them.
+    const schoolingBoxes = this.actor.system.schooling.boxes;
+    context.schoolingBoxes = CONFIG.MARVEL_MULTIVERSE.schoolingChart.map((reward, i) => ({
+      index: i,
+      name: `system.schooling.boxes.box${i}`,
+      label: game.i18n.localize(reward.label),
+      checked: schoolingBoxes[`box${i}`],
+    }));
 
     context.mutantReputationEnabled = game.settings.get("marvel-multiverse", "mutantReputationEnabled");
     context.mutantReputationLevels = MARVEL_MULTIVERSE.mutantReputationLevels;
@@ -2416,6 +3147,12 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
 
       context.formData = { isPrimary, isAlternate, forms, primaryActors };
     }
+
+    // Rich text is shown enriched so content links, inline rolls and the
+    // roll links registered by this system all work on the sheet.
+    context.enriched = await enrichSheetFields(this.actor, {
+      rollData: context.rollData,
+    });
 
     return context;
   }
@@ -2551,6 +3288,33 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
+
+
+    // Restore Health or Focus to its maximum.
+    html.on("click", ".mm-stat-reset", async (ev) => {
+      ev.preventDefault();
+      const key = ev.currentTarget.dataset.reset;
+      const max = this.actor.system?.[key]?.max;
+      // max is derived, so it is a number whenever the field exists at all.
+      if (typeof max !== "number") return;
+      await this.actor.update({ [`system.${key}.value`]: max });
+    });
+
+    // Stop concentrating on a power. Costs no action, per the rulebook.
+    html.on("click", ".power-end-concentration", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const itemId = ev.currentTarget.dataset.itemId;
+      await _endConcentration(this.actor, itemId, { reason: "ended voluntarily" });
+    });
+    // Spend a power's Focus cost from the sheet.
+    html.on("click", ".power-activate", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const itemId = ev.currentTarget.dataset.itemId ?? $(ev.currentTarget).parents(".item").data("itemId");
+      const item = this.actor.items.get(itemId);
+      if (item) await _activatePower(this.actor, item);
+    });
     // Render the item sheet for viewing/editing prior to the editable check.
     html.on("click", ".item-edit", (ev) => {
       const li = $(ev.currentTarget).parents(".item");
@@ -2732,7 +3496,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
           $(ev.currentTarget).closest(".trigger-row").remove();
         });
       },
-    }).render(true);
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
   }
 
   /**
@@ -3030,6 +3794,10 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       }
     }
     if (dataset.formula) {
+      // The power states its own check, so the link in that text is how it is
+      // rolled. Posting the card is all this control should do.
+      if (item && powerRollsFromItsText(item.system)) return item.roll();
+
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
@@ -3089,7 +3857,19 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       const attackAbility = item?.system?.attackTarget || dataset.abilityKey;
       const attackTargets = _getAttackTargets(attackAbility);
       if (attackTargets.length) {
-        messageData["flags.marvel-multiverse.targets"] = attackTargets;
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.targets",
+          attackTargets
+        );
+      }
+      const damageScale = damageScaleOf(item);
+      if (damageScale !== null) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.damageScale",
+          damageScale
+        );
       }
       roll.toMessage(messageData, { rollMode: rollMode, itemId: itemId });
       return roll;
@@ -3130,7 +3910,7 @@ class MarvelMultiverseVehicleSheet extends foundry.appv1.sheets.ActorSheet {
     });
   }
 
-  getData() {
+  async getData() {
     const context = super.getData();
     const actorData = context.data;
 
@@ -3162,6 +3942,12 @@ class MarvelMultiverseVehicleSheet extends foundry.appv1.sheets.ActorSheet {
     context.effects = prepareActiveEffectCategories(
       this.actor.allApplicableEffects()
     );
+
+    // Rich text is shown enriched so content links, inline rolls and the
+    // roll links registered by this system all work on the sheet.
+    context.enriched = await enrichSheetFields(this.actor, {
+      rollData: context.rollData,
+    });
 
     return context;
   }
@@ -3311,7 +4097,7 @@ class MarvelMultiverseHeadquartersSheet extends foundry.appv1.sheets.ActorSheet 
     return "systems/marvel-multiverse/templates/actor/actor-headquarters-sheet.hbs";
   }
 
-  getData() {
+  async getData() {
     const context = super.getData();
     const actorData = context.data;
     context.system = this.actor.system;
@@ -3320,6 +4106,12 @@ class MarvelMultiverseHeadquartersSheet extends foundry.appv1.sheets.ActorSheet 
     this._prepareMembers(context);
     context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
     context.rollData = context.actor.getRollData();
+    // Rich text is shown enriched so content links, inline rolls and the
+    // roll links registered by this system all work on the sheet.
+    context.enriched = await enrichSheetFields(this.actor, {
+      rollData: context.rollData,
+    });
+
     return context;
   }
 
@@ -3460,7 +4252,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
   /* -------------------------------------------- */
 
   /** @override */
-  getData() {
+  async getData() {
     // Retrieve the data structure from the base sheet. You can inspect or log
     // the context variable to see the structure, but some key properties for
     // sheets are the actor object, the data object, whether or not it's
@@ -3490,6 +4282,10 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
 
     context.sizes = CONFIG.MARVEL_MULTIVERSE.sizes;
     context.sources = CONFIG.MARVEL_MULTIVERSE.sources;
+
+    // Only an owner or a GM sees the activate control on a power.
+    context.canActivatePowers = _canActivatePowers(this.actor);
+    context.concentrating = _heldConcentrations(this.actor);
 
     context.sizeSelection = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.sizes).map((key) => [
@@ -3558,6 +4354,12 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
 
       context.formData = { isPrimary, isAlternate, forms, primaryActors };
     }
+
+    // Rich text is shown enriched so content links, inline rolls and the
+    // roll links registered by this system all work on the sheet.
+    context.enriched = await enrichSheetFields(this.actor, {
+      rollData: context.rollData,
+    });
 
     return context;
   }
@@ -3694,6 +4496,33 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
+
+
+    // Restore Health or Focus to its maximum.
+    html.on("click", ".mm-stat-reset", async (ev) => {
+      ev.preventDefault();
+      const key = ev.currentTarget.dataset.reset;
+      const max = this.actor.system?.[key]?.max;
+      // max is derived, so it is a number whenever the field exists at all.
+      if (typeof max !== "number") return;
+      await this.actor.update({ [`system.${key}.value`]: max });
+    });
+
+    // Stop concentrating on a power. Costs no action, per the rulebook.
+    html.on("click", ".power-end-concentration", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const itemId = ev.currentTarget.dataset.itemId;
+      await _endConcentration(this.actor, itemId, { reason: "ended voluntarily" });
+    });
+    // Spend a power's Focus cost from the sheet.
+    html.on("click", ".power-activate", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const itemId = ev.currentTarget.dataset.itemId ?? $(ev.currentTarget).parents(".item").data("itemId");
+      const item = this.actor.items.get(itemId);
+      if (item) await _activatePower(this.actor, item);
+    });
     // Render the item sheet for viewing/editing prior to the editable check.
     html.on("click", ".item-edit", (ev) => {
       const li = $(ev.currentTarget).parents(".item");
@@ -3875,7 +4704,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
           $(ev.currentTarget).closest(".trigger-row").remove();
         });
       },
-    }).render(true);
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
   }
 
   /**
@@ -4194,7 +5023,19 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       const npcAttackAbility = npcItem?.system?.attackTarget || dataset.abilityKey;
       const npcTargets = _getAttackTargets(npcAttackAbility);
       if (npcTargets.length) {
-        messageData["flags.marvel-multiverse.targets"] = npcTargets;
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.targets",
+          npcTargets
+        );
+      }
+      const damageScale = damageScaleOf(npcItem);
+      if (damageScale !== null) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.damageScale",
+          damageScale
+        );
       }
       roll.toMessage(messageData);
       return roll;
@@ -4242,7 +5083,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
   /* -------------------------------------------- */
 
   /** @override */
-  getData() {
+  async getData() {
     // Retrieve base data structure.
     const context = super.getData();
 
@@ -4368,6 +5209,12 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         ])
       );
     }
+    // Rich text is shown enriched so content links, inline rolls and the
+    // roll links registered by this system all work on the sheet.
+    context.enriched = await enrichSheetFields(this.item, {
+      rollData: context.rollData,
+    });
+
     return context;
   }
 
@@ -4477,7 +5324,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
           cancel: { label: "Cancel" },
         },
         default: "save",
-      }).render(true);
+      }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
     });
 
     // Iconic item: power removal
@@ -4556,7 +5403,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
           cancel: { label: "Cancel" },
         },
         default: "save",
-      }).render(true);
+      }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
     });
 
     // Battle suit: power removal
@@ -4715,6 +5562,7 @@ const preloadHandlebarsTemplates = async () =>
     // Actor partials.
     "systems/marvel-multiverse/templates/actor/parts/actor-biography.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-details.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-schooling.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-effects.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-items.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-occupation.hbs",
@@ -4920,6 +5768,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
     );
 
     schema.base = new fields.StringField({ required: true, blank: true });
+    // Ids of the powers this actor is currently concentrating on. No `initial`
+    // is declared: ArrayField defaults to an empty array, and an explicit
+    // function-valued initial would break the shipping-parity comparison, which
+    // compares declared options and sees two functions as unequal.
+    schema.concentrating = new fields.ArrayField(new fields.StringField());
     schema.occupations = new fields.ArrayField(new fields.ObjectField());
     schema.weapons = new fields.ArrayField(new fields.ObjectField());
     schema.origins = new fields.ArrayField(new fields.ObjectField());
@@ -5095,6 +5948,21 @@ class MarvelMultiverseCharacter extends MarvelMultiverseActorBase {
       maneuverType: new fields.StringField({ required: true, blank: true }),
       level: new fields.NumberField({ min: 1, max: 3, integer: true, nullable: true }),
       named: new fields.StringField({ required: false, blank: true }),
+    });
+
+    // The ten boxes of the Schooling Advancement Chart. Named boolean fields
+    // rather than an ArrayField: an ArrayField needs a function for its
+    // `initial`, and shipping-parity compares declared initials with toEqual,
+    // which compares functions by reference and would fail across the trees.
+    schema.schooling = new fields.SchemaField({
+      boxes: new fields.SchemaField(
+        Object.fromEntries(
+          Array.from({ length: 10 }, (_, i) => [
+            `box${i}`,
+            new fields.BooleanField({ required: true, initial: false }),
+          ])
+        )
+      ),
     });
 
     return schema;
@@ -5787,6 +6655,15 @@ class MarvelMultiversePower extends MarvelMultiverseItemBase {
       initial: 0,
       min: 0,
     });
+    // What fraction of regular damage the power deals -- 0.5 for a power whose
+    // text says targets "take half regular damage". Deliberately not an integer
+    // field: a half is the whole point.
+    schema.damageScale = new fields.NumberField({
+      required: true,
+      nullable: false,
+      initial: 1,
+      min: 0,
+    });
     (schema.isElemental = new fields.BooleanField({
       required: true,
       initial: false,
@@ -6365,6 +7242,14 @@ Hooks.once("init", () => {
   // Record Configuration Values
   CONFIG.MARVEL_MULTIVERSE = MARVEL_MULTIVERSE;
 
+  // Make phrases like "makes an Ego check" rollable wherever they are shown.
+  // Chat card content is enriched by core, so the power cards are covered
+  // without touching the code that builds them.
+  CONFIG.TextEditor.enrichers.push({
+    pattern: ROLL_LINK_PATTERN,
+    enricher: enrichRollLink,
+  });
+
   /**
    * Set an initiative formula for the system
    * @type {String}
@@ -6405,6 +7290,14 @@ Hooks.once("init", () => {
     hqTag: MarvelMultiverseHqTag,
     hqTrait: MarvelMultiverseHqTrait,
   };
+
+  // Records world repairs that have already run, so each is applied once.
+  game.settings.register("marvel-multiverse", "migrationVersion", {
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 0,
+  });
 
   game.settings.register("marvel-multiverse", "autoPopulateOrigin", {
     name: "Auto-Populate Origin Items",
@@ -6467,18 +7360,21 @@ Hooks.once("init", () => {
     { id: "bleeding", name: "Bleeding", img: "systems/marvel-multiverse/icons/statuses/bleeding.svg" },
     { id: "blinded", name: "Blinded", img: "systems/marvel-multiverse/icons/statuses/blinded.svg" },
     { id: "corroding", name: "Corroding", img: "icons/svg/acid.svg" },
+    { id: "concentrating", name: "Concentrating", img: "icons/svg/eye.svg" },
+    { id: "damageReduction", name: "Damage Reduction", img: "icons/svg/shield.svg" },
     { id: "deafened", name: "Deafened", img: "systems/marvel-multiverse/icons/statuses/deafened.svg" },
-    { id: "encumbered", name: "Encumbered", img: "systems/marvel-multiverse/icons/statuses/encumbered.svg" },
+    { id: "demoralized", name: "Demoralized", img: "systems/marvel-multiverse/icons/statuses/demoralized.svg" },
     { id: "exhausted", name: "Exhausted", img: "systems/marvel-multiverse/icons/statuses/exhaustion.svg" },
     { id: "flying", name: "Flying", img: "systems/marvel-multiverse/icons/statuses/flying.svg" },
     { id: "frightened", name: "Frightened", img: "systems/marvel-multiverse/icons/statuses/frightened.svg" },
-    { id: "grappled", name: "Grappled", img: "systems/marvel-multiverse/icons/statuses/grappled.svg" },
+    { id: "grabbed", name: "Grabbed", img: "systems/marvel-multiverse/icons/statuses/grabbed.svg" },
     { id: "infected", name: "Infected", img: "icons/svg/biohazard.svg" },
     { id: "invisible", name: "Invisible", img: "systems/marvel-multiverse/icons/statuses/invisible.svg" },
     { id: "paralyzed", name: "Paralyzed", img: "systems/marvel-multiverse/icons/statuses/paralyzed.svg" },
+    { id: "pinned", name: "Pinned", img: "systems/marvel-multiverse/icons/statuses/pinned.svg" },
     { id: "poisoned", name: "Poisoned", img: "icons/svg/poison.svg" },
     { id: "prone", name: "Prone", img: "systems/marvel-multiverse/icons/statuses/prone.svg" },
-    { id: "restrained", name: "Restrained", img: "systems/marvel-multiverse/icons/statuses/restrained.svg" },
+    { id: "shattered", name: "Shattered", img: "systems/marvel-multiverse/icons/statuses/shattered.svg" },
     { id: "stunned", name: "Stunned", img: "systems/marvel-multiverse/icons/statuses/stunned.svg" },
     { id: "surprised", name: "Surprised", img: "systems/marvel-multiverse/icons/statuses/surprised.svg" },
     { id: "unconscious", name: "Unconscious", img: "icons/svg/unconscious.svg" },
@@ -6565,7 +7461,7 @@ Hooks.once("init", () => {
             title: game.i18n.localize("MARVEL_MULTIVERSE.AlternateForm.SwitchForm"),
             content: "<p>Select a form to switch to:</p>",
             buttons,
-          }).render(true);
+          }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
         }
       },
     });
@@ -6741,9 +7637,113 @@ async function _processStartOfTurn(combatant) {
   });
 }
 
+
+/**
+ * Ask whether to keep concentrating on a power that charges every turn or
+ * round. Only 7 of the 125 concentration powers do; the rest are free to
+ * maintain and are never asked about.
+ */
+async function _processConcentrationUpkeep(combatant) {
+  const actor = combatant?.actor;
+  if (!actor) return;
+  if (!_isResponsibleFor(actor)) return;
+
+  for (const id of _heldConcentrations(actor)) {
+    const item = actor.items.get(id);
+    const cost = _parseFocusCost(item?.system?.cost);
+    if (!cost || cost.kind !== "recurring") continue;
+
+    const keep = await _confirmUpkeep({
+      powerName: item.name,
+      cost: cost.amount,
+      period: cost.period,
+      current: Number(actor.system?.focus?.value ?? 0),
+    });
+    if (!keep) {
+      await _endConcentration(actor, id, { reason: "not maintained" });
+      continue;
+    }
+
+    const current = Number(actor.system?.focus?.value ?? 0);
+    await actor.update({ "system.focus.value": current - cost.amount });
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor, token: _getTokenDoc(actor) }),
+      flavor: _buildRollFlavor({ tokenImg: _getTokenImg(actor), actorName: actor.name, powerName: item.name }),
+      content: `<div class="mm-chat-body"><div class="mm-power-activated">Concentration maintained, spending <b>${cost.amount} Focus</b> per ${cost.period}.</div></div>`,
+    });
+  }
+}
+
+/** Keep concentrating and pay, or let it lapse. */
+function _confirmUpkeep({ powerName, cost, period, current }) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    new Dialog({
+      title: "Maintain Concentration",
+      content: `<form><div class="form-group mm-spend-group">
+        <label><b>${powerName}</b> - costs ${cost} Focus per ${period} to maintain. Focus is ${current}.</label>
+      </div></form>`,
+      buttons: {
+        keep: { icon: '<i class="fas fa-bolt"></i>', label: `Spend ${cost}`, callback: () => done(true) },
+        drop: { icon: '<i class="fas fa-times"></i>', label: "Let it end", callback: () => done(false) },
+      },
+      default: "keep",
+      close: () => done(false),
+    }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
+  });
+}
+
+/**
+ * Conditions listed in CONCENTRATION_BREAKERS end every concentration the
+ * character holds. Status effects arrive as Active Effects on the actor, so the
+ * check runs when one is created.
+ */
+Hooks.on("createActiveEffect", async (effect) => {
+  const actor = effect?.parent;
+  if (!actor || actor.documentName !== "Actor") return;
+  if (!_isResponsibleFor(actor)) return;
+  const statuses = [...(effect.statuses ?? [])];
+  const breaker = statuses.find((s) => CONCENTRATION_BREAKERS.includes(s));
+  if (!breaker) return;
+  await _endConcentration(actor, null, { reason: `${actor.name} is ${breaker}` });
+});
+
+
+/**
+ * Clearing the Concentrating marker from the token HUD ends everything the
+ * character is holding. `_endConcentration` clears the marker itself once the
+ * last power goes, so the length check below is what keeps the two from
+ * calling each other in a loop.
+ */
+Hooks.on("deleteActiveEffect", async (effect) => {
+  const actor = effect?.parent;
+  if (!actor || actor.documentName !== "Actor") return;
+  if (!effect.statuses?.has("concentrating")) return;
+  if (!_isResponsibleFor(actor)) return;
+  if (!_heldConcentrations(actor).length) return;
+  await _endConcentration(actor, null, { reason: "the marker was cleared" });
+});
+
+/** Ending the encounter ends any concentration its combatants were holding. */
+Hooks.on("deleteCombat", async (combat) => {
+  for (const combatant of combat.combatants ?? []) {
+    const actor = combatant.actor;
+    if (!actor || !_isResponsibleFor(actor)) continue;
+    if (!_heldConcentrations(actor).length) continue;
+    await _endConcentration(actor, null, { reason: "the encounter ended" });
+  }
+});
+
 Hooks.on("updateCombat", (combat, changed, options, userId) => {
-  if (!game.user.isGM) return;
   if (!("turn" in changed) && !("round" in changed)) return;
+
+  // Upkeep is answered by whoever owns the character, not only the GM, so this
+  // runs before the GM-only automation below.
+  const upkeepFor = combat.combatant;
+  if (upkeepFor) _processConcentrationUpkeep(upkeepFor);
+
+  if (!game.user.isGM) return;
   if (combat.previous.round === 0) {
     const current = combat.combatant;
     if (current) _processStartOfTurn(current);
@@ -6785,10 +7785,310 @@ Hooks.on("updateActor", (actor, changed) => {
 /* -------------------------------------------- */
 
 // If you need to add Handlebars helpers, here is a useful example:
+/**
+ * True when a power's cost can be worked out, so the sheet knows whether to
+ * offer an activate control. Handlebars helpers must be synchronous, which
+ * _parseFocusCost is.
+ */
+Handlebars.registerHelper("mmHasFocusCost", (cost) => _parseFocusCost(cost) !== null);
+
+/** True when the actor is currently concentrating on this power. */
+Handlebars.registerHelper("mmIsConcentrating", (held, itemId) =>
+  Array.isArray(held) && held.includes(itemId)
+);
+
 Handlebars.registerHelper("toLowerCase", (mle) => mle.toLowerCase());
 Handlebars.registerHelper("eq", (a, b) => a === b);
 Handlebars.registerHelper("gt", (a, b) => a > b);
 
+
+
+/* -------------------------------------------- */
+/*  Take Damage                                 */
+/* -------------------------------------------- */
+
+/** Socket channel for relaying an applied-damage record to a GM. */
+const MM_SOCKET = "system.marvel-multiverse";
+
+/** Turn a live Take Damage button into the spent state. */
+function _markButtonApplied(button) {
+  button.disabled = true;
+  button.classList.add("-applied");
+  button.innerHTML = '<i class="fa-solid fa-check"></i> Applied';
+}
+
+/**
+ * Record on the message that a target's damage has been taken, so the button
+ * stays spent for everyone and survives a reload.
+ *
+ * A defending player is usually not the damage message's author and so cannot
+ * write its flags. Their actor update still succeeds; only this bookkeeping
+ * needs relaying to a GM.
+ *
+ * @returns {Promise<boolean>}  Whether the applied state was persisted.
+ */
+async function _markDamageApplied(message, uuid) {
+  const flag = message.getFlag("marvel-multiverse", "damage");
+  if (!flag) return false;
+
+  if (message.canUserModify(game.user, "update")) {
+    await message.setFlag("marvel-multiverse", "damage", {
+      ...flag,
+      applied: withApplied(flag.applied, uuid),
+    });
+    return true;
+  }
+
+  if (!game.users.activeGM) {
+    ui.notifications.warn(
+      "Damage was applied, but no GM is connected to save it — the button will be available again after a reload."
+    );
+    return false;
+  }
+
+  game.socket.emit(MM_SOCKET, {
+    type: "markDamageApplied",
+    messageId: message.id,
+    uuid,
+  });
+  return true;
+}
+
+/**
+ * Subtract a target's recorded damage from its Health or Focus.
+ *
+ * The amount comes from the message flag rather than the rendered text: the
+ * text is prose a module or a translation could reshape, and re-parsing it
+ * would make the number a viewer sees and the number applied two separate
+ * things that can disagree.
+ */
+async function _applyDamageFromMessage(message, uuid, button) {
+  const flag = message.getFlag("marvel-multiverse", "damage");
+  const entry = flag?.targets?.find((t) => t.uuid === uuid);
+  if (!entry?.hit) return;
+
+  const actor = await fromUuid(uuid);
+  if (!actor) {
+    ui.notifications.warn("That target no longer exists.");
+    return;
+  }
+
+  const path = damageValuePath(flag.damageType);
+  const current = foundry.utils.getProperty(actor, path) ?? 0;
+  // Health and Focus are allowed below zero. The schema's min of -300 is the
+  // only floor, and a character below zero is a state the rules use, so no
+  // clamp at zero is applied here.
+  await actor.update({ [path]: current - entry.amount });
+
+  _markButtonApplied(button);
+  await _markDamageApplied(message, uuid);
+}
+
+/**
+ * Wire the damage card's Take Damage buttons. The message content is sent to
+ * every user, so who may click and what has already been spent are both decided
+ * per viewer at render time.
+ */
+Hooks.on("renderChatMessageHTML", (message, html) => {
+  const el = html instanceof HTMLElement ? html : html?.[0];
+  const buttons = el?.querySelectorAll?.("button.mm-take-damage");
+  if (!buttons?.length) return;
+
+  const flag = message.getFlag("marvel-multiverse", "damage");
+  const applied = Array.isArray(flag?.applied) ? flag.applied : [];
+
+  for (const button of buttons) {
+    const uuid = button.dataset.targetUuid;
+    const actor = fromUuidSync(uuid);
+    if (!canApplyDamage(game.user, actor)) {
+      button.remove();
+      continue;
+    }
+    if (applied.includes(uuid)) {
+      _markButtonApplied(button);
+      continue;
+    }
+
+    // The hook fires more than once per message in v14. Binding again on the
+    // same element would apply the damage twice from a single click.
+    if (button.dataset.mmBound === "1") continue;
+    button.dataset.mmBound = "1";
+
+    button.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      button.disabled = true;
+      try {
+        await _applyDamageFromMessage(message, uuid, button);
+      } catch (err) {
+        button.disabled = false;
+        throw err;
+      }
+    });
+  }
+});
+
+/** Bumped when a new repair is added below. */
+const MIGRATION_VERSION = 2;
+
+/**
+ * Power name -> attack configuration, gathered from every Item compendium.
+ *
+ * Every compendium is consulted rather than one named pack, so the system stays
+ * independent of any particular content module. The index is asked for the
+ * specific fields, which avoids loading each document in full.
+ * @returns {Promise<Map<string, object>>}
+ */
+async function _referencePowerFields() {
+  const byName = new Map();
+  const fields = ["type", ...POWER_ATTACK_FIELDS.map((f) => `system.${f}`)];
+  for (const pack of game.packs ?? []) {
+    if (pack.documentName !== "Item") continue;
+    let index;
+    try {
+      index = await pack.getIndex({ fields });
+    } catch (err) {
+      console.warn(`marvel-multiverse | could not index ${pack.collection}`, err);
+      continue;
+    }
+    for (const entry of index) {
+      if (entry.type !== "power") continue;
+      // First pack wins, so a later module cannot quietly redefine a power an
+      // earlier one already described.
+      if (byName.has(entry.name)) continue;
+      byName.set(entry.name, entry.system ?? {});
+    }
+  }
+  return byName;
+}
+
+/**
+ * Copy the attack configuration from the compendium onto every owned power.
+ *
+ * Without this a power sits with no ability and `attack: false`, which means it
+ * cannot be rolled as a power at all -- and a power that is never rolled cannot
+ * carry its damage scale onto the chat card.
+ * @returns {Promise<number>}  How many items were updated.
+ */
+async function _syncOwnedPowerFields() {
+  const reference = await _referencePowerFields();
+  if (!reference.size) return 0;
+
+  let changed = 0;
+  for (const actor of game.actors) {
+    const updates = collectPowerSyncUpdates(actor.items, reference);
+    if (!updates.length) continue;
+    await actor.updateEmbeddedDocuments("Item", updates);
+    changed += updates.length;
+  }
+
+  const worldUpdates = collectPowerSyncUpdates(game.items, reference);
+  if (worldUpdates.length) {
+    await Item.updateDocuments(worldUpdates);
+    changed += worldUpdates.length;
+  }
+  return changed;
+}
+
+/**
+ * Bring already-imported powers in line with a compendium backfill.
+ *
+ * `damageScale` was added to the schema and set on the twelve powers whose text
+ * reads "half regular damage", but a compendium edit does not reach copies that
+ * are already owned by an actor. Without this pass those powers keep dealing
+ * full damage in every world that imported them before the field existed.
+ *
+ * GM only, and recorded in a setting so it runs once per world rather than on
+ * every load.
+ */
+async function _runWorldMigrations() {
+  if (!game.user.isGM) return;
+  const done = game.settings.get("marvel-multiverse", "migrationVersion");
+  if (done >= MIGRATION_VERSION) return;
+
+  let changed = 0;
+  try {
+    if (done < 1) {
+      for (const actor of game.actors) {
+        const updates = collectHalfDamageUpdates(actor.items);
+        if (!updates.length) continue;
+        await actor.updateEmbeddedDocuments("Item", updates);
+        changed += updates.length;
+      }
+
+      const worldUpdates = collectHalfDamageUpdates(game.items);
+      if (worldUpdates.length) {
+        await Item.updateDocuments(worldUpdates);
+        changed += worldUpdates.length;
+      }
+    }
+
+    if (done < 2) changed += await _syncOwnedPowerFields();
+  } catch (err) {
+    // Leave the version unbumped so the pass is retried next load rather than
+    // being recorded as done after a partial run.
+    console.error("marvel-multiverse | world migration failed", err);
+    return;
+  }
+
+  await game.settings.set("marvel-multiverse", "migrationVersion", MIGRATION_VERSION);
+  if (changed) {
+    ui.notifications.info(
+      `Marvel Multiverse: repaired ${changed} power${changed === 1 ? "" : "s"} on existing characters.`
+    );
+  }
+}
+
+Hooks.once("ready", () => _runWorldMigrations());
+
+Hooks.once("ready", () => {
+  game.socket.on(MM_SOCKET, async (data) => {
+    if (data?.type !== "markDamageApplied") return;
+    // One GM writes. Without this every connected GM would race on the same
+    // flag and the last write would win by chance.
+    if (game.users.activeGM?.id !== game.user.id) return;
+    const message = game.messages.get(data.messageId);
+    const flag = message?.getFlag("marvel-multiverse", "damage");
+    if (!flag) return;
+    await message.setFlag("marvel-multiverse", "damage", {
+      ...flag,
+      applied: withApplied(flag.applied, data.uuid),
+    });
+  });
+});
+
+/**
+ * Wire the chat card's Activate button, and hide it from anyone who may not use
+ * it. The button is in the message content, which every user receives, so the
+ * check has to happen per viewer at render time.
+ */
+Hooks.on("renderChatMessageHTML", (message, html) => {
+  const el = html instanceof HTMLElement ? html : html?.[0];
+  const button = el?.querySelector?.("button.mm-activate-power");
+  if (!button) return;
+
+  const actor = game.actors?.get(button.dataset.actorId);
+  if (!actor || !_canActivatePowers(actor)) {
+    button.closest(".mm-chat-activate")?.remove();
+    return;
+  }
+
+  // The hook fires more than once per message in v14. Binding again on the same
+  // element would spend the cost twice from a single click.
+  if (button.dataset.mmBound === "1") return;
+  button.dataset.mmBound = "1";
+
+  button.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    const item = actor.items.get(button.dataset.itemId);
+    if (!item) return ui.notifications.warn("That power is no longer on the character.");
+    button.disabled = true;
+    try {
+      await _activatePower(actor, item);
+    } finally {
+      button.disabled = false;
+    }
+  });
+});
 
 Hooks.on("renderDialogV2", (app, html) => {
   const el = html instanceof HTMLElement ? html : html[0];
@@ -6965,6 +8265,10 @@ Hooks.on("renderChatMessage", (message, html) => {
 /* -------------------------------------------- */
 
 Hooks.once("ready", () => {
+  // One delegated listener rather than a per-render binding, because enriched
+  // roll links turn up in chat, on sheets and in journal entries alike.
+  document.body.addEventListener("click", _onRollLinkClick);
+
   // Wait to register hotbar drop hook on ready so that modules could register earlier if they want to
   Hooks.on("hotbarDrop", (bar, data, slot) => {
     // Core suppresses its own handling only on a strict `false`, and checks the
@@ -7145,6 +8449,307 @@ async function createCheckMacro(data, slot) {
 }
 
 /**
+ * Prepares rich-text fields for display on a sheet.
+ *
+ * Handlebars helpers cannot await, and enrichHTML is async, so enriched values
+ * have to be built in getData() and handed to the template as a parallel
+ * context key. The {{editor}} helper then shows the enriched text while
+ * ApplicationV1 loads the raw stored value from the document when the editor
+ * is actually opened, so what gets saved is never the enriched copy.
+ */
+
+/** The rich-text fields that can appear on a document in this system. */
+const RICH_TEXT_FIELDS = [
+  "description",
+  "effect",
+  "notes",
+  "history",
+  "personality",
+  "distinguishingFeatures",
+  "profile",
+  "downtimeActivity",
+  "intelligenceDescription",
+];
+
+/**
+ * Resolve the namespaced TextEditor, falling back to the deprecated global on
+ * anything older than v13.
+ */
+function getTextEditor() {
+  return foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
+}
+
+/**
+ * Build enriched copies of whichever rich-text fields the document actually
+ * has. Fields the document does not define are skipped rather than emitted as
+ * empty strings, so a template asking for a field that does not belong to its
+ * type renders nothing instead of a blank editor.
+ *
+ * @param {Document} doc            The actor or item being rendered
+ * @param {object} [options]
+ * @param {object} [options.rollData]  Roll data so inline rolls resolve
+ * @param {string[]} [options.fields]  Override the default field list
+ * @returns {Promise<object>}       Keyed by field name, e.g. {description: "..."}
+ */
+async function enrichSheetFields(doc, { rollData, fields = RICH_TEXT_FIELDS } = {}) {
+  const TE = getTextEditor();
+  const enriched = {};
+  if (!doc || !TE?.enrichHTML) return enriched;
+
+  for (const field of fields) {
+    const value = doc.system?.[field];
+    if (value === undefined || value === null) continue;
+    enriched[field] = await TE.enrichHTML(String(value), {
+      rollData,
+      relativeTo: doc,
+      // Secret blocks are for whoever owns the document. A player looking at
+      // someone else's sheet should not see them.
+      secrets: doc.isOwner ?? false,
+    });
+  }
+  return enriched;
+}
+
+/**
+ * Turns roll-calling phrases in power text into clickable rolls.
+ *
+ * Power descriptions say things like "the character makes an Ego check
+ * against the target's Ego defense". The first half names a roll the player
+ * should make; the second half is the number they are rolling against. Only
+ * the first becomes a link.
+ *
+ * Registered as a custom enricher, so it runs anywhere enrichHTML runs.
+ * Foundry already enriches chat message content, which covers the power cards.
+ */
+
+/** Ability names as they appear in the rulebook, mapped to schema keys. */
+const ABILITY_BY_NAME = {
+  melee: "mle",
+  agility: "agl",
+  resilience: "res",
+  vigilance: "vig",
+  ego: "ego",
+  logic: "log",
+};
+
+/**
+ * Attacks that name a range rather than an ability. The rulebook defines a
+ * close attack as Melee and a ranged attack as Agility.
+ */
+const IMPLIED_ABILITY = {
+  close: "mle",
+  ranged: "agl",
+};
+
+const ROLL_LINK_ABILITIES = Object.keys(ABILITY_BY_NAME).join("|");
+
+/**
+ * Words allowed between the cue verb and the phrase: articles and counts, so
+ * "makes an Ego check" and "makes two Melee attacks" both qualify.
+ */
+const ROLL_LINK_CUE_FILLER = "(?:a|an|the|another|one|two|three|four|five|six|\\d+)";
+
+/**
+ * A phrase names a roll only when something tells the reader to make it.
+ * "makes a close attack" is an instruction; "gains an edge on all close
+ * attacks" names the class of rolls a bonus applies to and is not clickable.
+ *
+ * Written as a lookbehind so the cue decides whether to match without becoming
+ * part of the link text -- the anchor still reads "close attack".
+ *
+ * "made" is left out on purpose: "on all action checks made while this is in
+ * effect" is a description, not an instruction.
+ */
+const ROLL_LINK_INSTRUCTION_CUE =
+  `(?<=\\b(?:makes?|making|rolls?|rolling|requires?|attempts?)\\s+(?:${ROLL_LINK_CUE_FILLER}\\s+)*)`;
+
+/**
+ * One pattern rather than several, because alternation is ordered: at a given
+ * position the first alternative that matches wins. That is what stops the
+ * bare "Melee check" branch from eating the "Melee check (target number 20)"
+ * branch. Separate enrichers would each get their own pass and could nest.
+ *
+ * Deliberately not matched:
+ *   - "Ego defense" and friends, which are the number being rolled against
+ *   - bare "the attack", which refers back to a roll already made
+ *   - bare "action check", which describes a bonus and names no ability
+ *   - any phrase with no instruction cue in front of it, per the cue above
+ */
+const ROLL_LINK_PATTERN = new RegExp(
+  ROLL_LINK_INSTRUCTION_CUE +
+  "\\b(?:" +
+    // "makes an Ego vs. TN 12 action check"
+    `(?<tnAbility>${ROLL_LINK_ABILITIES})\\s+vs\\.?\\s+TN\\s+(?<tnValue>\\d+)\\s+action\\s+checks?\\b` +
+    // "requires a Melee check (target number 20)"
+    `|(?<parenAbility>${ROLL_LINK_ABILITIES})\\s+checks?\\s*\\(\\s*target\\s+number\\s+(?<parenValue>\\d+)\\s*\\)` +
+    // "makes an Ego check", "makes a Melee attack"
+    `|(?<ability>${ROLL_LINK_ABILITIES})\\s+(?<abilityKind>checks?|attacks?)\\b` +
+    // "makes a close attack", "makes a ranged attack"
+    `|(?<implied>close|ranged)\\s+(?<impliedKind>attacks?)\\b` +
+  ")",
+  "gi"
+);
+
+/**
+ * Read a regex match into the roll it describes.
+ * @param {RegExpMatchArray} match
+ * @returns {{abilityKey: string, kind: string, tn: number|null, label: string}|null}
+ */
+function describeRollLink(match) {
+  const groups = match?.groups;
+  if (!groups) return null;
+  const label = match[0];
+
+  if (groups.tnAbility) {
+    return {
+      abilityKey: ABILITY_BY_NAME[groups.tnAbility.toLowerCase()],
+      kind: "check",
+      tn: Number(groups.tnValue),
+      label,
+    };
+  }
+  if (groups.parenAbility) {
+    return {
+      abilityKey: ABILITY_BY_NAME[groups.parenAbility.toLowerCase()],
+      kind: "check",
+      tn: Number(groups.parenValue),
+      label,
+    };
+  }
+  if (groups.ability) {
+    return {
+      abilityKey: ABILITY_BY_NAME[groups.ability.toLowerCase()],
+      kind: /attack/i.test(groups.abilityKind) ? "attack" : "check",
+      tn: null,
+      label,
+    };
+  }
+  if (groups.implied) {
+    return {
+      abilityKey: IMPLIED_ABILITY[groups.implied.toLowerCase()],
+      kind: "attack",
+      tn: null,
+      label,
+    };
+  }
+  return null;
+}
+
+/**
+ * Build the anchor an enriched phrase becomes.
+ * @param {object} descriptor  Output of describeRollLink
+ * @returns {HTMLAnchorElement}
+ */
+function buildRollLinkAnchor({ abilityKey, kind, tn, label }) {
+  const anchor = document.createElement("a");
+  anchor.classList.add("mm-roll-link");
+  anchor.dataset.ability = abilityKey;
+  anchor.dataset.rollKind = kind;
+  if (tn !== null && tn !== undefined) anchor.dataset.tn = String(tn);
+  const icon = document.createElement("i");
+  icon.className = "fa-solid fa-dice-d6";
+  anchor.append(icon, document.createTextNode(label));
+  return anchor;
+}
+
+/**
+ * The custom enricher itself. Returning nothing leaves the text as it was.
+ * @param {RegExpMatchArray} match
+ * @returns {HTMLAnchorElement|null}
+ */
+function enrichRollLink(match) {
+  const descriptor = describeRollLink(match);
+  if (!descriptor?.abilityKey) return null;
+  return buildRollLinkAnchor(descriptor);
+}
+
+/**
+ * Work out whose check this is from where the link was clicked.
+ *
+ * A link in a chat card belongs to the actor who spoke it. A link on a sheet
+ * belongs to that sheet's actor. Failing both, fall back to whoever the user
+ * is currently playing, which covers links in a journal entry.
+ * @param {HTMLElement} anchor
+ * @returns {Actor|null}
+ */
+function resolveRollLinkActor(anchor) {
+  const messageEl = anchor.closest("[data-message-id]");
+  if (messageEl) {
+    const message = game.messages.get(messageEl.dataset.messageId);
+    if (message?.speakerActor) return message.speakerActor;
+  }
+
+  const appEl = anchor.closest("[data-appid]");
+  if (appEl) {
+    const app = ui.windows?.[appEl.dataset.appid];
+    const doc = app?.document ?? app?.actor ?? app?.object;
+    if (doc?.documentName === "Actor") return doc;
+    if (doc?.parent?.documentName === "Actor") return doc.parent;
+  }
+
+  const controlled = canvas?.tokens?.controlled ?? [];
+  if (controlled.length === 1 && controlled[0].actor) return controlled[0].actor;
+  return game.user?.character ?? null;
+}
+
+/**
+ * The power a roll link sits inside, when it came from one.
+ *
+ * Some powers are rolled by clicking the check named in their own text rather
+ * than from a control on the sheet. Without the power behind it that click is a
+ * bare ability check: it knows nothing of the power's damage type, of which
+ * defense it should be compared against, or of any damage scale it carries.
+ * @param {HTMLElement} anchor
+ * @returns {Item|null}
+ */
+function resolveRollLinkItem(anchor) {
+  const messageEl = anchor.closest("[data-message-id]");
+  if (messageEl) {
+    const message = game.messages.get(messageEl.dataset.messageId);
+    const itemId = message?.getFlag("marvel-multiverse", "itemId");
+    const owned = itemId ? message.speakerActor?.items?.get(itemId) : null;
+    if (owned) return owned;
+  }
+
+  const appEl = anchor.closest("[data-appid]");
+  if (appEl) {
+    const app = ui.windows?.[appEl.dataset.appid];
+    const doc = app?.document ?? app?.object;
+    if (doc?.documentName === "Item") return doc;
+  }
+
+  return null;
+}
+
+/**
+ * Roll the check a link names. Bound once on the document, since these links
+ * appear in chat, on sheets and in journals alike.
+ * @param {PointerEvent} event
+ */
+async function _onRollLinkClick(event) {
+  const anchor = event.target.closest?.("a.mm-roll-link");
+  if (!anchor) return;
+  event.preventDefault();
+  event.stopPropagation();
+
+  const actor = resolveRollLinkActor(anchor);
+  if (!actor) {
+    return ui.notifications.warn(
+      "Select a token or assign yourself a character to roll this check."
+    );
+  }
+  if (!actor.isOwner && !game.user.isGM) {
+    return ui.notifications.warn(`You do not have permission to roll for ${actor.name}.`);
+  }
+
+  const tn = anchor.dataset.tn ? Number(anchor.dataset.tn) : null;
+  return rollAbilityCheck(actor, anchor.dataset.ability, {
+    tn,
+    item: resolveRollLinkItem(anchor),
+  });
+}
+
+/**
  * Roll an ability or non-combat check for an actor.
  *
  * Shared by the sheet click handler and the hotbar macro so both paths produce
@@ -7153,9 +8758,15 @@ async function createCheckMacro(data, slot) {
  * @param {string} abilityKey       One of the six ability keys, e.g. "mle"
  * @param {object} [options]
  * @param {boolean} [options.noncom=false]   Roll the non-combat check instead
- * @returns {MarvelMultiverseRoll|null}
+ * @param {number|null} [options.tn=null]    Target number stated in the power
+ *                                           text, if it gave one
+ * @returns {Promise<MarvelMultiverseRoll|null>}
  */
-function rollAbilityCheck(actor, abilityKey, { noncom = false } = {}) {
+async function rollAbilityCheck(
+  actor,
+  abilityKey,
+  { noncom = false, tn = null, item = null } = {}
+) {
   const abilityData = actor?.system?.abilities?.[abilityKey];
   if (!abilityData) {
     ui.notifications.warn(
@@ -7172,7 +8783,12 @@ function rollAbilityCheck(actor, abilityKey, { noncom = false } = {}) {
   let flavor = _buildRollFlavor({
     tokenImg: _getTokenImg(actor),
     actorName: actor.name,
+    // When the roll came from a power's text, the card names the power and
+    // carries its damage type -- the damage button reads that type from here.
+    powerName: item?.name,
     ability: abilityLabel,
+    damageType: item?.system?.damageType,
+    element: item?.system?.isElemental ? item?.system?.element : null,
   });
 
   let edgeMode = MarvelMultiverseRoll.EDGE_MODE.NORMAL;
@@ -7201,6 +8817,19 @@ function rollAbilityCheck(actor, abilityKey, { noncom = false } = {}) {
     }
   }
 
+  // When the power text stated a target number, settle the roll first so the
+  // card can say whether it was met rather than leaving the player to compare.
+  if (Number.isFinite(tn)) {
+    await roll.evaluate();
+    const met = roll.isFantastic || roll.total >= tn;
+    const outcome = roll.isFantastic
+      ? "<b>Fantastic!</b>"
+      : met
+        ? "<b>Success</b>"
+        : "<b>Failed</b>";
+    flavor += `<div class="mm-roll-tn"><div>vs TN ${tn} — ${outcome}</div></div>`;
+  }
+
   const rollMode = game.settings.get("core", "rollMode");
   const messageData = {
     speaker: ChatMessage.getSpeaker({ actor: actor }),
@@ -7208,9 +8837,26 @@ function rollAbilityCheck(actor, abilityKey, { noncom = false } = {}) {
     rollMode: rollMode,
     title: "",
   };
-  const attackTargets = _getAttackTargets(abilityKey);
+  // A power names the defense it is compared against, which is not always the
+  // ability being rolled, so the ability is only the fallback.
+  const attackTargets = _getAttackTargets(item?.system?.attackTarget || abilityKey);
   if (attackTargets.length) {
-    messageData["flags.marvel-multiverse.targets"] = attackTargets;
+    foundry.utils.setProperty(
+      messageData,
+      "flags.marvel-multiverse.targets",
+      attackTargets
+    );
+  }
+  const linkDamageScale = damageScaleOf(item);
+  if (linkDamageScale !== null) {
+    foundry.utils.setProperty(
+      messageData,
+      "flags.marvel-multiverse.damageScale",
+      linkDamageScale
+    );
+  }
+  if (item?.id) {
+    foundry.utils.setProperty(messageData, "flags.marvel-multiverse.itemId", item.id);
   }
 
   roll.toMessage(messageData, { rollMode: rollMode });
@@ -7259,5 +8905,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, dice, models, rollAbilityCheck, rollCheckMacro, rollItemMacro };
+export { ChatMessageMarvel, collectHalfDamageUpdates, collectPowerSyncUpdates, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

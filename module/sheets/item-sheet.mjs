@@ -2,6 +2,7 @@ import {
   onManageActiveEffect,
   prepareActiveEffectCategories,
 } from "../helpers/effects.mjs";
+import { enrichSheetFields } from "../helpers/enrich.mjs";
 
 /**
  * Extend the basic item sheet with some very simple modifications
@@ -43,7 +44,7 @@ export class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
   /* -------------------------------------------- */
 
   /** @override */
-  getData() {
+  async getData() {
     // Retrieve base data structure.
     const context = super.getData();
 
@@ -166,6 +167,12 @@ export class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         ])
       );
     }
+    // Rich text is shown enriched so content links, inline rolls and the
+    // roll links registered by this system all work on the sheet.
+    context.enriched = await enrichSheetFields(this.item, {
+      rollData: context.rollData,
+    });
+
     return context;
   }
 

@@ -1,0 +1,14 @@
+{{!-- Schooling Advancement Chart: ten boxes, left column 0-4, right column 5-9. --}}
+<div class="mm-styled-container mm-schooling-block">
+  <h3>{{localize "MARVEL_MULTIVERSE.Schooling.Title"}}</h3>
+  <div class="mm-styled-container-body">
+    <div class="mm-schooling-grid">
+      {{#each schoolingBoxes}}
+      <label class="mm-schooling-box" data-box-index="{{this.index}}">
+        <input type="checkbox" name="{{this.name}}" {{checked this.checked}} {{#unless @root.editable}}disabled{{/unless}}/>
+        <span class="mm-schooling-reward">{{this.label}}</span>
+      </label>
+      {{/each}}
+    </div>
+  </div>
+</div>

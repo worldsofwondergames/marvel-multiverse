@@ -39,6 +39,15 @@ export default class MarvelMultiversePower extends MarvelMultiverseItemBase {
       initial: 0,
       min: 0,
     });
+    // What fraction of regular damage the power deals -- 0.5 for a power whose
+    // text says targets "take half regular damage". Deliberately not an integer
+    // field: a half is the whole point.
+    schema.damageScale = new fields.NumberField({
+      required: true,
+      nullable: false,
+      initial: 1,
+      min: 0,
+    });
     (schema.isElemental = new fields.BooleanField({
       required: true,
       initial: false,

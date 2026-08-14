@@ -573,9 +573,40 @@ export async function triggerAbilityRoll(page, actorName, abilityKey) {
     );
     const speaker = ChatMessage.getSpeaker({ actor });
     let flavor = `[ability] ${label}`;
-    await roll.toMessage({ speaker, flavor, rollMode: 'publicroll' });
+    const messageData = { speaker, flavor, rollMode: 'publicroll' };
+
+    // The sheet records who was targeted at the moment the attack was rolled,
+    // and the damage card reads that flag rather than live canvas targeting. A
+    // roll without it reads as an attack that declared no target at all.
+    const targets = Array.from(game.user.targets)
+      .map((token) => ({
+        name: token.name,
+        img: token.document?.texture?.src ?? token.actor?.img ?? '',
+        ac: token.actor?.system?.abilities?.[abilityKey]?.defense ?? null,
+        uuid: token.actor?.uuid ?? '',
+      }))
+      .filter((t) => t.ac !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (targets.length) messageData['flags.marvel-multiverse.targets'] = targets;
+
+    await roll.toMessage(messageData, { rollMode: 'publicroll' });
   }, { actorName, abilityKey });
   await page.waitForTimeout(2000);
+}
+
+/**
+ * Drop a defender's defense far below any possible roll.
+ *
+ * The damage card prints a breakdown only for targets the attack hit, so a test
+ * about damage arithmetic has to stop the dice deciding whether the arithmetic
+ * happens at all. `defense` is a schema field the derived value adds to, so an
+ * ADD effect of -100 survives that step.
+ */
+export async function forceHit(page, actorName, abilityKey = 'mle') {
+  await createActiveEffect(page, actorName, {
+    name: 'E2E Guaranteed Hit',
+    changes: [{ key: `system.abilities.${abilityKey}.defense`, mode: 2, value: '-100' }],
+  });
 }
 
 /**

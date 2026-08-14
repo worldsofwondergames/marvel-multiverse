@@ -1,26 +1,18 @@
-<div class="mm-styled-field -fill">
-  <label class="mm-styled-label -align-left"><span>Source</span></label>
-  <div class="mm-styled-input">
-    <select name="system.source">
-      {{selectOptions sources selected=system.source labelAttr="label" blank=""}}
-    </select>
-  </div>
-</div>
 <div class="mm-styled-container">
   <h3 for="system.history" data-label="history">History</h3>
   <div class="mm-input">
-      {{editor system.history target="system.history" button=false engine="prosemirror" collaborate=false}}
+      {{editor enriched.history target="system.history" button=true engine="prosemirror" collaborate=false editable=editable}}
   </div>
 </div>
 <div class="mm-styled-container">
   <h3 for="system.personality" data-label="personality">Personality</h3>
   <div class="mm-input">
-    {{editor system.personality target="system.personality" button=false engine="prosemirror" collaborate=false}}
+    {{editor enriched.personality target="system.personality" button=true engine="prosemirror" collaborate=false editable=editable}}
   </div>
 </div>
 <div class="mm-styled-container">
   <h3 for="system.distinguishingFeatures" data-label="distinguishingFeatures">Features</h3>
   <div class="mm-input">
-    {{editor system.distinguishingFeatures target="system.distinguishingFeatures" button=false engine="prosemirror" collaborate=false}}
+    {{editor enriched.distinguishingFeatures target="system.distinguishingFeatures" button=true engine="prosemirror" collaborate=false editable=editable}}
   </div>
 </div>

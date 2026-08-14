@@ -108,7 +108,7 @@ describe('MarvelMultiverseItem — roll', () => {
     });
 
     test('chat message includes item name in content', async () => {
-        const item = makeItem({ name: 'Web Shot' });
+        const item = makeItem({ name: 'Line Shot' });
         await item.roll();
         const [args] = createSpy.mock.calls[0];
         expect(args.content).toContain('');
@@ -173,11 +173,15 @@ describe('MarvelMultiverseItem — roll', () => {
         expect(args.content).toContain('Web you up');
     });
 
-    test('content has empty effect div when effect is absent', async () => {
+    test('no effect element is emitted when effect is absent', async () => {
+        // Previously an empty <div></div> was always rendered. Issue #116 made
+        // every optional block conditional, so an unset effect contributes
+        // nothing while the description still proves the card was built.
         const item = makeItem({ system: { ability: 'mle', formula: '', description: 'Desc', damageType: null, attack: false, effect: '' } });
         await item.roll();
         const [args] = createSpy.mock.calls[0];
-        expect(args.content).toContain('<div></div>');
+        expect(args.content).toContain('Desc');
+        expect(args.content).not.toContain('mm-chat-effect');
     });
 
     test('toMessage receives modLabel containing [ability] and the ability key', async () => {

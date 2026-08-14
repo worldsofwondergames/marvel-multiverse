@@ -2,6 +2,37 @@
 
 ## 3.1.0
 
+### Rolling a Power
+
+- **Power text is clickable.** A power that tells you to make a check — "the character makes an Ego check", "makes a close attack", "requires a Melee check (target number 20)" — now renders that phrase as a link that rolls it. A stated target number is carried onto the roll and the card says whether it was met. The same links work on item sheets and in journal entries.
+- Only phrases that instruct you to roll are linked. Text naming the class of rolls a bonus applies to — "gains an edge on all close attacks" — is left as plain text, as is a defense being rolled against.
+- **A power that names its own check is no longer rolled by clicking it.** Clicking such a power posts its card; the link in the text rolls it. Previously you got two attacks in the log for one action. Of the 79 attack powers in the compendium, 78 name their check in their own text.
+- Rolling through that link knows which power it came from, so the card uses the power's damage type and compares against the defense the power names rather than the ability rolled. Several powers are rolled with one ability against another — a Melee check against Agility defense — and those were previously judged against the wrong defense.
+
+### Half-Damage Powers
+
+- Powers whose text says targets "take half regular damage" now deal half. A new **Damage Scale** field on the power sheet holds the fraction, and the damage card applies it.
+- A Fantastic success deals the total before halving, not double the halved figure. Halving and the Fantastic doubling are worked out together and rounded once, so a regular 11 gives 6 normally and 11 on a Fantastic rather than 12. Rounding is up throughout, as the rulebooks do everywhere.
+- The damage breakdown shows the scale, so the printed total can be checked against its parts.
+- **Action required, handled automatically:** powers already on your characters are independent copies and did not pick up this change, so a one-time repair runs when the world loads. It also restores the attack settings on powers imported before those fields existed — without an ability set, a power could not be rolled at all. A power whose Damage Scale you have set yourself is left alone.
+
+### Chat Cards
+
+- Power cards show Action, Trigger, Duration and Cost under the power name, omitting any the power does not set, and every line on the card shares one size and left edge.
+- **Fixed:** cards for traits, tags, weapons and every item type other than powers were rendered entirely in italics. The italic marks flavor text sitting above rules text, which only powers have, so it now appears only where there is rules text to contrast with.
+- The Damage button on a check card is centered under the roll rather than pushed against the left edge.
+
+### Activating Powers
+
+- A power with a Focus cost can be activated from its row on the sheet or from its chat card, which spends the Focus. A stepper sets the amount when the cost is a range, and the control is hidden from anyone who may not use it.
+- Health and Focus each gained a control that resets the value to its maximum.
+
+### Character Sheet
+
+- The Biography tab is split into **Details**, **Background** and **Advancement** sub-tabs.
+- The Advancement sub-tab shows the schooling chart, tracking progress toward the next rank.
+- Rich text fields no longer collapse to a sliver when empty; each keeps a minimum height whether or not it is being edited.
+
 ### Applying Damage
 
 - The damage chat card now carries a **Take Damage** button on each target the attack hit. Clicking it subtracts that target's damage from Health, or from Focus when the attack does Focus damage. The amount comes from the card, so it matches what the card printed.

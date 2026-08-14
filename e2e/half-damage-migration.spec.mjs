@@ -130,20 +130,50 @@ test.describe('half-damage powers already owned by a character', () => {
     expect(after.ability).toBe(setup.referenceAbility);
     expect(after.attack).toBe(true);
 
-    // The ability is what Item#roll requires, so the power now actually rolls.
-    const rolled = await page.evaluate(async ({ name, powerName }) => {
+    // Restoring the ability is only worth anything if the power can be rolled
+    // again, so the test follows it through to a roll.
+    //
+    // Which route that takes depends on the power: one whose text names its own
+    // check posts a card and is rolled from the link in that text, and one that
+    // does not rolls on click. The route is read from what was rendered, and a
+    // roll is required either way -- neither branch lets "nothing happened"
+    // count as a pass.
+    const outcome = await page.evaluate(async ({ name, powerName }) => {
       const actor = game.actors.find((a) => a.name === name);
       const item = actor.items.find((i) => i.name === powerName);
+
       const before = new Set(game.messages.contents.map((m) => m.id));
       await item.roll();
       await new Promise((r) => setTimeout(r, 1200));
-      const created = game.messages.contents.filter((m) => !before.has(m.id));
-      const hasRoll = created.some((m) => m.rolls?.length);
-      for (const m of created) await m.delete();
-      return hasRoll;
+      const fromClick = game.messages.contents.filter((m) => !before.has(m.id));
+
+      const anchor = document.querySelector('#chat-log a.mm-roll-link, .chat-log a.mm-roll-link');
+      let rolledFromLink = false;
+      if (anchor) {
+        const beforeLink = new Set(game.messages.contents.map((m) => m.id));
+        anchor.click();
+        await new Promise((r) => setTimeout(r, 1400));
+        rolledFromLink = game.messages.contents
+          .filter((m) => !beforeLink.has(m.id))
+          .some((m) => m.rolls?.length);
+      }
+
+      const result = {
+        posted: fromClick.length,
+        rolledOnClick: fromClick.some((m) => m.rolls?.length),
+        hasLink: !!anchor,
+        rolledFromLink,
+      };
+      for (const m of game.messages.contents.filter((m) => !before.has(m.id))) await m.delete();
+      return result;
     }, { name: HERO, powerName: setup.name });
 
-    expect(rolled).toBe(true);
+    // Using the power produced something either way.
+    expect(outcome.posted).toBeGreaterThan(0);
+    expect(outcome.hasLink ? outcome.rolledFromLink : outcome.rolledOnClick).toBe(true);
+    // A power rolled from its own text must not also roll on click, or one
+    // action puts two attacks in the log.
+    if (outcome.hasLink) expect(outcome.rolledOnClick).toBe(false);
   });
 
   /**

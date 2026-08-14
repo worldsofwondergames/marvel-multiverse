@@ -10,6 +10,7 @@ import {
   collectHalfDamageUpdates,
   collectPowerSyncUpdates,
   needsHalfDamageScale,
+  powerRollsFromItsText,
 } from '../../marvel-multiverse.mjs';
 import * as twin from '../helpers/migrations.mjs';
 
@@ -224,5 +225,43 @@ describe('the twin agrees with the shipping monolith', () => {
       'damageType',
       'damageScale',
     ]);
+  });
+});
+
+/**
+ * Nearly every attack power is written as an instruction to make a check, and
+ * that phrase becomes the link used to roll it. Rolling again when the power
+ * itself is clicked would put two attacks in the log for one action.
+ */
+describe('whether a power is rolled by the link in its own text', () => {
+  test('text naming a check means the link does the rolling', () => {
+    expect(powerRollsFromItsText({ effect: '<p>The character makes a Melee check.</p>' })).toBe(true);
+  });
+
+  test('text describing a bonus is not an instruction to roll', () => {
+    expect(
+      powerRollsFromItsText({ effect: '<p>They gain an edge on all close attacks this round.</p>' })
+    ).toBe(false);
+  });
+
+  test('a power with no effect text rolls on its own', () => {
+    expect(powerRollsFromItsText({ effect: '' })).toBe(false);
+    expect(powerRollsFromItsText({})).toBe(false);
+    expect(powerRollsFromItsText(undefined)).toBe(false);
+  });
+
+  // Markup sits between the words in stored rich text.
+  test('the check is found through surrounding markup', () => {
+    expect(
+      powerRollsFromItsText({ effect: '<p>The character <em>makes</em> a <b>Melee</b> check.</p>' })
+    ).toBe(true);
+  });
+
+  // The pattern is global; test() would advance lastIndex and make a second
+  // call on the same text miss.
+  test('asking twice about the same text gives the same answer', () => {
+    const system = { effect: '<p>The character makes a Melee check.</p>' };
+    expect(powerRollsFromItsText(system)).toBe(true);
+    expect(powerRollsFromItsText(system)).toBe(true);
   });
 });

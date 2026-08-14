@@ -1,3 +1,21 @@
+import { findRollLinks } from "../helpers/roll-links.mjs";
+
+/**
+ * Whether a power's own text names the check that rolls it.
+ *
+ * Nearly every attack power is written as an instruction to make a check, and
+ * that phrase is enriched into the link used to roll it. Rolling again when the
+ * power itself is clicked would put two attacks in the log for one action, so
+ * the click posts the card and the link does the rolling.
+ * @param {object} system  An item's system data.
+ * @returns {boolean}
+ */
+export function powerRollsFromItsText(system) {
+  const effect = String(system?.effect ?? "").replace(/<[^>]*>/g, " ");
+  if (!effect.trim()) return false;
+  return findRollLinks(effect).length > 0;
+}
+
 /**
  * True when rich-text content has something worth showing. ProseMirror stores
  * an emptied editor as `<p></p>`, which is not blank as a string but renders as
@@ -220,7 +238,11 @@ export class MarvelMultiverseItem extends Item {
       }</div>`,
     });
 
-    if (this.system.formula && this.system.ability) {
+    if (
+      this.system.formula &&
+      this.system.ability &&
+      !powerRollsFromItsText(this.system)
+    ) {
       // Retrieve roll data.
       const rollData = this.getRollData();
       // Invoke the roll and submit it to chat.

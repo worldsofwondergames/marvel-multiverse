@@ -120,6 +120,27 @@ function collectHalfDamageUpdates(items) {
 }
 
 /**
+ * Whether a power's own text names the check that rolls it.
+ *
+ * Nearly every attack power is written as an instruction to make a check, and
+ * that phrase is enriched into the link used to roll it. Rolling again when the
+ * power itself is clicked would put two attacks in the log for one action, so
+ * the click posts the card and the link does the rolling.
+ * @param {object} system  An item's system data.
+ * @returns {boolean}
+ */
+function powerRollsFromItsText(system) {
+  const effect = String(system?.effect ?? "").replace(/<[^>]*>/g, " ");
+  if (!effect.trim()) return false;
+  // matchAll rather than test: the pattern is global, and test() would
+  // advance its lastIndex and make the next call on the same text miss.
+  for (const match of effect.matchAll(ROLL_LINK_PATTERN)) {
+    if (describeRollLink(match)?.abilityKey) return true;
+  }
+  return false;
+}
+
+/**
  * The fields that decide whether and how a power rolls as an attack.
  *
  * `formula` is deliberately absent: it holds the dice rather than the attack
@@ -1177,7 +1198,11 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       }</div>`,
     });
 
-    if (this.system.formula && this.system.ability) {
+    if (
+      this.system.formula &&
+      this.system.ability &&
+      !powerRollsFromItsText(this.system)
+    ) {
       // Retrieve roll data.
       const rollData = this.getRollData();
       // Invoke the roll and submit it to chat.
@@ -2454,9 +2479,10 @@ class ChatMessageMarvel extends ChatMessage {
       const dmgTypeLabel = damageType ? ` ${damageType}` : "";
       const fantasticLabel = fantastic ? " Fantastic" : "";
       const fantasticMult = fantastic ? " × 2" : "";
+      const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
       damageContent.push(
         `<p style="margin:4px 0;">Deals <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${fantasticMult}</p>`
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}</p>`
       );
     }
     // const content = `<p>Delivers <b>${dmg}</b> points re: MarvelDie: ${marvelDie.total} &#42; damage multiplier: &#40; ${actor.system.abilities[abilityAbr].damageMultiplier} - damageReduction: ${damageReduction} &#61; ${damageMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
@@ -3768,6 +3794,10 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       }
     }
     if (dataset.formula) {
+      // The power states its own check, so the link in that text is how it is
+      // rolled. Posting the card is all this control should do.
+      if (item && powerRollsFromItsText(item.system)) return item.roll();
+
       const ability =
         CONFIG.MARVEL_MULTIVERSE.damageAbility[dataset.label] ?? dataset.label;
       const title = dataset.power ? `[power] ${dataset.power}` : "";
@@ -8875,5 +8905,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, collectHalfDamageUpdates, collectPowerSyncUpdates, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, collectHalfDamageUpdates, collectPowerSyncUpdates, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

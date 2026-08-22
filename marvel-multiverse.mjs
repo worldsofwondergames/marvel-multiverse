@@ -3155,6 +3155,9 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       this.actor.allApplicableEffects()
     );
 
+    context.isVillainous = game.settings.get("marvel-multiverse", "sinisterPlotPointsEnabled")
+      && this.actor.items.some((i) => i.type === "tag" && i.name === "Villainous");
+
     context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
     if (context.enableAlternateForms) {
       const alternateForms = this.actor.system.alternateForms ?? [];
@@ -4424,6 +4427,9 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       // as well as any items
       this.actor.allApplicableEffects()
     );
+
+    context.isVillainous = game.settings.get("marvel-multiverse", "sinisterPlotPointsEnabled")
+      && this.actor.items.some((i) => i.type === "tag" && i.name === "Villainous");
 
     context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
     if (context.enableAlternateForms) {
@@ -5895,6 +5901,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
     });
 
     schema.karma = new fields.SchemaField({
+      value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
+      max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
+    });
+
+    schema.sinisterPlotPoints = new fields.SchemaField({
       value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
       max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
     });
@@ -7879,6 +7890,15 @@ Hooks.once("init", () => {
   game.settings.register("marvel-multiverse", "stuntsEnabled", {
     name: "MARVEL_MULTIVERSE.Stunt.Setting.Enable",
     hint: "MARVEL_MULTIVERSE.Stunt.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+  });
+
+  game.settings.register("marvel-multiverse", "sinisterPlotPointsEnabled", {
+    name: "MARVEL_MULTIVERSE.SinisterPlotPoints.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.SinisterPlotPoints.Setting.EnableHint",
     scope: "world",
     config: true,
     type: Boolean,

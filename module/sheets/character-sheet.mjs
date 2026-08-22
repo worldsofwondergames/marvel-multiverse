@@ -4,6 +4,7 @@ import {
 } from "../helpers/effects.mjs";
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
 import { enrichSheetFields } from "../helpers/enrich.mjs";
+import { isVillainous } from "../helpers/villainous.mjs";
 
 /**
  * Extend the basic actor sheet with some very simple modifications
@@ -126,6 +127,9 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
       // as well as any items
       this.actor.allApplicableEffects()
     );
+
+    context.isVillainous = game.settings.get("marvel-multiverse", "sinisterPlotPointsEnabled")
+      && isVillainous(this.actor.items);
 
     context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
     if (context.enableAlternateForms) {

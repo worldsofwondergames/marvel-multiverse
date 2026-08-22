@@ -1565,9 +1565,8 @@
   z-index: 1;
 }
 
-.marvel-multiverse.sheet.actor .mm-karma-block {
+.marvel-multiverse.sheet.actor .mm-karma-block, .marvel-multiverse.sheet.actor .mm-sinister-block {
   align-items: center;
-  background: #e41d18;
   bottom: -4px;
   clip-path: polygon(0% 0%, 100% 0%, 100% 7px, calc(100% - 5px) 12px, calc(100% - 5px) calc(100% - 12px), 100% calc(100% - 7px), 100% 100%, 0% 100%, 0% calc(100% - 7px), 5px calc(100% - 12px), 5px 12px, 0% 7px);
   display: flex;
@@ -1577,12 +1576,11 @@
   margin: 0;
   padding: 4px 2px;
   position: absolute;
-  right: 0;
   text-align: center;
   width: 70px;
 }
 
-.marvel-multiverse.sheet.actor .mm-karma-block::before {
+.marvel-multiverse.sheet.actor .mm-karma-block::before, .marvel-multiverse.sheet.actor .mm-sinister-block::before {
   background: #fff2ec;
   bottom: 2px;
   clip-path: polygon(0% 0%, 100% 0%, 100% 5px, calc(100% - 5px) 10px, calc(100% - 5px) calc(100% - 10px), 100% calc(100% - 5px), 100% 100%, 0% 100%, 0% calc(100% - 5px), 5px calc(100% - 10px), 5px 10px, 0% 5px);
@@ -1593,9 +1591,39 @@
   top: 2px;
 }
 
-.marvel-multiverse.sheet.actor .mm-karma-block input {
+.marvel-multiverse.sheet.actor .mm-karma-block input, .marvel-multiverse.sheet.actor .mm-sinister-block input {
   font-size: 28px;
   width: 50%;
+}
+
+.marvel-multiverse.sheet.actor .mm-karma-block {
+  background: #e41d18;
+  right: 0;
+}
+
+.marvel-multiverse.sheet.actor .mm-karma-block.-shifted {
+  left: 0;
+  right: auto;
+}
+
+.marvel-multiverse.sheet.actor .mm-sinister-block {
+  background: #5a2d8c;
+  right: 0;
+}
+
+.marvel-multiverse.sheet.actor .mm-npc-portrait-block .mm-sinister-block {
+  bottom: auto;
+  clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px);
+  flex: 0 0 60px;
+  height: 60px;
+  top: 4px;
+  width: 60px;
+}
+
+.marvel-multiverse.sheet.actor .mm-npc-portrait-block .mm-sinister-block::before {
+  bottom: auto;
+  clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px);
+  top: 2px;
 }
 
 .marvel-multiverse.sheet.actor .mm-rank-block {

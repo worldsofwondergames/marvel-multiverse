@@ -5318,6 +5318,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         system: { power: this.item.id },
       }]);
       stunt?.sheet.render(true);
+      this.render(false);
     });
 
     html.on("click", ".stunt-edit", (ev) => {
@@ -5326,11 +5327,12 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
       this.item.actor?.items.get(id)?.sheet.render(true);
     });
 
-    html.on("click", ".stunt-delete", (ev) => {
+    html.on("click", ".stunt-delete", async (ev) => {
       ev.preventDefault();
       const id = ev.currentTarget.closest("[data-item-id]")?.dataset.itemId;
       if (!id) return;
-      this.item.actor?.deleteEmbeddedDocuments("Item", [id]);
+      await this.item.actor?.deleteEmbeddedDocuments("Item", [id]);
+      this.render(false);
     });
 
     html.on("click", ".stunt-learn", async (ev) => {
@@ -5349,6 +5351,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         if (!confirmed) return;
       }
       await stunt.update({ "system.learned": true });
+      this.render(false);
     });
 
     html.on("click", '[data-tab="stunts"] .rollable[data-roll-type="item"]', (ev) => {
@@ -5636,6 +5639,26 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         description: droppedItem.system.description,
       });
       return await this.item.update({ "system.restrictions": restrictions });
+    }
+
+    // Handle stunt drops onto powers: link the stunt to this power. A stunt
+    // dropped from a compendium or the world is embedded onto the actor as a
+    // copy; a stunt already owned by this actor is relinked in place.
+    if (droppedItem.type === "stunt" && this.item.type === "power") {
+      const actor = this.item.actor;
+      if (!actor || !game.settings.get("marvel-multiverse", "stuntsEnabled")) return;
+      if (droppedItem.actor?.id === actor.id) {
+        if (droppedItem.system.power === this.item.id) return;
+        await droppedItem.update({ "system.power": this.item.id });
+        this.render(false);
+        return;
+      }
+      const stuntData = droppedItem.toObject();
+      delete stuntData._id;
+      foundry.utils.setProperty(stuntData, "system.power", this.item.id);
+      const [created] = await actor.createEmbeddedDocuments("Item", [stuntData]);
+      this.render(false);
+      return created;
     }
 
     // Handle power drops onto iconic items

@@ -8,6 +8,7 @@ const ITEM_TYPE_LABELS = {
   occupation: "Occupation",
   power: "Power",
   powerSet: "Power Set",
+  stunt: "Stunt",
   restriction: "Restriction",
   battleSuit: "Battlesuit",
   equipment: "Equipment",

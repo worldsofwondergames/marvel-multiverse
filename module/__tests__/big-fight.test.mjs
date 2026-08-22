@@ -136,8 +136,8 @@ describe('needsInitiativeReroll', () => {
   });
 });
 
-describe('module/helpers/big-fight.mjs twin matches the shipping monolith', () => {
-  test('every exported function is the same implementation', () => {
+describe('the twin agrees with the shipping monolith', () => {
+  test('exports the same 9 function names', () => {
     expect(Object.keys(twin).sort()).toEqual([
       'applyAttackBonusToFormula',
       'bestVigilanceBySide',
@@ -149,9 +149,86 @@ describe('module/helpers/big-fight.mjs twin matches the shipping monolith', () =
       'needsInitiativeReroll',
       'pooledResource',
     ]);
-    expect(twin.groupAttackBonus({ memberCombatantIds: ['c1', 'c2'] }, {
-      c1: { health: { destroyed: false } },
-      c2: { health: { destroyed: false } },
-    })).toBe(1);
+  });
+
+  test.each([null, { enabled: false }, { enabled: true }])(
+    'isBigFightEnabled matches for %o',
+    (bigFight) => {
+      expect(twin.isBigFightEnabled(bigFight)).toBe(isBigFightEnabled(bigFight));
+    }
+  );
+
+  test.each([
+    [-1, -1],
+    [1, -1],
+    [0, -1],
+  ])('combatantSideFromDisposition matches for disposition %i hostile %i', (d, h) => {
+    expect(twin.combatantSideFromDisposition(d, h)).toBe(combatantSideFromDisposition(d, h));
+  });
+
+  test('findGroup matches with mixed live and destroyed members', () => {
+    const groups = [
+      { id: 'g1', memberCombatantIds: ['c1', 'c2'] },
+      { id: 'g2', memberCombatantIds: ['c3'] },
+    ];
+    expect(twin.findGroup(groups, 'c3')).toEqual(findGroup(groups, 'c3'));
+  });
+
+  test('liveMembers matches with mixed live and destroyed members', () => {
+    const group = { id: 'g1', memberCombatantIds: ['c1', 'c2', 'c3'] };
+    const combatantsById = {
+      c1: { id: 'c1', health: { value: 10, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { value: 0, max: 10, destroyed: true } },
+      c3: { id: 'c3', health: { value: 4, max: 10, destroyed: false } },
+    };
+    expect(twin.liveMembers(group, combatantsById)).toEqual(liveMembers(group, combatantsById));
+  });
+
+  test('pooledResource matches with mixed live and destroyed members', () => {
+    const group = { id: 'g1', memberCombatantIds: ['c1', 'c2', 'c3'] };
+    const combatantsById = {
+      c1: { id: 'c1', health: { value: 10, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { value: 0, max: 10, destroyed: true } },
+      c3: { id: 'c3', health: { value: 4, max: 10, destroyed: false } },
+    };
+    expect(twin.pooledResource(group, combatantsById, 'health')).toEqual(
+      pooledResource(group, combatantsById, 'health')
+    );
+  });
+
+  test('groupAttackBonus matches with live group of 2', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const combatantsById = {
+      c1: { id: 'c1', health: { destroyed: false } },
+      c2: { id: 'c2', health: { destroyed: false } },
+    };
+    expect(twin.groupAttackBonus(group, combatantsById)).toBe(
+      groupAttackBonus(group, combatantsById)
+    );
+  });
+
+  test.each([
+    ['{1d6,1dm,1d6} + 4', 0],
+    ['{1d6,1dm,1d6} + 4', 2],
+  ])('applyAttackBonusToFormula matches for %s with bonus %i', (formula, bonus) => {
+    expect(twin.applyAttackBonusToFormula(formula, bonus)).toBe(
+      applyAttackBonusToFormula(formula, bonus)
+    );
+  });
+
+  test('bestVigilanceBySide matches with mixed hero and foe list', () => {
+    const combatants = [
+      { side: 'hero', vigilance: 3 },
+      { side: 'hero', vigilance: 6 },
+      { side: 'foe', vigilance: 5 },
+    ];
+    expect(twin.bestVigilanceBySide(combatants)).toEqual(bestVigilanceBySide(combatants));
+  });
+
+  test.each([
+    [11, 11],
+    [12, 11],
+  ])('needsInitiativeReroll matches for heroTotal %i foeTotal %i', (h, f) => {
+    expect(twin.needsInitiativeReroll(h, f)).toBe(needsInitiativeReroll(h, f));
   });
 });

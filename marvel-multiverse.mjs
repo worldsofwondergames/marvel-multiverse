@@ -8179,6 +8179,117 @@ function _getConditionDamage(actor) {
   return { active, totalDamage };
 }
 
+/**
+ * The pure arithmetic and lookups behind Big Fight mode (issue #75): side
+ * initiative, foe grouping, pooled Health/Focus, and the group attack bonus.
+ *
+ * Every function here is pure — no Foundry Document is touched. The glue that
+ * adapts a real Combat/Combatant into the plain shapes these take lives in
+ * marvel-multiverse.mjs next to the other combat hooks, the same split
+ * damage-application.mjs uses for computeDamage/isTargetHit.
+ */
+
+/** @param {{enabled?: boolean}|null} bigFight */
+function isBigFightEnabled(bigFight) {
+  return bigFight?.enabled === true;
+}
+
+/**
+ * Foundry token disposition only distinguishes hostile from everything else
+ * for this feature's purposes — neutral and secret tokens act with the
+ * heroes' side rather than blocking on a third turn phase the rules don't
+ * define.
+ * @param {number} disposition
+ * @param {number} hostileValue  CONST.TOKEN_DISPOSITIONS.HOSTILE, passed in
+ *   so this file never needs a live Foundry CONST to be testable.
+ * @returns {"hero"|"foe"}
+ */
+function combatantSideFromDisposition(disposition, hostileValue) {
+  return disposition === hostileValue ? "foe" : "hero";
+}
+
+/**
+ * @param {Array<{id: string, memberCombatantIds: string[]}>|undefined} groups
+ * @param {string} combatantId
+ * @returns {object|null}
+ */
+function findGroup(groups, combatantId) {
+  return (groups ?? []).find((g) => g.memberCombatantIds.includes(combatantId)) ?? null;
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {health?: {destroyed?: boolean}}>} combatantsById
+ * @returns {object[]}
+ */
+function liveMembers(group, combatantsById) {
+  if (!group) return [];
+  return group.memberCombatantIds
+    .map((id) => combatantsById[id])
+    .filter((c) => c && c.health?.destroyed !== true);
+}
+
+/**
+ * @param {object|null} group
+ * @param {Record<string, object>} combatantsById
+ * @param {"health"|"focus"} resource
+ * @returns {{value: number, max: number}}
+ */
+function pooledResource(group, combatantsById, resource) {
+  return liveMembers(group, combatantsById).reduce(
+    (acc, c) => ({
+      value: acc.value + (c[resource]?.value ?? 0),
+      max: acc.max + (c[resource]?.max ?? 0),
+    }),
+    { value: 0, max: 0 }
+  );
+}
+
+/**
+ * "+1 per additional foe beyond the first" — a live group of `n` members
+ * grants `n - 1`. A destroyed member stops counting toward its own group's
+ * bonus the moment it drops, same round.
+ * @param {object|null} group
+ * @param {Record<string, object>} combatantsById
+ * @returns {number}
+ */
+function groupAttackBonus(group, combatantsById) {
+  if (!group) return 0;
+  return Math.max(0, liveMembers(group, combatantsById).length - 1);
+}
+
+/**
+ * @param {string} formula
+ * @param {number} bonus
+ * @returns {string}
+ */
+function applyAttackBonusToFormula(formula, bonus) {
+  return bonus ? `${formula} + ${bonus}` : formula;
+}
+
+/**
+ * @param {Array<{side: "hero"|"foe", vigilance: number}>} combatants
+ * @returns {{hero: number, foe: number}}
+ */
+function bestVigilanceBySide(combatants) {
+  const totals = { hero: 0, foe: 0 };
+  for (const c of combatants) {
+    if (c.vigilance > totals[c.side]) totals[c.side] = c.vigilance;
+  }
+  return totals;
+}
+
+/**
+ * Ties are re-rolled once rather than settled by house rule, since the book
+ * does not say who goes first on a tie.
+ * @param {number} heroTotal
+ * @param {number} foeTotal
+ * @returns {boolean}
+ */
+function needsInitiativeReroll(heroTotal, foeTotal) {
+  return heroTotal === foeTotal;
+}
+
 function _getWhisperRecipients(actor) {
   const ids = new Set();
   for (const user of game.users) {
@@ -9573,5 +9684,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, collectHalfDamageUpdates, collectPowerSyncUpdates, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, findGroup, groupAttackBonus, isBigFightEnabled, liveMembers, needsInitiativeReroll, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

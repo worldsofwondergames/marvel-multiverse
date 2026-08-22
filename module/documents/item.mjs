@@ -84,6 +84,15 @@ export function _isConcentrationPower(system) {
 }
 
 /**
+ * True when a power can be used as a reaction. Action is free text, and a
+ * power may list several options ("Standard or Reaction"), so this matches
+ * on the word rather than an exact value.
+ */
+export function _isReactionPower(action) {
+  return /reaction/i.test(String(action ?? ""));
+}
+
+/**
  * How many powers a character may concentrate on at once: one per rank, per the
  * core rulebook's "Breaking Concentration".
  */

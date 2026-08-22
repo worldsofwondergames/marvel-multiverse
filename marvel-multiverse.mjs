@@ -371,6 +371,15 @@ function _isConcentrationPower(system) {
 }
 
 /**
+ * True when a power can be used as a reaction. Action is free text, and a
+ * power may list several options ("Standard or Reaction"), so this matches
+ * on the word rather than an exact value.
+ */
+function _isReactionPower(action) {
+  return /reaction/i.test(String(action ?? ""));
+}
+
+/**
  * How many powers a character may concentrate on at once: one per rank, per the
  * core rulebook's "Breaking Concentration".
  */
@@ -7796,6 +7805,9 @@ Handlebars.registerHelper("mmHasFocusCost", (cost) => _parseFocusCost(cost) !== 
 Handlebars.registerHelper("mmIsConcentrating", (held, itemId) =>
   Array.isArray(held) && held.includes(itemId)
 );
+
+/** True when a power's action text names it as usable as a reaction. */
+Handlebars.registerHelper("mmIsReaction", (action) => _isReactionPower(action));
 
 Handlebars.registerHelper("toLowerCase", (mle) => mle.toLowerCase());
 Handlebars.registerHelper("eq", (a, b) => a === b);

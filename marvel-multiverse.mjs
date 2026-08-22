@@ -6099,8 +6099,9 @@ class MarvelMultiverseActorBase extends foundry.abstract
       }
     }
 
-    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
+    const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
+    this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
+    this.focus.max = (this.abilities.vig.value * battleMultiplier) + this.focus.bonus;
 
     const baseRunSpeed = this.movement.run.value;
 
@@ -6244,8 +6245,9 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       }
     }
 
-    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
+    const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
+    this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
+    this.focus.max = (this.abilities.vig.value * battleMultiplier) + this.focus.bonus;
 
     const baseRunSpeed = this.movement.run.value;
 
@@ -7905,6 +7907,16 @@ Hooks.once("init", () => {
     default: false,
   });
 
+  game.settings.register("marvel-multiverse", "battleMultiplier", {
+    name: "MARVEL_MULTIVERSE.BattleMultiplier.Setting.Value",
+    hint: "MARVEL_MULTIVERSE.BattleMultiplier.Setting.ValueHint",
+    scope: "world",
+    config: true,
+    type: Number,
+    range: { min: 10, max: 100, step: 10 },
+    default: 30,
+  });
+
   game.settings.register("marvel-multiverse", "mutantReputationEnabled", {
     name: "Enable Mutant Reputation",
     hint: "Enable the optional Mutant Reputation system. When active, Ego checks display reputation-based edge/trouble notices.",
@@ -8353,6 +8365,34 @@ Hooks.on("updateCombat", (combat, changed, options, userId) => {
   if (prevCombatant) _processEndOfTurn(prevCombatant);
   const current = combat.combatant;
   if (current) _processStartOfTurn(current);
+});
+
+/**
+ * Whether a d616 roll is an ultimate Fantastic (6M6) result on an Initiative
+ * check -- the Marvel die shows a Fantastic success and both d6 dice show 6.
+ * @param {{isFantastic: boolean, dice: {total: number}[]}} roll
+ * @param {string} flavor
+ * @returns {boolean}
+ */
+function _isUltimateFantasticInitiative(roll, flavor) {
+  if (!flavor || !flavor.includes("Initiative")) return false;
+  if (!roll?.isFantastic) return false;
+  const dice = roll.dice ?? [];
+  return dice[0]?.total === 6 && dice[2]?.total === 6;
+}
+
+/** Announces the bonus round an ultimate Fantastic Initiative result grants. */
+Hooks.on("createChatMessage", async (message) => {
+  if (message.author?.id !== game.user.id) return;
+  const roll = message.rolls?.[0];
+  if (!_isUltimateFantasticInitiative(roll, message.flavor ?? "")) return;
+
+  const speakerName = message.speaker?.alias ?? "";
+  await ChatMessage.create({
+    speaker: message.speaker,
+    flavor: "Ultimate Fantastic Initiative",
+    content: `<p>${speakerName ? `${speakerName} rolls` : "This roll is"} an ultimate Fantastic result (6<b>M</b>6) on Initiative! They act in a bonus round before combat begins, and may turn their Marvel die to an M on one action check made during it.</p>`,
+  });
 });
 
 /**

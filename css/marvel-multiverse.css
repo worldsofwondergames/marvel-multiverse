@@ -1601,11 +1601,6 @@
   right: 0;
 }
 
-.marvel-multiverse.sheet.actor .mm-karma-block.-shifted {
-  left: 0;
-  right: auto;
-}
-
 .marvel-multiverse.sheet.actor .mm-sinister-block {
   background: #5a2d8c;
   right: 0;

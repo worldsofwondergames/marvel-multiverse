@@ -302,8 +302,9 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       }
     }
 
-    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
+    const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
+    this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
+    this.focus.max = (this.abilities.vig.value * battleMultiplier) + this.focus.bonus;
 
     const baseRunSpeed = this.movement.run.value;
 

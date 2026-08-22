@@ -37,13 +37,6 @@
   right: 0;
 }
 
-// Only shifts out of the corner Karma normally occupies when a Sinister Plot
-// Points box is also showing and needs that spot.
-.mm-karma-block.-shifted {
-  left: 0;
-  right: auto;
-}
-
 .mm-sinister-block {
   background: $mm-sinister-purple;
   right: 0;

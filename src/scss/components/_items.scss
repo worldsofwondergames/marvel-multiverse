@@ -116,6 +116,15 @@
   padding-block-start: 0;
 }
 
+.mm-reaction-icon {
+  border: none !important;
+  display: inline-block !important;
+  height: 14px;
+  margin-inline-start: $mm-spacing-xs;
+  vertical-align: middle;
+  width: 14px;
+}
+
 .mm-item-name {
   align-items: center;
   display: flex;

@@ -417,6 +417,30 @@ function _canActivatePowers(actor) {
 }
 
 /**
+ * Whether an actor's owned powers satisfy a stunt's free-text prerequisite.
+ *
+ * Prerequisites are not power references -- several are compound ("Clobber and
+ * Iconic Item") or a category ("A power that splits attacks in two") rather
+ * than a single named power. A case-insensitive substring match against the
+ * actor's power names catches the simple, single-power cases; compound and
+ * category prerequisites will not match unless one of the actor's power names
+ * happens to appear in the text, which is the correct, conservative outcome --
+ * callers fall back to asking the GM/player to confirm instead.
+ *
+ * @param {string} prerequisite
+ * @param {string[]} powerNames
+ * @returns {boolean}
+ */
+function stuntEligible(prerequisite, powerNames) {
+  const text = String(prerequisite ?? "").trim().toLowerCase();
+  if (!text) return false;
+  return (powerNames ?? []).some((name) => {
+    const n = String(name ?? "").trim().toLowerCase();
+    return n && text.includes(n);
+  });
+}
+
+/**
  * Ask the player how much Focus to spend. Used for costs that state a floor
  * ("5 or more Focus") and for recurring ones, which are prefilled with a single
  * period's price.
@@ -3186,6 +3210,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     const tags = [];
     const powers = {};
     const equipment = [];
+    const stunts = [];
 
     // Iterate through items, allocating to containers
     for (const i of context.items) {
@@ -3198,6 +3223,8 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       // Append to origin tags traits and powers as well as origins.
       if (i.type === "occupation") {
         occupations.push(i);
+      } else if (i.type === "stunt") {
+        stunts.push(i);
       } else if (i.type === "iconicItem") {
         const pc = i.system.powers?.length ?? 0;
         const rc = i.system.restrictions?.length ?? 0;
@@ -3262,6 +3289,11 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
       context.equipment = equipment;
+      const sortedStunts = stunts.sort((a, b) => a.name.localeCompare(b.name));
+      context.stunts = {
+        learned: sortedStunts.filter((s) => s.system.learned),
+        available: sortedStunts.filter((s) => !s.system.learned),
+      };
     }
   }
 
@@ -3324,6 +3356,26 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       const itemId = ev.currentTarget.dataset.itemId ?? $(ev.currentTarget).parents(".item").data("itemId");
       const item = this.actor.items.get(itemId);
       if (item) await _activatePower(this.actor, item);
+    });
+    // Learn a stunt: mark it learned if an owned power matches its
+    // prerequisite, otherwise confirm with the GM/player first.
+    html.on("click", ".stunt-learn", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const itemId = ev.currentTarget.dataset.itemId;
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+      const powerNames = this.actor.items
+        .filter((i) => i.type === "power")
+        .map((i) => i.name);
+      if (!stuntEligible(item.system.prerequisite, powerNames)) {
+        const confirmed = await Dialog.confirm({
+          title: "Learn Stunt",
+          content: `<p>No owned power matches the prerequisite "<b>${item.system.prerequisite}</b>" for <b>${item.name}</b>. Learn it anyway?</p>`,
+        });
+        if (!confirmed) return;
+      }
+      await item.update({ "system.learned": true });
     });
     // Render the item sheet for viewing/editing prior to the editable check.
     html.on("click", ".item-edit", (ev) => {
@@ -5580,6 +5632,7 @@ const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-tags.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-traits.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-stunts.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-equipment.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-weapons.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-alternate-forms.hbs",

@@ -417,6 +417,30 @@ function _canActivatePowers(actor) {
 }
 
 /**
+ * Whether an actor's owned powers satisfy a stunt's free-text prerequisite.
+ *
+ * Prerequisites are not power references -- several are compound ("Clobber and
+ * Iconic Item") or a category ("A power that splits attacks in two") rather
+ * than a single named power. A case-insensitive substring match against the
+ * actor's power names catches the simple, single-power cases; compound and
+ * category prerequisites will not match unless one of the actor's power names
+ * happens to appear in the text, which is the correct, conservative outcome --
+ * callers fall back to asking the GM/player to confirm instead.
+ *
+ * @param {string} prerequisite
+ * @param {string[]} powerNames
+ * @returns {boolean}
+ */
+function stuntEligible(prerequisite, powerNames) {
+  const text = String(prerequisite ?? "").trim().toLowerCase();
+  if (!text) return false;
+  return (powerNames ?? []).some((name) => {
+    const n = String(name ?? "").trim().toLowerCase();
+    return n && text.includes(n);
+  });
+}
+
+/**
  * Ask the player how much Focus to spend. Used for costs that state a floor
  * ("5 or more Focus") and for recurring ones, which are prefilled with a single
  * period's price.
@@ -3602,10 +3626,73 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     }
   }
 
+  /**
+   * Ask which of the actor's powers a dropped stunt should be linked to. If
+   * exactly one owned power's name appears in the prerequisite text, link to
+   * it directly with no prompt -- ambiguous prerequisites (compound, a
+   * category, or one naming something that isn't a power at all, like
+   * "Battle suit") still need a human to decide.
+   *
+   * @returns {Promise<string|null>} the chosen power's id, or null if cancelled
+   */
+  async _promptStuntPower(itemData) {
+    if (!game.settings.get("marvel-multiverse", "stuntsEnabled")) return null;
+    const powers = this.actor.items.filter((i) => i.type === "power");
+    if (!powers.length) {
+      ui.notifications.warn(`${this.actor.name} has no powers to link ${itemData.name} to.`);
+      return null;
+    }
+    const prerequisite = String(itemData.system?.prerequisite ?? "").toLowerCase();
+    const matches = powers.filter((p) => prerequisite.includes(p.name.toLowerCase()));
+    if (matches.length === 1) {
+      this._announceStuntLink(itemData.name, matches[0].name);
+      return matches[0].id;
+    }
+    const options = powers
+      .map((p) => `<option value="${p.id}" ${matches[0]?.id === p.id ? "selected" : ""}>${p.name}</option>`)
+      .join("");
+    return new Promise((resolve) => {
+      new Dialog({
+        title: `Link ${itemData.name} to a Power`,
+        content: `<form><div class="form-group"><label>Power${itemData.system?.prerequisite ? ` (Prerequisite: ${itemData.system.prerequisite})` : ""}</label><select name="power">${options}</select></div></form>`,
+        buttons: {
+          link: {
+            label: "Link",
+            callback: (html) => resolve(html.find('[name="power"]').val()),
+          },
+          cancel: {
+            label: "Cancel",
+            callback: () => resolve(null),
+          },
+        },
+        default: "link",
+        close: () => resolve(null),
+      }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
+    });
+  }
+
+  /** Whisper the actor's owners and the GMs that a stunt was auto-linked. */
+  _announceStuntLink(stuntName, powerName) {
+    const recipients = game.users.filter(
+      (u) => u.isGM || this.actor.testUserPermission(u, "OWNER")
+    );
+    ChatMessage.create({
+      content: `<p><strong>${stuntName}</strong> was linked to ${this.actor.name}'s <strong>${powerName}</strong> power.</p>`,
+      whisper: recipients.map((u) => u.id),
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+    });
+  }
+
   /** Fired whenever an embedded document is created.
    */
-  _onDropItemCreate(itemData) {
+  async _onDropItemCreate(itemData) {
     if (!this.actor.items.map((item) => item.name).includes(itemData.name)) {
+      if (itemData.type === "stunt") {
+        const powerId = await this._promptStuntPower(itemData);
+        if (!powerId) return;
+        itemData.system.power = powerId;
+        return super._onDropItemCreate(itemData);
+      }
       if (
         itemData.type === "power" &&
         (itemData.system.powerSets?.some(ps => ps.name === "Elemental Control") ||
@@ -5137,6 +5224,24 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         normal: { label: "Normal" },
         trouble: { label: "Trouble" },
       };
+      if (itemData.type === "power") {
+        const actor = this.item.actor;
+        context.showStuntsTab = !!(
+          actor &&
+          actor.type === "character" &&
+          game.settings.get("marvel-multiverse", "stuntsEnabled")
+        );
+        if (context.showStuntsTab) {
+          context.canActivatePowers = _canActivatePowers(actor);
+          const stunts = actor.items
+            .filter((i) => i.type === "stunt" && i.system.power === this.item.id)
+            .sort((a, b) => a.name.localeCompare(b.name));
+          context.stunts = {
+            learned: stunts.filter((s) => s.system.learned),
+            available: stunts.filter((s) => !s.system.learned),
+          };
+        }
+      }
       context.abilities = {
         mle: {
           label: game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities.mle),
@@ -5263,6 +5368,60 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
     });
     dropZone.on("dragleave", (ev) => {
       ev.currentTarget.classList.remove("drag-over");
+    });
+
+    // Power sheet: Stunts tab
+    html.on("click", ".stunt-create", async (ev) => {
+      ev.preventDefault();
+      const actor = this.item.actor;
+      if (!actor) return;
+      const [stunt] = await actor.createEmbeddedDocuments("Item", [{
+        type: "stunt",
+        name: "New Stunt",
+        system: { power: this.item.id },
+      }]);
+      stunt?.sheet.render(true);
+      this.render(false);
+    });
+
+    html.on("click", ".stunt-edit", (ev) => {
+      ev.preventDefault();
+      const id = ev.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      this.item.actor?.items.get(id)?.sheet.render(true);
+    });
+
+    html.on("click", ".stunt-delete", async (ev) => {
+      ev.preventDefault();
+      const id = ev.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      if (!id) return;
+      await this.item.actor?.deleteEmbeddedDocuments("Item", [id]);
+      this.render(false);
+    });
+
+    html.on("click", ".stunt-learn", async (ev) => {
+      ev.preventDefault();
+      const id = ev.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      const actor = this.item.actor;
+      const stunt = actor?.items.get(id);
+      if (!stunt) return;
+      const powerNames = actor.items.filter((i) => i.type === "power").map((i) => i.name);
+      const eligible = stuntEligible(stunt.system.prerequisite, powerNames);
+      if (!eligible) {
+        const confirmed = await Dialog.confirm({
+          title: "Learn Stunt",
+          content: `<p>${actor.name} does not appear to meet the prerequisite for <strong>${stunt.name}</strong>${stunt.system.prerequisite ? ` (${stunt.system.prerequisite})` : ""}. Learn it anyway?</p>`,
+          options: { classes: ["dialog", "marvel-multiverse", "mm-dialog"] },
+        });
+        if (!confirmed) return;
+      }
+      await stunt.update({ "system.learned": true });
+      this.render(false);
+    });
+
+    html.on("click", '[data-tab="stunts"] .rollable[data-roll-type="item"]', (ev) => {
+      ev.preventDefault();
+      const id = ev.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      this.item.actor?.items.get(id)?.roll();
     });
 
     // Iconic item: restriction management
@@ -5546,6 +5705,26 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
       return await this.item.update({ "system.restrictions": restrictions });
     }
 
+    // Handle stunt drops onto powers: link the stunt to this power. A stunt
+    // dropped from a compendium or the world is embedded onto the actor as a
+    // copy; a stunt already owned by this actor is relinked in place.
+    if (droppedItem.type === "stunt" && this.item.type === "power") {
+      const actor = this.item.actor;
+      if (!actor || !game.settings.get("marvel-multiverse", "stuntsEnabled")) return;
+      if (droppedItem.actor?.id === actor.id) {
+        if (droppedItem.system.power === this.item.id) return;
+        await droppedItem.update({ "system.power": this.item.id });
+        this.render(false);
+        return;
+      }
+      const stuntData = droppedItem.toObject();
+      delete stuntData._id;
+      foundry.utils.setProperty(stuntData, "system.power", this.item.id);
+      const [created] = await actor.createEmbeddedDocuments("Item", [stuntData]);
+      this.render(false);
+      return created;
+    }
+
     // Handle power drops onto iconic items
     if (droppedItem.type === "power" && this.item.type === "iconicItem") {
       const powers = [...this.item.system.powers];
@@ -5586,6 +5765,7 @@ const preloadHandlebarsTemplates = async () =>
     // Item partials
     "systems/marvel-multiverse/templates/item/parts/item-effects.hbs",
     "systems/marvel-multiverse/templates/item/parts/item-source.hbs",
+    "systems/marvel-multiverse/templates/item/parts/item-power-stunts.hbs",
     // Dialog partials
     "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
     // Sidebar partials
@@ -6619,6 +6799,7 @@ class MarvelMultiverseStunt extends MarvelMultiverseItemBase {
     schema.duration = new fields.StringField({ required: true, blank: true });
     schema.effect = new fields.StringField({ required: true, blank: true });
     schema.learned = new fields.BooleanField({ required: true, initial: false });
+    schema.power = new fields.StringField({ required: true, blank: true });
 
     return schema;
   }
@@ -7680,6 +7861,15 @@ Hooks.once("init", () => {
     config: true,
     type: Boolean,
     default: true,
+  });
+
+  game.settings.register("marvel-multiverse", "stuntsEnabled", {
+    name: "Enable Stunts",
+    hint: "Enable the optional Stunts system. When active, powers on character sheets show a Stunts tab for learning and using their stunts.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
   });
 
   game.settings.register("marvel-multiverse", "mutantReputationEnabled", {

@@ -9,8 +9,9 @@
   </header>
 
   {{!-- Sheet Tab Navigation --}}
-  <nav class="sheet-tabs tabs mm-tabs -two" data-group="primary">
+  <nav class="sheet-tabs tabs mm-tabs {{#if showStuntsTab}}-three{{else}}-two{{/if}}" data-group="primary">
     <a class="item" data-tab="attributes">Attributes</a>
+    {{#if showStuntsTab}}<a class="item" data-tab="stunts">Stunts</a>{{/if}}
     <a class="item" data-tab="effects">Effects</a>
   </nav>
 
@@ -150,6 +151,11 @@
         </div>
       </div>
     </div>
+    {{#if showStuntsTab}}
+    <div class="tab flexcol -gap-sm" data-group="primary" data-tab="stunts">
+      {{> "systems/marvel-multiverse/templates/item/parts/item-power-stunts.hbs"}}
+    </div>
+    {{/if}}
     <div class="tab power-effects" data-group="primary" data-tab="effects">
        {{> "systems/marvel-multiverse/templates/item/parts/item-effects.hbs"}}
     </div>

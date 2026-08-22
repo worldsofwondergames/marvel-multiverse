@@ -9,6 +9,7 @@ export default class MarvelMultiverseStunt extends MarvelMultiverseItemBase {
         schema.duration = new fields.StringField({ required: true, blank: true });
         schema.effect = new fields.StringField({ required: true, blank: true });
         schema.learned = new fields.BooleanField({ required: true, initial: false });
+        schema.power = new fields.StringField({ required: true, blank: true });
 
         return schema;
     }

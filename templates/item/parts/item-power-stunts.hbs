@@ -1,0 +1,69 @@
+<ol class="mm-item-list">
+  <li class="flexrow item mm-item-header">
+    <span>Stunts</span>
+    <hr />
+    <div class="item-controls">
+      <a
+        class="item-control stunt-create"
+        title="{{localize 'DOCUMENT.Create' type="Stunt"}}"
+      >
+        <i class="fas fa-plus"></i>
+      </a>
+    </div>
+  </li>
+  {{#each stunts.learned as |item id|}}
+    <li class="flexrow item mm-item" data-item-id="{{item._id}}">
+      <div class="item-name mm-item-name">
+        <a class="rollable" data-roll-type="item"><span>{{item.name}}</span></a>
+      </div>
+      <div class="item-controls">
+        <a
+          class="item-control stunt-edit"
+          data-item-id="{{item._id}}"
+          title="{{localize 'DOCUMENT.Edit' type="stunt"}}"
+        >
+          <i class="fas fa-edit"></i>
+        </a>
+        <a
+          class="item-control stunt-delete"
+          data-item-id="{{item._id}}"
+          title="{{localize 'DOCUMENT.Delete' type="stunt"}}"
+        >
+          <i class="fas fa-trash"></i>
+        </a>
+      </div>
+    </li>
+  {{/each}}
+  {{#each stunts.available as |item id|}}
+    <li class="flexrow item mm-item" data-item-id="{{item._id}}">
+      <div class="item-name mm-item-name">
+        <span>{{item.name}}{{#if item.system.prerequisite}}: <span style="text-transform:none;">{{item.system.prerequisite}}</span>{{/if}}</span>
+      </div>
+      <div class="item-controls">
+        {{#if @root.canActivatePowers}}
+        <a
+          class="item-control stunt-learn"
+          title="Learn {{item.name}}"
+          data-item-id="{{item._id}}"
+        >
+          <i class="fas fa-graduation-cap"></i>
+        </a>
+        {{/if}}
+        <a
+          class="item-control stunt-edit"
+          data-item-id="{{item._id}}"
+          title="{{localize 'DOCUMENT.Edit' type="stunt"}}"
+        >
+          <i class="fas fa-edit"></i>
+        </a>
+        <a
+          class="item-control stunt-delete"
+          data-item-id="{{item._id}}"
+          title="{{localize 'DOCUMENT.Delete' type="stunt"}}"
+        >
+          <i class="fas fa-trash"></i>
+        </a>
+      </div>
+    </li>
+  {{/each}}
+</ol>

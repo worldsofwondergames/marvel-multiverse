@@ -1131,6 +1131,19 @@ const ITEM_DEFAULT_ICONS = {
 };
 
 let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
+  /**
+   * Hide the stunt type from the Create Item dialog while the stunts system
+   * is switched off, so a GM can't create one that has nowhere to show up.
+   * @override
+   */
+  static async createDialog(data = {}, createOptions = {}, dialogOptions = {}, renderOptions = {}) {
+    if (!game.settings.get("marvel-multiverse", "stuntsEnabled")) {
+      const types = dialogOptions.types ?? this.TYPES.filter((t) => t !== "base");
+      dialogOptions = { ...dialogOptions, types: types.filter((t) => t !== "stunt") };
+    }
+    return super.createDialog(data, createOptions, dialogOptions, renderOptions);
+  }
+
   async _preCreate(data, options, user) {
     await super._preCreate(data, options, user);
     const defaultIcon = ITEM_DEFAULT_ICONS[data.type];
@@ -7864,8 +7877,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register("marvel-multiverse", "stuntsEnabled", {
-    name: "Enable Stunts",
-    hint: "Enable the optional Stunts system. When active, powers on character sheets show a Stunts tab for learning and using their stunts.",
+    name: "MARVEL_MULTIVERSE.Stunt.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.Stunt.Setting.EnableHint",
     scope: "world",
     config: true,
     type: Boolean,

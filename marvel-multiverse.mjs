@@ -1100,6 +1100,7 @@ const ITEM_DEFAULT_ICONS = {
   origin: "systems/marvel-multiverse/icons/origin.svg",
   powerSet: "icons/svg/card-hand.svg",
   power: "systems/marvel-multiverse/icons/super-powers.svg",
+  stunt: "systems/marvel-multiverse/icons/super-powers.svg",
   tag: "systems/marvel-multiverse/icons/tags.svg",
   hqTag: "systems/marvel-multiverse/icons/tags.svg",
   hqTrait: "systems/marvel-multiverse/icons/trait.svg"
@@ -6609,6 +6610,20 @@ class MarvelMultiversePowerSet extends MarvelMultiverseItemBase {
   }
 }
 
+class MarvelMultiverseStunt extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = super.defineSchema();
+
+    schema.prerequisite = new fields.StringField({ required: true, blank: true });
+    schema.duration = new fields.StringField({ required: true, blank: true });
+    schema.effect = new fields.StringField({ required: true, blank: true });
+    schema.learned = new fields.BooleanField({ required: true, initial: false });
+
+    return schema;
+  }
+}
+
 class MarvelMultiverseVehicleWeapon extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
@@ -6714,6 +6729,7 @@ var models = /*#__PURE__*/Object.freeze({
   MarvelMultiverseOrigin: MarvelMultiverseOrigin,
   MarvelMultiversePower: MarvelMultiversePower,
   MarvelMultiversePowerSet: MarvelMultiversePowerSet,
+  MarvelMultiverseStunt: MarvelMultiverseStunt,
   MarvelMultiverseTag: MarvelMultiverseTag,
   MarvelMultiverseTrait: MarvelMultiverseTrait,
   MarvelMultiverseWeapon: MarvelMultiverseWeapon
@@ -7242,6 +7258,7 @@ const ITEM_TYPE_LABELS = {
   occupation: "Occupation",
   power: "Power",
   powerSet: "Power Set",
+  stunt: "Stunt",
   restriction: "Restriction",
   battleSuit: "Battlesuit",
   equipment: "Equipment",
@@ -7639,6 +7656,7 @@ Hooks.once("init", () => {
     tag: MarvelMultiverseTag,
     power: MarvelMultiversePower,
     powerSet: MarvelMultiversePowerSet,
+    stunt: MarvelMultiverseStunt,
     restriction: MarvelMultiverseRestriction,
     battleSuit: MarvelMultiverseBattleSuit,
     equipment: MarvelMultiverseEquipment,

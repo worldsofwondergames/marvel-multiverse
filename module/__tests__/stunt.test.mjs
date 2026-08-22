@@ -24,4 +24,9 @@ describe('MarvelMultiverseStunt — defineSchema', () => {
     expect(schema.learned).toBeDefined();
     expect(schema.learned.options.initial).toBe(false);
   });
+
+  test('schema includes power string field, blank by default', () => {
+    expect(schema.power).toBeDefined();
+    expect(schema.power.options.blank).toBe(true);
+  });
 });

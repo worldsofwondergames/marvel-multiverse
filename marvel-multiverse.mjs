@@ -731,9 +731,7 @@ class MarvelMultiverseRoll extends Roll {
    */
   static fromTerms(terms) {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
-    const newRoll = super.fromTerms(terms);
-    Object.assign(newRoll, roll);
-    return newRoll;
+    return super.fromTerms(terms);
   }
 
   /* -------------------------------------------- */

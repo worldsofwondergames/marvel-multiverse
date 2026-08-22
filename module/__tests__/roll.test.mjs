@@ -387,9 +387,12 @@ describe('MarvelMultiverseRoll — fromRoll', () => {
     });
 });
 
-describe('MarvelMultiverseRoll — fromTerms (known bug)', () => {
-    test('throws ReferenceError due to undefined roll variable', () => {
-        expect(() => MarvelMultiverseRoll.fromTerms([])).toThrow(ReferenceError);
+describe('MarvelMultiverseRoll — fromTerms', () => {
+    test('returns a MarvelMultiverseRoll instance built from the given terms', () => {
+        const terms = new Roll('2d6', {}, { configured: true }).terms;
+        const roll = MarvelMultiverseRoll.fromTerms(terms);
+        expect(roll).toBeInstanceOf(MarvelMultiverseRoll);
+        expect(roll.terms).toBe(terms);
     });
 });
 

@@ -3627,10 +3627,11 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
   }
 
   /**
-   * Ask which of the actor's powers a dropped stunt should be linked to.
-   * Pre-selects a power whose name appears in the stunt's prerequisite text,
-   * but always requires confirmation since prerequisites are free text, not
-   * document references.
+   * Ask which of the actor's powers a dropped stunt should be linked to. If
+   * exactly one owned power's name appears in the prerequisite text, link to
+   * it directly with no prompt -- ambiguous prerequisites (compound, a
+   * category, or one naming something that isn't a power at all, like
+   * "Battle suit") still need a human to decide.
    *
    * @returns {Promise<string|null>} the chosen power's id, or null if cancelled
    */
@@ -3642,9 +3643,13 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       return null;
     }
     const prerequisite = String(itemData.system?.prerequisite ?? "").toLowerCase();
-    const guess = powers.find((p) => prerequisite.includes(p.name.toLowerCase()));
+    const matches = powers.filter((p) => prerequisite.includes(p.name.toLowerCase()));
+    if (matches.length === 1) {
+      this._announceStuntLink(itemData.name, matches[0].name);
+      return matches[0].id;
+    }
     const options = powers
-      .map((p) => `<option value="${p.id}" ${guess?.id === p.id ? "selected" : ""}>${p.name}</option>`)
+      .map((p) => `<option value="${p.id}" ${matches[0]?.id === p.id ? "selected" : ""}>${p.name}</option>`)
       .join("");
     return new Promise((resolve) => {
       new Dialog({
@@ -3662,7 +3667,19 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
         },
         default: "link",
         close: () => resolve(null),
-      }).render(true);
+      }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
+    });
+  }
+
+  /** Whisper the actor's owners and the GMs that a stunt was auto-linked. */
+  _announceStuntLink(stuntName, powerName) {
+    const recipients = game.users.filter(
+      (u) => u.isGM || this.actor.testUserPermission(u, "OWNER")
+    );
+    ChatMessage.create({
+      content: `<p><strong>${stuntName}</strong> was linked to ${this.actor.name}'s <strong>${powerName}</strong> power.</p>`,
+      whisper: recipients.map((u) => u.id),
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
     });
   }
 
@@ -5393,6 +5410,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         const confirmed = await Dialog.confirm({
           title: "Learn Stunt",
           content: `<p>${actor.name} does not appear to meet the prerequisite for <strong>${stunt.name}</strong>${stunt.system.prerequisite ? ` (${stunt.system.prerequisite})` : ""}. Learn it anyway?</p>`,
+          options: { classes: ["dialog", "marvel-multiverse", "mm-dialog"] },
         });
         if (!confirmed) return;
       }

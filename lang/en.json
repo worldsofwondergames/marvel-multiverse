@@ -182,6 +182,12 @@
         "Enable": "Enable Alternate Forms",
         "EnableHint": "Adds alternate form management to character sheets, allowing characters to link and switch between multiple forms."
       }
+    },
+    "Stunt": {
+      "Setting": {
+        "Enable": "Enable Stunts",
+        "EnableHint": "Enable the optional Stunts system. When active, powers on character sheets show a Stunts tab for learning and using their stunts."
+      }
     }
   },
   "InitiativeRoll": "Initiative Roll",

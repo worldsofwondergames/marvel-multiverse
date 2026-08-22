@@ -3626,10 +3626,56 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     }
   }
 
+  /**
+   * Ask which of the actor's powers a dropped stunt should be linked to.
+   * Pre-selects a power whose name appears in the stunt's prerequisite text,
+   * but always requires confirmation since prerequisites are free text, not
+   * document references.
+   *
+   * @returns {Promise<string|null>} the chosen power's id, or null if cancelled
+   */
+  async _promptStuntPower(itemData) {
+    if (!game.settings.get("marvel-multiverse", "stuntsEnabled")) return null;
+    const powers = this.actor.items.filter((i) => i.type === "power");
+    if (!powers.length) {
+      ui.notifications.warn(`${this.actor.name} has no powers to link ${itemData.name} to.`);
+      return null;
+    }
+    const prerequisite = String(itemData.system?.prerequisite ?? "").toLowerCase();
+    const guess = powers.find((p) => prerequisite.includes(p.name.toLowerCase()));
+    const options = powers
+      .map((p) => `<option value="${p.id}" ${guess?.id === p.id ? "selected" : ""}>${p.name}</option>`)
+      .join("");
+    return new Promise((resolve) => {
+      new Dialog({
+        title: `Link ${itemData.name} to a Power`,
+        content: `<form><div class="form-group"><label>Power${itemData.system?.prerequisite ? ` (Prerequisite: ${itemData.system.prerequisite})` : ""}</label><select name="power">${options}</select></div></form>`,
+        buttons: {
+          link: {
+            label: "Link",
+            callback: (html) => resolve(html.find('[name="power"]').val()),
+          },
+          cancel: {
+            label: "Cancel",
+            callback: () => resolve(null),
+          },
+        },
+        default: "link",
+        close: () => resolve(null),
+      }).render(true);
+    });
+  }
+
   /** Fired whenever an embedded document is created.
    */
-  _onDropItemCreate(itemData) {
+  async _onDropItemCreate(itemData) {
     if (!this.actor.items.map((item) => item.name).includes(itemData.name)) {
+      if (itemData.type === "stunt") {
+        const powerId = await this._promptStuntPower(itemData);
+        if (!powerId) return;
+        itemData.system.power = powerId;
+        return super._onDropItemCreate(itemData);
+      }
       if (
         itemData.type === "power" &&
         (itemData.system.powerSets?.some(ps => ps.name === "Elemental Control") ||

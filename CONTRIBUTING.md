@@ -158,6 +158,16 @@ Please understand that large and sprawling PRs are exceptionally difficult to re
 
 This repository includes a GitHub Actions configuration which automates the compilation and bundling required for a release when a Tag is pushed or created with the name `release-x.x.x`.
 
+### Versioning Scheme
+
+Starting with Foundry v15, this system's version number is `major.minor.patch`, where each part tracks a different kind of change:
+
+- **Major** — the minimum supported Foundry major version (e.g. `15`). Bumped when the system moves to target a new Foundry major version.
+- **Minor** — the game content the system incorporates. Bumped whenever rules from a new expansion or product are added.
+- **Patch** — bug fixes and quality-of-life improvements that don't add new game content.
+
+Versions before this scheme (2.x, 3.x) predate Foundry v15 and don't follow it.
+
 ### Prerequisites
 
 If either of these conditions are not met on the commit that tag points at, the workflow will error out and release assets will not be created.

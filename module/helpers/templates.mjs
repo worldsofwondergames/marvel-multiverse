@@ -25,4 +25,5 @@ export const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
     // Sidebar partials
     "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
+    "systems/marvel-multiverse/templates/sidebar/item-directory-filters.hbs",
   ]);

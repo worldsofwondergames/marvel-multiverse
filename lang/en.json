@@ -188,6 +188,18 @@
         "Enable": "Enable Stunts",
         "EnableHint": "Enable the optional Stunts system. When active, powers on character sheets show a Stunts tab for learning and using their stunts."
       }
+    },
+    "SinisterPlotPoints": {
+      "Setting": {
+        "Enable": "Enable Sinister Plot Points",
+        "EnableHint": "Enable the optional Sinister Plot Points system. When active, actors with the Villainous tag show an SPP tracker on their sheet."
+      }
+    },
+    "BattleMultiplier": {
+      "Setting": {
+        "Value": "Battle Multiplier",
+        "ValueHint": "The multiplier applied to Resilience and Vigilance when computing Health and Focus. Lower it for shorter, riskier fights; raise it for longer, more epic ones. Default is 30."
+      }
     }
   },
   "InitiativeRoll": "Initiative Roll",

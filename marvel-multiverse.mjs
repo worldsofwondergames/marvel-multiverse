@@ -731,9 +731,7 @@ class MarvelMultiverseRoll extends Roll {
    */
   static fromTerms(terms) {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
-    const newRoll = super.fromTerms(terms);
-    Object.assign(newRoll, roll);
-    return newRoll;
+    return super.fromTerms(terms);
   }
 
   /* -------------------------------------------- */
@@ -840,7 +838,11 @@ class MarvelMultiverseRoll extends Roll {
    */
   get isFantastic() {
     if (!this._evaluated) return undefined;
-    return this.dice[1].result === 1;
+    // DiceTerm has no top-level `.result` -- only `.results`, an array of
+    // individual roll results. Read the raw face of the active one.
+    const results = this.dice[1].results ?? [];
+    const active = results.find((r) => r.active) ?? results[results.length - 1];
+    return active?.result === 1;
   }
 
   /* -------------------------------------------- */
@@ -3155,6 +3157,9 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       this.actor.allApplicableEffects()
     );
 
+    context.isVillainous = game.settings.get("marvel-multiverse", "sinisterPlotPointsEnabled")
+      && this.actor.items.some((i) => i.type === "tag" && i.name === "Villainous");
+
     context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
     if (context.enableAlternateForms) {
       const alternateForms = this.actor.system.alternateForms ?? [];
@@ -4424,6 +4429,9 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       // as well as any items
       this.actor.allApplicableEffects()
     );
+
+    context.isVillainous = game.settings.get("marvel-multiverse", "sinisterPlotPointsEnabled")
+      && this.actor.items.some((i) => i.type === "tag" && i.name === "Villainous");
 
     context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
     if (context.enableAlternateForms) {
@@ -5899,6 +5907,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
       max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
     });
 
+    schema.sinisterPlotPoints = new fields.SchemaField({
+      value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
+      max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
+    });
+
     schema.codename = new fields.StringField({ required: true, blank: true }); // equivalent to passing ({initial: ""}) for StringFields
     schema.realname = new fields.StringField({ required: true, blank: true }); // equivalent to passing ({initial: ""}) for StringFields
     schema.height = new fields.StringField({ required: true, blank: true }); // equivalent to passing ({initial: ""}) for StringFields
@@ -6088,8 +6101,9 @@ class MarvelMultiverseActorBase extends foundry.abstract
       }
     }
 
-    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
+    const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
+    this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
+    this.focus.max = (this.abilities.vig.value * battleMultiplier) + this.focus.bonus;
 
     const baseRunSpeed = this.movement.run.value;
 
@@ -6233,8 +6247,9 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       }
     }
 
-    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
+    const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
+    this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
+    this.focus.max = (this.abilities.vig.value * battleMultiplier) + this.focus.bonus;
 
     const baseRunSpeed = this.movement.run.value;
 
@@ -7885,6 +7900,25 @@ Hooks.once("init", () => {
     default: false,
   });
 
+  game.settings.register("marvel-multiverse", "sinisterPlotPointsEnabled", {
+    name: "MARVEL_MULTIVERSE.SinisterPlotPoints.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.SinisterPlotPoints.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+  });
+
+  game.settings.register("marvel-multiverse", "battleMultiplier", {
+    name: "MARVEL_MULTIVERSE.BattleMultiplier.Setting.Value",
+    hint: "MARVEL_MULTIVERSE.BattleMultiplier.Setting.ValueHint",
+    scope: "world",
+    config: true,
+    type: Number,
+    range: { min: 10, max: 100, step: 10 },
+    default: 30,
+  });
+
   game.settings.register("marvel-multiverse", "mutantReputationEnabled", {
     name: "Enable Mutant Reputation",
     hint: "Enable the optional Mutant Reputation system. When active, Ego checks display reputation-based edge/trouble notices.",
@@ -7926,8 +7960,11 @@ Hooks.once("init", () => {
     "systems/marvel-multiverse/templates/chat/roll-breakdown.hbs";
   Roll.CHAT_TEMPLATE = "systems/marvel-multiverse/templates/dice/roll.hbs";
   CONFIG.Dice.MarvelMultiverseRoll = MarvelMultiverseRoll;
-  // Register Roll Extensions
-  CONFIG.Dice.rolls.push(MarvelMultiverseRoll);
+  // Register Roll Extensions. Foundry's default Roll-building paths (e.g.
+  // Combatant#getInitiativeRoll) use CONFIG.Dice.rolls[0] as the system's
+  // roll class, so this system's subclass must lead the array, not just be
+  // appended to it.
+  CONFIG.Dice.rolls.unshift(MarvelMultiverseRoll);
   CONFIG.Dice.terms.m = MarvelDie;
 
   // Replace Foundry defaults with only MMRPG-valid status effects
@@ -8333,6 +8370,50 @@ Hooks.on("updateCombat", (combat, changed, options, userId) => {
   if (prevCombatant) _processEndOfTurn(prevCombatant);
   const current = combat.combatant;
   if (current) _processStartOfTurn(current);
+});
+
+/**
+ * Whether the Marvel die term of a d616 roll shows its Fantastic (M) face.
+ *
+ * DiceTerm has no singular `.result` property -- only `.total` (which
+ * MarvelDie maps a raw 6 to as well as the M face, making it ambiguous) and
+ * `.results`, an array of individual roll results. This reads the raw face
+ * of the active result directly.
+ * @param {{results: {result: number, active?: boolean}[]}} marvelDieTerm
+ * @returns {boolean}
+ */
+function _marvelDieIsFantastic(marvelDieTerm) {
+  const results = marvelDieTerm?.results ?? [];
+  const active = results.find((r) => r.active) ?? results[results.length - 1];
+  return active?.result === 1;
+}
+
+/**
+ * Whether a d616 roll is an ultimate Fantastic (6M6) result on an Initiative
+ * check -- the Marvel die shows its Fantastic face and both d6 dice show 6.
+ * @param {{dice: object[]}} roll
+ * @param {string} flavor
+ * @returns {boolean}
+ */
+function _isUltimateFantasticInitiative(roll, flavor) {
+  if (!flavor || !flavor.includes("Initiative")) return false;
+  const dice = roll?.dice ?? [];
+  if (dice.length < 3) return false;
+  return _marvelDieIsFantastic(dice[1]) && dice[0]?.total === 6 && dice[2]?.total === 6;
+}
+
+/** Announces the bonus round an ultimate Fantastic Initiative result grants. */
+Hooks.on("createChatMessage", async (message) => {
+  if (message.author?.id !== game.user.id) return;
+  const roll = message.rolls?.[0];
+  if (!_isUltimateFantasticInitiative(roll, message.flavor ?? "")) return;
+
+  const speakerName = message.speaker?.alias ?? "";
+  await ChatMessage.create({
+    speaker: message.speaker,
+    flavor: "Ultimate Fantastic Initiative",
+    content: `<p>${speakerName ? `${speakerName} rolls` : "This roll is"} an ultimate Fantastic result (6<b>M</b>6) on Initiative! They act in a bonus round before combat begins, and may turn their Marvel die to an M on one action check made during it.</p>`,
+  });
 });
 
 /**

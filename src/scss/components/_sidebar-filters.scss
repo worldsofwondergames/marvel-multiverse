@@ -186,6 +186,25 @@
     }
   }
 
+  .mm-filter-select-label {
+    display: block;
+    color: $mm-secondary-red;
+    font-family: "Roboto", sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    margin: 0 0 $mm-spacing-xs;
+  }
+
+  .mm-filter-type-select {
+    width: 100%;
+    font-size: 12px;
+    font-family: "Roboto", sans-serif;
+    padding: 2px $mm-spacing-xs;
+    color: $mm-text-color;
+    background: #fff;
+    border: 1px solid #999;
+  }
+
   .mm-filter-text {
     width: 100%;
     font-size: 12px;

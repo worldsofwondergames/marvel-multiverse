@@ -1,0 +1,137 @@
+<div class="mm-sidebar-filters {{#if filterState.panelOpen}}open{{/if}}">
+  <button type="button" class="mm-filter-toggle">
+    <i class="fas fa-filter"></i>
+    Filters
+    <span class="mm-filter-count {{#unless activeFilterCount}}hidden{{/unless}}">{{activeFilterCount}}</span>
+    <i class="fas fa-chevron-{{#if filterState.panelOpen}}up{{else}}down{{/if}} mm-filter-chevron"></i>
+  </button>
+
+  <div class="mm-filter-panel">
+    {{!-- Logic + Clear row --}}
+    <div class="mm-filter-logic-row">
+      <label>Match:</label>
+      <select class="mm-filter-logic">
+        <option value="and" {{#if (eq filterState.logic "and")}}selected{{/if}}>ALL (AND)</option>
+        <option value="or" {{#if (eq filterState.logic "or")}}selected{{/if}}>ANY (OR)</option>
+      </select>
+      <button type="button" class="mm-filter-clear">
+        <i class="fas fa-times"></i> Clear
+      </button>
+    </div>
+
+    {{!-- TYPE --}}
+    <div class="mm-filter-group" data-group="itemType">
+      <label class="mm-filter-select-label">Type</label>
+      <select class="mm-filter-type-select">
+        <option value="">All Types</option>
+        {{#each filterOptions.itemTypes}}
+        <option value="{{@key}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+        {{/each}}
+      </select>
+    </div>
+
+    {{!-- SOURCE --}}
+    <div class="mm-filter-group" data-group="source">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Source</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.sources}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="source" value="{{@key}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.label}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- POWER SET (only when Type is Power) --}}
+    {{#if (eq filterState.itemType "power")}}
+    {{#if filterOptions.powerSets.length}}
+    <div class="mm-filter-group" data-group="powerSets">
+      <label class="mm-filter-select-label">Power Set</label>
+      <div class="mm-filter-checkbox-group">
+        {{#each filterOptions.powerSets}}
+        <label class="mm-filter-checkbox-label">
+          <input type="checkbox" class="mm-filter-checkbox" data-filter="powerSets" value="{{this.name}}"
+                 {{#if this.checked}}checked{{/if}}>
+          {{this.name}}
+        </label>
+        {{/each}}
+      </div>
+    </div>
+    {{/if}}
+    {{/if}}
+
+    {{!-- DURATION (only when Type is Power) --}}
+    {{#if (eq filterState.itemType "power")}}
+    {{#if filterOptions.durations.length}}
+    <div class="mm-filter-group" data-group="duration">
+      <label class="mm-filter-select-label">Duration</label>
+      <div class="mm-filter-checkbox-group">
+        {{#each filterOptions.durations}}
+        <label class="mm-filter-checkbox-label">
+          <input type="checkbox" class="mm-filter-checkbox" data-filter="duration" value="{{this.name}}"
+                 {{#if this.checked}}checked{{/if}}>
+          {{this.name}}
+        </label>
+        {{/each}}
+      </div>
+    </div>
+    {{/if}}
+    {{/if}}
+
+    {{!-- EQUIPMENT TYPE (only when Type is Equipment) --}}
+    {{#if (eq filterState.itemType "equipment")}}
+    <div class="mm-filter-group" data-group="equipmentType">
+      <label class="mm-filter-select-label">Equipment Type</label>
+      <div class="mm-filter-checkbox-group">
+        {{#each filterOptions.equipmentTypes}}
+        <label class="mm-filter-checkbox-label">
+          <input type="checkbox" class="mm-filter-checkbox" data-filter="equipmentType" value="{{@key}}"
+                 {{#if this.checked}}checked{{/if}}>
+          {{this.label}}
+        </label>
+        {{/each}}
+      </div>
+    </div>
+    {{/if}}
+
+    {{!-- TAGS --}}
+    {{#if filterOptions.tags.length}}
+    <div class="mm-filter-group" data-group="tags">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Tags</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.tags}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="tags" value="{{this.name}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.name}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+    {{/if}}
+
+    {{!-- TRAITS --}}
+    {{#if filterOptions.traits.length}}
+    <div class="mm-filter-group" data-group="traits">
+      <h4 class="mm-filter-group-header collapsed"><i class="fas fa-caret-down"></i> Traits</h4>
+      <div class="mm-filter-group-body collapsed">
+        <div class="mm-filter-checkbox-group">
+          {{#each filterOptions.traits}}
+          <label class="mm-filter-checkbox-label">
+            <input type="checkbox" class="mm-filter-checkbox" data-filter="traits" value="{{this.name}}"
+                   {{#if this.checked}}checked{{/if}}>
+            {{this.name}}
+          </label>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+    {{/if}}
+  </div>
+</div>

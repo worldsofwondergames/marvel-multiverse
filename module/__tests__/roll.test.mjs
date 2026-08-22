@@ -9,7 +9,10 @@ function makeRoll({ edgeMode = 0, flavor = '', marvelResult = 3, evaluated = tru
     roll._evaluated = evaluated;
     roll.dice = [
         { faces: 6, results: [] },
-        { result: marvelResult, results: [{ result: marvelResult, active: true }], faces: 6 },
+        // DiceTerm has no top-level .result -- only .results, an array of
+        // individual roll results. Real shape only, so tests can't mask a
+        // getter that reads a property Foundry doesn't provide.
+        { results: [{ result: marvelResult, active: true }], faces: 6 },
         { faces: 6, results: [] },
     ];
     roll.terms = [new foundry.dice.terms.PoolTerm()];

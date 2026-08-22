@@ -840,7 +840,11 @@ class MarvelMultiverseRoll extends Roll {
    */
   get isFantastic() {
     if (!this._evaluated) return undefined;
-    return this.dice[1].result === 1;
+    // DiceTerm has no top-level `.result` -- only `.results`, an array of
+    // individual roll results. Read the raw face of the active one.
+    const results = this.dice[1].results ?? [];
+    const active = results.find((r) => r.active) ?? results[results.length - 1];
+    return active?.result === 1;
   }
 
   /* -------------------------------------------- */
@@ -7958,8 +7962,11 @@ Hooks.once("init", () => {
     "systems/marvel-multiverse/templates/chat/roll-breakdown.hbs";
   Roll.CHAT_TEMPLATE = "systems/marvel-multiverse/templates/dice/roll.hbs";
   CONFIG.Dice.MarvelMultiverseRoll = MarvelMultiverseRoll;
-  // Register Roll Extensions
-  CONFIG.Dice.rolls.push(MarvelMultiverseRoll);
+  // Register Roll Extensions. Foundry's default Roll-building paths (e.g.
+  // Combatant#getInitiativeRoll) use CONFIG.Dice.rolls[0] as the system's
+  // roll class, so this system's subclass must lead the array, not just be
+  // appended to it.
+  CONFIG.Dice.rolls.unshift(MarvelMultiverseRoll);
   CONFIG.Dice.terms.m = MarvelDie;
 
   // Replace Foundry defaults with only MMRPG-valid status effects
@@ -8368,17 +8375,33 @@ Hooks.on("updateCombat", (combat, changed, options, userId) => {
 });
 
 /**
+ * Whether the Marvel die term of a d616 roll shows its Fantastic (M) face.
+ *
+ * DiceTerm has no singular `.result` property -- only `.total` (which
+ * MarvelDie maps a raw 6 to as well as the M face, making it ambiguous) and
+ * `.results`, an array of individual roll results. This reads the raw face
+ * of the active result directly.
+ * @param {{results: {result: number, active?: boolean}[]}} marvelDieTerm
+ * @returns {boolean}
+ */
+function _marvelDieIsFantastic(marvelDieTerm) {
+  const results = marvelDieTerm?.results ?? [];
+  const active = results.find((r) => r.active) ?? results[results.length - 1];
+  return active?.result === 1;
+}
+
+/**
  * Whether a d616 roll is an ultimate Fantastic (6M6) result on an Initiative
- * check -- the Marvel die shows a Fantastic success and both d6 dice show 6.
- * @param {{isFantastic: boolean, dice: {total: number}[]}} roll
+ * check -- the Marvel die shows its Fantastic face and both d6 dice show 6.
+ * @param {{dice: object[]}} roll
  * @param {string} flavor
  * @returns {boolean}
  */
 function _isUltimateFantasticInitiative(roll, flavor) {
   if (!flavor || !flavor.includes("Initiative")) return false;
-  if (!roll?.isFantastic) return false;
-  const dice = roll.dice ?? [];
-  return dice[0]?.total === 6 && dice[2]?.total === 6;
+  const dice = roll?.dice ?? [];
+  if (dice.length < 3) return false;
+  return _marvelDieIsFantastic(dice[1]) && dice[0]?.total === 6 && dice[2]?.total === 6;
 }
 
 /** Announces the bonus round an ultimate Fantastic Initiative result grants. */

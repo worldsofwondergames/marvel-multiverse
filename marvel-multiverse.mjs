@@ -8520,9 +8520,10 @@ Hooks.on("updateCombat", (combat, changed, options, userId) => {
  */
 Hooks.on("renderCombatTracker", (app, html) => {
   const root = html instanceof HTMLElement ? html : html?.[0];
-  if (!root || !app.viewed) return;
+  if (!root) return;
 
   root.querySelector(".mm-big-fight-toggle")?.remove();
+  if (!app.viewed) return;
 
   const enabled = isBigFightEnabled(bigFightFlag(app.viewed));
   const button = document.createElement("button");

@@ -8374,6 +8374,84 @@ async function rollSideInitiative(combat) {
   return totals;
 }
 
+/**
+ * Adapts a real Combat's Combatants into the plain shapes the pure Big Fight
+ * helpers (liveMembers/pooledResource/groupAttackBonus) expect.
+ *
+ * The character/NPC actor data model has no computed "destroyed" field on
+ * Health or Focus (that field only exists on the Vehicle data model, with
+ * different semantics -- health at or below negative max). For Big Fight
+ * pooling purposes a combatant simply drops out once its Health reaches 0,
+ * so that is computed here rather than read off a field that does not exist
+ * for character/NPC actors.
+ * @param {Combat} combat
+ * @returns {Record<string, object>}
+ */
+function combatantsById(combat) {
+  const map = {};
+  for (const c of combat.combatants) {
+    const health = c.actor?.system?.health ?? {};
+    const focus = c.actor?.system?.focus ?? {};
+    const healthMax = health.max ?? 0;
+    const healthValue = health.value ?? 0;
+    const focusMax = focus.max ?? 0;
+    const focusValue = focus.value ?? 0;
+    map[c.id] = {
+      id: c.id,
+      side: combatantSide(c),
+      vigilance: c.actor?.system?.abilities?.vig?.value ?? 0,
+      health: {
+        value: healthValue,
+        max: healthMax,
+        destroyed: healthMax > 0 && healthValue <= 0,
+      },
+      focus: {
+        value: focusValue,
+        max: focusMax,
+        destroyed: focusMax > 0 && focusValue <= 0,
+      },
+    };
+  }
+  return map;
+}
+
+/**
+ * @param {Combat} combat
+ * @param {string[]} combatantIds  Must all share one side; mixing sides would
+ *   make "the group acts on its side's turn" meaningless.
+ * @param {string} name
+ */
+async function groupCombatants(combat, combatantIds, name) {
+  if (combatantIds.length < 2) {
+    ui.notifications.warn("Select at least two combatants to group.");
+    return;
+  }
+  const byId = combatantsById(combat);
+  const sides = new Set(combatantIds.map((id) => byId[id]?.side));
+  if (sides.size !== 1) {
+    ui.notifications.warn("A group can only contain combatants on the same side.");
+    return;
+  }
+  const current = bigFightFlag(combat) ?? BIG_FIGHT_DEFAULT;
+  const group = {
+    id: foundry.utils.randomID(),
+    name,
+    side: [...sides][0],
+    memberCombatantIds: combatantIds,
+  };
+  await setBigFightFlag(combat, { groups: [...(current.groups ?? []), group] });
+}
+
+/**
+ * @param {Combat} combat
+ * @param {string} groupId
+ */
+async function ungroupCombatants(combat, groupId) {
+  const current = bigFightFlag(combat);
+  if (!current) return;
+  await setBigFightFlag(combat, { groups: (current.groups ?? []).filter((g) => g.id !== groupId) });
+}
+
 function _getWhisperRecipients(actor) {
   const ids = new Set();
   for (const user of game.users) {
@@ -8579,6 +8657,15 @@ Hooks.on("renderCombatTracker", (app, html) => {
 
   root.querySelector(".mm-big-fight-toggle")?.remove();
   root.querySelector(".mm-big-fight-roll-initiative")?.remove();
+  root.querySelector(".mm-big-fight-group-btn")?.remove();
+  root.querySelectorAll(".mm-big-fight-pool").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-select").forEach((el) => el.remove());
+  // Reset any rows a previous render hid to display a group's pooled row --
+  // otherwise a combatant that gets ungrouped (or Big Fight mode turned off)
+  // would stay hidden even though nothing hides it any more.
+  root.querySelectorAll("li.combatant[data-combatant-id]").forEach((el) => {
+    el.style.display = "";
+  });
   if (!app.viewed) return;
 
   const enabled = isBigFightEnabled(bigFightFlag(app.viewed));
@@ -8605,6 +8692,90 @@ Hooks.on("renderCombatTracker", (app, html) => {
       await rollSideInitiative(app.viewed);
     });
     root.prepend(rollButton);
+
+    const bigFight = bigFightFlag(app.viewed);
+    const byId = combatantsById(app.viewed);
+    const groups = bigFight?.groups ?? [];
+    const groupedMemberIds = new Set(groups.flatMap((g) => g.memberCombatantIds));
+
+    for (const group of groups) {
+      const health = pooledResource(group, byId, "health");
+      const focus = pooledResource(group, byId, "focus");
+      const liveCount = liveMembers(group, byId).length;
+
+      group.memberCombatantIds.forEach((memberId, index) => {
+        // The tracker's dock renders a `.combatant-portrait` div AND the
+        // sidebar list renders a `li.combatant` -- both carry
+        // data-combatant-id, so an unqualified attribute selector would
+        // match the portrait first. Only the sidebar list row is where a
+        // pooled-resource line and a hidden duplicate member make sense.
+        const row = root.querySelector(`li.combatant[data-combatant-id="${memberId}"]`);
+        if (!row) return;
+        if (index > 0) {
+          row.style.display = "none";
+          return;
+        }
+
+        const pool = document.createElement("div");
+        pool.className = "mm-big-fight-pool";
+
+        const info = document.createElement("span");
+        info.className = "mm-big-fight-pool-info";
+        info.textContent = `${group.name} (${liveCount}) — HP ${health.value}/${health.max}, Focus ${focus.value}/${focus.max}`;
+        pool.appendChild(info);
+
+        const ungroupLink = document.createElement("a");
+        ungroupLink.className = "mm-big-fight-ungroup";
+        ungroupLink.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Ungroup");
+        ungroupLink.addEventListener("click", async (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          await ungroupCombatants(app.viewed, group.id);
+        });
+        pool.appendChild(ungroupLink);
+
+        row.appendChild(pool);
+      });
+    }
+
+    // Foundry's v14 tracker rows have no selection affordance of their own --
+    // clicking a row pings/targets the token but toggles no class we can
+    // read back. A checkbox per row is the simplest mechanism that still
+    // lets a GM mark "these N combatants" before clicking Group Selected.
+    // Combatants already in a group are skipped: grouping is not designed to
+    // handle a combatant belonging to two groups at once.
+    for (const row of root.querySelectorAll("li.combatant[data-combatant-id]")) {
+      const combatantId = row.dataset.combatantId;
+      if (groupedMemberIds.has(combatantId)) continue;
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "mm-big-fight-select";
+      checkbox.dataset.combatantId = combatantId;
+      checkbox.addEventListener("click", (ev) => ev.stopPropagation());
+      row.prepend(checkbox);
+    }
+
+    const groupButton = document.createElement("button");
+    groupButton.type = "button";
+    groupButton.className = "mm-big-fight-group-btn";
+    groupButton.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupSelected");
+    groupButton.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      const ids = Array.from(root.querySelectorAll(".mm-big-fight-select:checked")).map(
+        (el) => el.dataset.combatantId
+      );
+      if (ids.length < 2) {
+        ui.notifications.warn("Select at least two combatants to group.");
+        return;
+      }
+      const name = await Dialog.prompt({
+        title: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
+        content: '<input type="text" name="groupName" value="Group" style="width:100%;">',
+        callback: (html) => html.find('[name="groupName"]').val(),
+      });
+      if (name) await groupCombatants(app.viewed, ids, name);
+    });
+    root.prepend(groupButton);
   }
 });
 

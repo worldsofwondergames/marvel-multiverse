@@ -1541,6 +1541,50 @@
   color: #fff;
 }
 
+.mm-big-fight-group-btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #333;
+  color: #fff;
+}
+
+.mm-big-fight-select {
+  flex: 0 0 auto;
+  margin-right: 4px;
+}
+
+.mm-big-fight-pool {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #8b0502;
+  border-radius: 3px;
+}
+.mm-big-fight-pool .mm-big-fight-pool-info {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mm-big-fight-pool .mm-big-fight-ungroup {
+  flex: 0 0 auto;
+  color: #fff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .marvel-multiverse.sheet .window-content {
   background-position: top -360px center;
   background-repeat: no-repeat;

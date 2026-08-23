@@ -248,3 +248,198 @@ test.describe('Side-based initiative', () => {
     expect(initiatives).toEqual([10, 10]);
   });
 });
+
+test.describe('Foe grouping', () => {
+  const FOE_1 = 'E2E Big Fight Foe 1';
+  const FOE_2 = 'E2E Big Fight Foe 2';
+  const HERO = 'E2E Big Fight Grouping Hero';
+  const GROUPING_SCENE = 'E2E Big Fight Grouping Scene';
+
+  test.afterEach(async ({ foundryPage }) => {
+    await deleteCombat(foundryPage);
+    await deleteActor(foundryPage, FOE_1);
+    await deleteActor(foundryPage, FOE_2);
+    await deleteActor(foundryPage, HERO);
+    await deleteScene(foundryPage, GROUPING_SCENE);
+  });
+
+  /**
+   * Places FOE_1 and FOE_2 as hostile tokens and HERO as a friendly token on
+   * a fresh scene, adds all three to a new combat as real token-linked
+   * combatants (a plain addToCombat combatant has no token and always reads
+   * as "hero" -- see combatantSide), then enables Big Fight mode.
+   */
+  async function setUpGroupingCombat(page) {
+    await createActorViaAPI(page, FOE_1);
+    await createActorViaAPI(page, FOE_2);
+    await createActorViaAPI(page, HERO);
+    // A freshly created actor's Health starts at 0 (schema default), not at
+    // its computed max -- the GM normally tops it off before a fight. Do
+    // that here so the foes start alive instead of already "destroyed".
+    await page.evaluate(async (names) => {
+      for (const name of names) {
+        const actor = game.actors.find((a) => a.name === name);
+        await actor.update({ 'system.health.value': actor.system.health.max });
+      }
+    }, [FOE_1, FOE_2]);
+    await createScene(page, GROUPING_SCENE);
+    await activateScene(page, GROUPING_SCENE);
+    const foe1TokenId = await placeToken(page, FOE_1, 100, 100);
+    const foe2TokenId = await placeToken(page, FOE_2, 150, 100);
+    const heroTokenId = await placeToken(page, HERO, 300, 300);
+    await createCombat(page);
+    await page.evaluate(
+      async ({ foe1TokenId, foe2TokenId, heroTokenId }) => {
+        const [foe1Token, foe2Token, heroToken] = [foe1TokenId, foe2TokenId, heroTokenId].map(
+          (id) => canvas.tokens.placeables.find((t) => t.id === id)?.document
+        );
+        await foe1Token.update({ disposition: CONST.TOKEN_DISPOSITIONS.HOSTILE });
+        await foe2Token.update({ disposition: CONST.TOKEN_DISPOSITIONS.HOSTILE });
+        await heroToken.update({ disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY });
+        await game.combat.createEmbeddedDocuments(
+          'Combatant',
+          [foe1Token, foe2Token, heroToken].map((t) => ({
+            tokenId: t.id,
+            sceneId: t.parent.id,
+            actorId: t.actorId,
+            hidden: false,
+          }))
+        );
+      },
+      { foe1TokenId, foe2TokenId, heroTokenId }
+    );
+
+    await page.evaluate(() => {
+      ui.sidebar.expand();
+      ui.sidebar.activateTab('combat');
+    });
+    await page.locator('.mm-big-fight-toggle').click();
+  }
+
+  /** Reads back the combatant ids for the named combatants in the active combat. */
+  async function combatantIdsByName(page, names) {
+    return page.evaluate(
+      (names) =>
+        Object.fromEntries(
+          names.map((name) => [name, game.combat.combatants.find((c) => c.actor.name === name)?.id])
+        ),
+      names
+    );
+  }
+
+  test('checking two foe rows and clicking Group Selected creates a pooled HP/Focus row', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await setUpGroupingCombat(page);
+
+    const ids = await combatantIdsByName(page, [FOE_1, FOE_2, HERO]);
+    const maxes = await page.evaluate(
+      (names) =>
+        names.map((name) => game.actors.find((a) => a.name === name).system.health.max),
+      [FOE_1, FOE_2]
+    );
+    const totalMax = maxes[0] + maxes[1];
+
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`).check();
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`).check();
+    await page.locator('.mm-big-fight-group-btn').click();
+    await page.locator('.dialog-buttons button[data-button="ok"]').click();
+    await page.waitForTimeout(300);
+
+    const pool = page.locator('.mm-big-fight-pool');
+    await expect(pool).toContainText('(2)');
+    await expect(pool).toContainText(`HP ${totalMax}/${totalMax}`);
+
+    // Grouped rows lose their selection checkbox; only the ungrouped hero's
+    // remains, proving the checkbox pass reads the just-written group back.
+    await expect(page.locator('.mm-big-fight-select')).toHaveCount(1);
+    await expect(page.locator(`.mm-big-fight-select[data-combatant-id="${ids[HERO]}"]`)).toBeVisible();
+  });
+
+  test('the pooled HP total shrinks when a member is destroyed, and Ungroup restores individual rows', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await setUpGroupingCombat(page);
+    const ids = await combatantIdsByName(page, [FOE_1, FOE_2]);
+
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`).check();
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`).check();
+    await page.locator('.mm-big-fight-group-btn').click();
+    await page.locator('.dialog-buttons button[data-button="ok"]').click();
+    await expect(page.locator('.mm-big-fight-pool')).toContainText('(2)');
+
+    // No document is deleted -- the actor's Health simply drops to 0, which
+    // is this glue's "destroyed" threshold (see combatantsById).
+    await page.evaluate(async (name) => {
+      const actor = game.actors.find((a) => a.name === name);
+      await actor.update({ 'system.health.value': 0 });
+    }, FOE_1);
+    await page.waitForTimeout(300);
+    await expect(page.locator('.mm-big-fight-pool')).toContainText('(1)');
+
+    const combatantCountAfterDrop = await page.evaluate(() => game.combat.combatants.size);
+    expect(combatantCountAfterDrop).toBe(3);
+
+    await page.locator('.mm-big-fight-ungroup').click();
+    await page.waitForTimeout(300);
+    await expect(page.locator('.mm-big-fight-pool')).toHaveCount(0);
+    await expect(page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`)).toBeVisible();
+    await expect(page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`)).toBeVisible();
+  });
+
+  test('grouping combatants from different sides is rejected', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await setUpGroupingCombat(page);
+    const ids = await combatantIdsByName(page, [FOE_1, HERO]);
+
+    await page.evaluate(() => {
+      window.__bigFightWarnings = [];
+      window.__bigFightOriginalWarn = ui.notifications.warn;
+      ui.notifications.warn = (msg) => {
+        window.__bigFightWarnings.push(String(msg));
+        return 0;
+      };
+    });
+
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`).check();
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[HERO]}"]`).check();
+    await page.locator('.mm-big-fight-group-btn').click();
+    await page.locator('.dialog-buttons button[data-button="ok"]').click();
+    await page.waitForTimeout(300);
+
+    const { warnings, groupCount } = await page.evaluate(() => {
+      ui.notifications.warn = window.__bigFightOriginalWarn;
+      return {
+        warnings: window.__bigFightWarnings,
+        groupCount: (game.combat.getFlag('marvel-multiverse', 'bigFight')?.groups ?? []).length,
+      };
+    });
+
+    expect(warnings.some((w) => w.toLowerCase().includes('same side'))).toBe(true);
+    expect(groupCount).toBe(0);
+    await expect(page.locator('.mm-big-fight-pool')).toHaveCount(0);
+  });
+
+  test('the group controls only appear while Big Fight mode is enabled', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createActorViaAPI(page, FOE_1);
+    await createActorViaAPI(page, FOE_2);
+    await createCombat(page);
+    await addToCombat(page, FOE_1);
+    await addToCombat(page, FOE_2);
+
+    await page.evaluate(() => {
+      ui.sidebar.expand();
+      ui.sidebar.activateTab('combat');
+    });
+
+    await expect(page.locator('.mm-big-fight-group-btn')).toHaveCount(0);
+    await expect(page.locator('.mm-big-fight-select')).toHaveCount(0);
+
+    await page.locator('.mm-big-fight-toggle').click();
+    await expect(page.locator('.mm-big-fight-group-btn')).toBeVisible();
+    await expect(page.locator('.mm-big-fight-select')).toHaveCount(2);
+
+    await page.locator('.mm-big-fight-toggle.-enabled').click();
+    await expect(page.locator('.mm-big-fight-group-btn')).toHaveCount(0);
+    await expect(page.locator('.mm-big-fight-select')).toHaveCount(0);
+  });
+});

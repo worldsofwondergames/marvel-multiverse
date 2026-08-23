@@ -204,7 +204,10 @@
     "BigFight": {
       "Enable": "Enable Big Fight Mode",
       "Disable": "Disable Big Fight Mode",
-      "RollSideInitiative": "Roll Side Initiative"
+      "RollSideInitiative": "Roll Side Initiative",
+      "GroupSelected": "Group Selected",
+      "Ungroup": "Ungroup",
+      "GroupNameTitle": "Group Name"
     }
   },
   "InitiativeRoll": "Initiative Roll",

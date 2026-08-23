@@ -136,6 +136,23 @@ describe('needsInitiativeReroll', () => {
   });
 });
 
+describe('pooled resource shrinks as members are destroyed one at a time', () => {
+  test('the pool drops immediately when a member flips to destroyed, without needing to remove it from the group', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const before = {
+      c1: { health: { value: 5, max: 10, destroyed: false } },
+      c2: { health: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(pooledResource(group, before, 'health')).toEqual({ value: 10, max: 20 });
+
+    const afterOneDrops = {
+      c1: { health: { value: 5, max: 10, destroyed: false } },
+      c2: { health: { value: 0, max: 10, destroyed: true } },
+    };
+    expect(pooledResource(group, afterOneDrops, 'health')).toEqual({ value: 5, max: 10 });
+  });
+});
+
 describe('the twin agrees with the shipping monolith', () => {
   test('exports the same 9 function names', () => {
     expect(Object.keys(twin).sort()).toEqual([

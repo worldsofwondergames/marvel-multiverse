@@ -630,8 +630,8 @@ test.describe('In-range marker', () => {
 
     // Foundry can re-fire renderCombatTracker against the same rendered
     // element more than once for a single logical update (the chat-message
-    // render hook does the same thing -- see the mm-bound guard on
-    // renderChatMessageHTML). Re-invoking the hook directly against the
+    // render hook does the same thing -- see the dataset.mmBound flag that
+    // prevents rebinding the click listener on renderChatMessageHTML). Re-invoking the hook directly against the
     // tracker's own element reproduces that without depending on which
     // combat action happens to trigger it, and proves the top-of-hook
     // cleanup keeps this to one icon per row, not two.

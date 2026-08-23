@@ -560,6 +560,123 @@ test.describe('Group attack bonus', () => {
   });
 });
 
+test.describe('Group attack bonus with duplicate unlinked tokens', () => {
+  const DUP_FOE = 'E2E Big Fight Duplicate Foe';
+  const DUP_SCENE = 'E2E Big Fight Duplicate Scene';
+
+  test.afterEach(async ({ foundryPage }) => {
+    await deleteCombat(foundryPage);
+    await deleteScene(foundryPage, DUP_SCENE);
+    await deleteActor(foundryPage, DUP_FOE);
+  });
+
+  test('grouping some duplicates of one prototype actor gives the bonus to the specific combatant that rolls, not whichever duplicate is first', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createActorViaAPI(page, DUP_FOE);
+    await page.evaluate(async (name) => {
+      const actor = game.actors.find((a) => a.name === name);
+      await actor.update({ 'system.health.value': actor.system.health.max });
+    }, DUP_FOE);
+
+    await createScene(page, DUP_SCENE);
+    await activateScene(page, DUP_SCENE);
+
+    // Five unlinked tokens of the same prototype actor -- an unlinked
+    // token's synthetic actor reports the base actor's id, so all five
+    // combatants below share one actorId. This is exactly the scenario that
+    // used to collapse `combat.combatants.find(c => c.actorId === actor?.id)`
+    // onto whichever combatant happened to be first in the collection.
+    const tokenIds = [];
+    for (let i = 0; i < 5; i++) {
+      const tokenId = await page.evaluate(async ({ name, x }) => {
+        const actor = game.actors.find((a) => a.name === name);
+        const scene = game.scenes.active;
+        const [token] = await scene.createEmbeddedDocuments('Token', [{
+          name: actor.name,
+          actorId: actor.id,
+          actorLink: false,
+          disposition: CONST.TOKEN_DISPOSITIONS.HOSTILE,
+          x, y: 100,
+          texture: { src: actor.img || 'icons/svg/mystery-man.svg' },
+        }]);
+        return token.id;
+      }, { name: DUP_FOE, x: 100 + i * 60 });
+      tokenIds.push(tokenId);
+    }
+
+    await createCombat(page);
+    const combatants = await page.evaluate(async (tokenIds) => {
+      const docs = tokenIds.map((id) => canvas.tokens.placeables.find((t) => t.id === id).document);
+      const created = await game.combat.createEmbeddedDocuments('Combatant', docs.map((t) => ({
+        tokenId: t.id,
+        sceneId: t.parent.id,
+        actorId: t.actorId,
+        hidden: false,
+      })));
+      return created.map((c) => ({ id: c.id, tokenId: c.tokenId }));
+    }, tokenIds);
+
+    // Group only the first three duplicates; the last two stay ungrouped.
+    const groupedCombatantIds = combatants.slice(0, 3).map((c) => c.id);
+    const groupedTokenId = combatants[0].tokenId;
+    const ungroupedTokenId = combatants[3].tokenId;
+
+    await page.evaluate(async (ids) => {
+      await game.combat.setFlag('marvel-multiverse', 'bigFight', {
+        enabled: true,
+        sideInitiative: { hero: null, foe: null },
+        groups: [{ id: 'dup-group', name: 'Duplicates', side: 'foe', memberCombatantIds: ids }],
+      });
+    }, groupedCombatantIds);
+
+    // Roll from the grouped duplicate's own token-actor. A live group of 3
+    // grants +2, and it must land on this specific combatant -- not on
+    // whichever duplicate combatant happens to be first in the collection.
+    await page.evaluate(async (tokenId) => {
+      const token = canvas.tokens.placeables.find((t) => t.id === tokenId);
+      await token.actor.sheet.render(true);
+    }, groupedTokenId);
+    await page.waitForTimeout(1000);
+
+    const groupedSheet = page.locator('.sheet.actor').last();
+    await groupedSheet.locator('input[name="system.attributes.rank.value"]').waitFor({ state: 'attached', timeout: 10_000 });
+    await groupedSheet.locator('.rollable[data-ability-key="mle"]').first().click();
+    await page.waitForTimeout(2000);
+    const groupedDialogSubmit = page.locator('dialog button[type="submit"], dialog button.dialog-button');
+    if (await groupedDialogSubmit.count() > 0) {
+      await groupedDialogSubmit.first().click();
+      await page.waitForTimeout(2000);
+    }
+    const groupedFormula = await page.evaluate(() => game.messages.contents.at(-1).rolls[0].formula);
+    expect(groupedFormula.trim().endsWith('+ 2')).toBe(true);
+    await groupedSheet.locator('[data-action="close"], .header-button.close').first().click().catch(() => {});
+
+    // Roll from an ungrouped duplicate's own token-actor. Despite sharing the
+    // same actorId as the grouped combatants above, it must get no bonus.
+    await page.evaluate(async (tokenId) => {
+      const token = canvas.tokens.placeables.find((t) => t.id === tokenId);
+      await token.actor.sheet.render(true);
+    }, ungroupedTokenId);
+    await page.waitForTimeout(1000);
+
+    const ungroupedSheet = page.locator('.sheet.actor').last();
+    await ungroupedSheet.locator('input[name="system.attributes.rank.value"]').waitFor({ state: 'attached', timeout: 10_000 });
+    await ungroupedSheet.locator('.rollable[data-ability-key="mle"]').first().click();
+    await page.waitForTimeout(2000);
+    const ungroupedDialogSubmit = page.locator('dialog button[type="submit"], dialog button.dialog-button');
+    if (await ungroupedDialogSubmit.count() > 0) {
+      await ungroupedDialogSubmit.first().click();
+      await page.waitForTimeout(2000);
+    }
+    // The base formula naturally ends in "+ 0" from the (unset) Melee
+    // ability value -- the bug this catches would append the grouped trio's
+    // "+ 2" here instead, so that is specifically what must be absent.
+    const ungroupedFormula = await page.evaluate(() => game.messages.contents.at(-1).rolls[0].formula);
+    expect(ungroupedFormula.trim().endsWith('+ 2')).toBe(false);
+    await ungroupedSheet.locator('[data-action="close"], .header-button.close').first().click().catch(() => {});
+  });
+});
+
 test.describe('In-range marker', () => {
   const HERO = 'E2E Big Fight In Range';
 

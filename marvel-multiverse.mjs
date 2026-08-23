@@ -4,7 +4,15 @@ function _getAttackTargets(attackTargetAbility) {
   return Array.from(targets).map(token => {
     const actor = token.actor;
     const ac = actor?.system?.abilities?.[attackTargetAbility]?.defense ?? null;
-    const combatant = game.combat?.combatants?.find((c) => c.actorId === actor?.id);
+    // Match by token, not actorId: an unlinked token's synthetic actor shares
+    // its base actor's id with every other unlinked copy of that actor (e.g.
+    // several identical enemy tokens placed from the same prototype actor in
+    // the same combat), so matching by actorId would always resolve to
+    // whichever combatant happens to be first, not the one this token
+    // actually is.
+    const combatant = game.combat?.combatants?.find(
+      (c) => c.tokenId === (token.document?.id ?? token.id)
+    );
     return {
       name: token.name,
       img: token.document?.texture?.src ?? actor?.img ?? "",
@@ -8517,7 +8525,17 @@ function groupAttackBonusForActor(actor) {
   if (!combat) return 0;
   const bigFight = bigFightFlag(combat);
   if (!isBigFightEnabled(bigFight)) return 0;
-  const combatant = combat.combatants.find((c) => c.actorId === actor?.id);
+  // An unlinked token's synthetic actor shares its base actor's id with every
+  // other unlinked copy of that actor (e.g. several identical enemy tokens
+  // placed from the same prototype actor in the same combat), so matching by
+  // actorId alone would always resolve to whichever combatant happens to be
+  // first in the collection -- not the one that's actually rolling. Prefer
+  // the actor's own token when it has one; a world-level (linked) actor has
+  // no `.token` and genuinely has at most one live combatant, so the actorId
+  // fallback is correct for it.
+  const combatant = actor?.token
+    ? combat.combatants.find((c) => c.tokenId === actor.token.id)
+    : combat.combatants.find((c) => c.actorId === actor?.id);
   if (!combatant) return 0;
   const group = findGroup(bigFight.groups, combatant.id);
   return groupAttackBonus(group, combatantsById(combat));
@@ -8741,79 +8759,94 @@ Hooks.on("renderCombatTracker", (app, html) => {
   if (!app.viewed) return;
 
   const enabled = isBigFightEnabled(bigFightFlag(app.viewed));
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "mm-big-fight-toggle" + (enabled ? " -enabled" : "");
-  button.textContent = enabled
-    ? game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Disable")
-    : game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Enable");
-  button.addEventListener("click", async (ev) => {
-    ev.preventDefault();
-    await toggleBigFight(app.viewed);
-  });
 
-  root.prepend(button);
+  // The toggle button, roll-initiative button, grouping controls, and the
+  // pooled HP/Focus row all either mutate the combat document (denied to a
+  // non-GM by Foundry's permission system -- a player clicking one gets a
+  // permission error, not a graceful no-op) or reveal a hostile group's exact
+  // resource numbers, which stock Foundry already withholds from a player
+  // without at least Observer permission on that actor. All of it is
+  // GM-only. The cleanup above and the per-combatant in-range marker below
+  // still run for every client.
+  if (game.user.isGM) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "mm-big-fight-toggle" + (enabled ? " -enabled" : "");
+    button.textContent = enabled
+      ? game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Disable")
+      : game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Enable");
+    button.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      await toggleBigFight(app.viewed);
+    });
+
+    root.prepend(button);
+  }
 
   if (enabled) {
-    const rollButton = document.createElement("button");
-    rollButton.type = "button";
-    rollButton.className = "mm-big-fight-roll-initiative";
-    rollButton.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollSideInitiative");
-    rollButton.addEventListener("click", async (ev) => {
-      ev.preventDefault();
-      await rollSideInitiative(app.viewed);
-    });
-    root.prepend(rollButton);
-
     const bigFight = bigFightFlag(app.viewed);
     const byId = combatantsById(app.viewed);
     const groups = bigFight?.groups ?? [];
     const groupedMemberIds = new Set(groups.flatMap((g) => g.memberCombatantIds));
 
-    for (const group of groups) {
-      const health = pooledResource(group, byId, "health");
-      const focus = pooledResource(group, byId, "focus");
-      const liveCount = liveMembers(group, byId).length;
-
-      group.memberCombatantIds.forEach((memberId, index) => {
-        // The tracker's dock renders a `.combatant-portrait` div AND the
-        // sidebar list renders a `li.combatant` -- both carry
-        // data-combatant-id, so an unqualified attribute selector would
-        // match the portrait first. Only the sidebar list row is where a
-        // pooled-resource line and a hidden duplicate member make sense.
-        const row = root.querySelector(`li.combatant[data-combatant-id="${memberId}"]`);
-        if (!row) return;
-        if (index > 0) {
-          row.style.display = "none";
-          return;
-        }
-
-        const pool = document.createElement("div");
-        pool.className = "mm-big-fight-pool";
-
-        const info = document.createElement("span");
-        info.className = "mm-big-fight-pool-info";
-        info.textContent = `${group.name} (${liveCount}) — HP ${health.value}/${health.max}, Focus ${focus.value}/${focus.max}`;
-        pool.appendChild(info);
-
-        const ungroupLink = document.createElement("a");
-        ungroupLink.className = "mm-big-fight-ungroup";
-        ungroupLink.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Ungroup");
-        ungroupLink.addEventListener("click", async (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          await ungroupCombatants(app.viewed, group.id);
-        });
-        pool.appendChild(ungroupLink);
-
-        row.appendChild(pool);
+    if (game.user.isGM) {
+      const rollButton = document.createElement("button");
+      rollButton.type = "button";
+      rollButton.className = "mm-big-fight-roll-initiative";
+      rollButton.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollSideInitiative");
+      rollButton.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        await rollSideInitiative(app.viewed);
       });
+      root.prepend(rollButton);
+
+      for (const group of groups) {
+        const health = pooledResource(group, byId, "health");
+        const focus = pooledResource(group, byId, "focus");
+        const liveCount = liveMembers(group, byId).length;
+
+        group.memberCombatantIds.forEach((memberId, index) => {
+          // The tracker's dock renders a `.combatant-portrait` div AND the
+          // sidebar list renders a `li.combatant` -- both carry
+          // data-combatant-id, so an unqualified attribute selector would
+          // match the portrait first. Only the sidebar list row is where a
+          // pooled-resource line and a hidden duplicate member make sense.
+          const row = root.querySelector(`li.combatant[data-combatant-id="${memberId}"]`);
+          if (!row) return;
+          if (index > 0) {
+            row.style.display = "none";
+            return;
+          }
+
+          const pool = document.createElement("div");
+          pool.className = "mm-big-fight-pool";
+
+          const info = document.createElement("span");
+          info.className = "mm-big-fight-pool-info";
+          info.textContent = `${group.name} (${liveCount}) — HP ${health.value}/${health.max}, Focus ${focus.value}/${focus.max}`;
+          pool.appendChild(info);
+
+          const ungroupLink = document.createElement("a");
+          ungroupLink.className = "mm-big-fight-ungroup";
+          ungroupLink.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Ungroup");
+          ungroupLink.addEventListener("click", async (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            await ungroupCombatants(app.viewed, group.id);
+          });
+          pool.appendChild(ungroupLink);
+
+          row.appendChild(pool);
+        });
+      }
     }
 
     // A per-combatant marker for whether it is in range this round -- pure
-    // toggle logic, no interaction with grouping/initiative/attack bonus.
-    // Every combatant gets one, grouped or not, so this loop reads straight
-    // off app.viewed.combatants rather than the grouping state above.
+    // toggle logic, no interaction with grouping/initiative/attack bonus, and
+    // low-stakes enough to leave visible to every client rather than gating
+    // it to the GM. Every combatant gets one, grouped or not, so this loop
+    // reads straight off app.viewed.combatants rather than the grouping
+    // state above.
     for (const c of app.viewed.combatants) {
       const row = root.querySelector(`li.combatant[data-combatant-id="${c.id}"]`);
       if (!row) continue;
@@ -8833,44 +8866,46 @@ Hooks.on("renderCombatTracker", (app, html) => {
       row.appendChild(icon);
     }
 
-    // Foundry's v14 tracker rows have no selection affordance of their own --
-    // clicking a row pings/targets the token but toggles no class we can
-    // read back. A checkbox per row is the simplest mechanism that still
-    // lets a GM mark "these N combatants" before clicking Group Selected.
-    // Combatants already in a group are skipped: grouping is not designed to
-    // handle a combatant belonging to two groups at once.
-    for (const row of root.querySelectorAll("li.combatant[data-combatant-id]")) {
-      const combatantId = row.dataset.combatantId;
-      if (groupedMemberIds.has(combatantId)) continue;
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.className = "mm-big-fight-select";
-      checkbox.dataset.combatantId = combatantId;
-      checkbox.addEventListener("click", (ev) => ev.stopPropagation());
-      row.prepend(checkbox);
-    }
-
-    const groupButton = document.createElement("button");
-    groupButton.type = "button";
-    groupButton.className = "mm-big-fight-group-btn";
-    groupButton.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupSelected");
-    groupButton.addEventListener("click", async (ev) => {
-      ev.preventDefault();
-      const ids = Array.from(root.querySelectorAll(".mm-big-fight-select:checked")).map(
-        (el) => el.dataset.combatantId
-      );
-      if (ids.length < 2) {
-        ui.notifications.warn("Select at least two combatants to group.");
-        return;
+    if (game.user.isGM) {
+      // Foundry's v14 tracker rows have no selection affordance of their own
+      // -- clicking a row pings/targets the token but toggles no class we
+      // can read back. A checkbox per row is the simplest mechanism that
+      // still lets a GM mark "these N combatants" before clicking Group
+      // Selected. Combatants already in a group are skipped: grouping is not
+      // designed to handle a combatant belonging to two groups at once.
+      for (const row of root.querySelectorAll("li.combatant[data-combatant-id]")) {
+        const combatantId = row.dataset.combatantId;
+        if (groupedMemberIds.has(combatantId)) continue;
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "mm-big-fight-select";
+        checkbox.dataset.combatantId = combatantId;
+        checkbox.addEventListener("click", (ev) => ev.stopPropagation());
+        row.prepend(checkbox);
       }
-      const name = await Dialog.prompt({
-        title: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
-        content: '<input type="text" name="groupName" value="Group" style="width:100%;">',
-        callback: (html) => html.find('[name="groupName"]').val(),
+
+      const groupButton = document.createElement("button");
+      groupButton.type = "button";
+      groupButton.className = "mm-big-fight-group-btn";
+      groupButton.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupSelected");
+      groupButton.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        const ids = Array.from(root.querySelectorAll(".mm-big-fight-select:checked")).map(
+          (el) => el.dataset.combatantId
+        );
+        if (ids.length < 2) {
+          ui.notifications.warn("Select at least two combatants to group.");
+          return;
+        }
+        const name = await Dialog.prompt({
+          title: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
+          content: '<input type="text" name="groupName" value="Group" style="width:100%;">',
+          callback: (html) => html.find('[name="groupName"]').val(),
+        });
+        if (name) await groupCombatants(app.viewed, ids, name);
       });
-      if (name) await groupCombatants(app.viewed, ids, name);
-    });
-    root.prepend(groupButton);
+      root.prepend(groupButton);
+    }
   }
 });
 

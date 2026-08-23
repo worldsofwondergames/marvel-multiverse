@@ -1585,6 +1585,15 @@
   cursor: pointer;
 }
 
+.mm-damage-group-heading {
+  margin: 6px 0 2px;
+  padding-bottom: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8b0502;
+  border-bottom: 1px solid #8b0502;
+}
+
 .mm-big-fight-in-range {
   flex: 0 0 auto;
   width: 16px;

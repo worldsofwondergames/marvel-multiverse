@@ -167,13 +167,14 @@ describe('in-range marker', () => {
 });
 
 describe('the twin agrees with the shipping monolith', () => {
-  test('exports the same 10 function names', () => {
+  test('exports the same 11 function names', () => {
     expect(Object.keys(twin).sort()).toEqual([
       'applyAttackBonusToFormula',
       'bestVigilanceBySide',
       'combatantSideFromDisposition',
       'findGroup',
       'groupAttackBonus',
+      'groupDamageTargetsByGroup',
       'isBigFightEnabled',
       'liveMembers',
       'needsInitiativeReroll',

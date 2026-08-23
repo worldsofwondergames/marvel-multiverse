@@ -116,3 +116,27 @@ export function needsInitiativeReroll(heroTotal, foeTotal) {
 export function nextInRangeValue(current) {
   return current !== true;
 }
+
+/**
+ * Buckets declared damage targets by the Big Fight group they belong to, so
+ * the damage card can print "Rival Gang: 2 hit, 1 missed" instead of three
+ * unassociated lines. Consecutive targets sharing a group merge into one
+ * bucket; a target with no group (or grouping disabled) gets a bucket of one,
+ * preserving today's per-target line for anyone not in Big Fight mode.
+ * @param {Array<{uuid: string, combatantId?: string}>} targets
+ * @param {Array<{id: string, memberCombatantIds: string[]}>} groups
+ * @returns {Array<{group: object|null, targets: object[]}>}
+ */
+export function groupDamageTargetsByGroup(targets, groups) {
+  const buckets = [];
+  for (const target of targets) {
+    const group = target.combatantId ? findGroup(groups, target.combatantId) : null;
+    const last = buckets.at(-1);
+    if (group && last?.group?.id === group.id) {
+      last.targets.push(target);
+    } else {
+      buckets.push({ group, targets: [target] });
+    }
+  }
+  return buckets;
+}

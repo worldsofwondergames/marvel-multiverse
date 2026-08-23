@@ -9,6 +9,9 @@ import {
   activateScene,
   placeToken,
   deleteScene,
+  updateActorData,
+  forceHit,
+  clearTargets,
 } from './helpers.mjs';
 
 const HERO = 'E2E Big Fight Hero';
@@ -639,5 +642,135 @@ test.describe('In-range marker', () => {
     await page.waitForTimeout(300);
 
     await expect(page.locator('.mm-big-fight-in-range')).toHaveCount(1);
+  });
+});
+
+test.describe('Multi-target damage card grouping', () => {
+  const FOE_1 = 'E2E Big Fight Target 1';
+  const FOE_2 = 'E2E Big Fight Target 2';
+  const ATTACKER = 'E2E Big Fight Multi Attacker';
+  const SCENE_NAME = 'E2E Big Fight Damage Scene';
+
+  test.afterEach(async ({ foundryPage }) => {
+    await clearTargets(foundryPage);
+    await deleteScene(foundryPage, SCENE_NAME);
+    await deleteCombat(foundryPage);
+    await deleteActor(foundryPage, FOE_1);
+    await deleteActor(foundryPage, FOE_2);
+    await deleteActor(foundryPage, ATTACKER);
+  });
+
+  test('attacking two grouped foes at once shows one grouped heading on the damage card', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createActorViaAPI(page, ATTACKER);
+    await updateActorData(page, ATTACKER, { 'system.abilities.mle.value': 5, 'system.attributes.rank.value': 3 });
+    await createActorViaAPI(page, FOE_1);
+    await createActorViaAPI(page, FOE_2);
+    await forceHit(page, FOE_1, 'mle');
+    await forceHit(page, FOE_2, 'mle');
+
+    await createScene(page, SCENE_NAME);
+    await activateScene(page, SCENE_NAME);
+    await placeToken(page, ATTACKER, 200, 200);
+    await placeToken(page, FOE_1, 400, 200);
+    await placeToken(page, FOE_2, 600, 200);
+    await page.evaluate(({ a, b }) => {
+      for (const name of [a, b]) {
+        canvas.tokens.placeables.find((t) => t.actor?.name === name).setTarget(true, { releaseOthers: false });
+      }
+    }, { a: FOE_1, b: FOE_2 });
+    await page.waitForTimeout(300);
+
+    await createCombat(page);
+    await addToCombat(page, FOE_1);
+    await addToCombat(page, FOE_2);
+    await page.evaluate(async (names) => {
+      const combat = game.combat;
+      const ids = combat.combatants.filter((c) => names.includes(c.actor.name)).map((c) => c.id);
+      await combat.setFlag('marvel-multiverse', 'bigFight', {
+        enabled: true,
+        sideInitiative: { hero: null, foe: null },
+        groups: [{ id: 'dmg-group', name: 'Test Targets', side: 'foe', memberCombatantIds: ids }],
+      });
+    }, [FOE_1, FOE_2]);
+
+    await page.evaluate(async (name) => {
+      const actor = game.actors.find((a) => a.name === name);
+      await actor.sheet.render(true);
+    }, ATTACKER);
+    await page.waitForTimeout(1000);
+    const sheetLocator = page.locator('.sheet.actor').last();
+    await sheetLocator.locator('.rollable[data-ability-key="mle"]').first().click();
+    await page.waitForTimeout(2000);
+
+    await page.evaluate(() => {
+      const buttons = document.querySelectorAll('button.damage');
+      if (!buttons.length) throw new Error('No damage button rendered on the attack card');
+      buttons[buttons.length - 1].click();
+    });
+    await page.waitForFunction(
+      () => document.querySelectorAll('.mm-damage-target').length > 0,
+      { timeout: 15_000 },
+    );
+
+    const heading = page.locator('.mm-damage-group-heading');
+    await expect(heading).toContainText('Test Targets');
+    await expect(heading).toContainText('2 hit');
+  });
+
+  test('a single grouped target renders with no heading, exactly as an ungrouped hit always has', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createActorViaAPI(page, ATTACKER);
+    await updateActorData(page, ATTACKER, { 'system.abilities.mle.value': 5, 'system.attributes.rank.value': 3 });
+    await createActorViaAPI(page, FOE_1);
+    await createActorViaAPI(page, FOE_2);
+    await forceHit(page, FOE_1, 'mle');
+
+    await createScene(page, SCENE_NAME);
+    await activateScene(page, SCENE_NAME);
+    await placeToken(page, ATTACKER, 200, 200);
+    await placeToken(page, FOE_1, 400, 200);
+    await placeToken(page, FOE_2, 600, 200);
+    // Only FOE_1 is targeted, even though both foes will be in the same
+    // Big Fight group -- a bucket of one must never print a heading.
+    await page.evaluate((name) => {
+      canvas.tokens.placeables.find((t) => t.actor?.name === name).setTarget(true, { releaseOthers: false });
+    }, FOE_1);
+    await page.waitForTimeout(300);
+
+    await createCombat(page);
+    await addToCombat(page, FOE_1);
+    await addToCombat(page, FOE_2);
+    await page.evaluate(async (names) => {
+      const combat = game.combat;
+      const ids = combat.combatants.filter((c) => names.includes(c.actor.name)).map((c) => c.id);
+      await combat.setFlag('marvel-multiverse', 'bigFight', {
+        enabled: true,
+        sideInitiative: { hero: null, foe: null },
+        groups: [{ id: 'dmg-group-solo', name: 'Test Targets', side: 'foe', memberCombatantIds: ids }],
+      });
+    }, [FOE_1, FOE_2]);
+
+    await page.evaluate(async (name) => {
+      const actor = game.actors.find((a) => a.name === name);
+      await actor.sheet.render(true);
+    }, ATTACKER);
+    await page.waitForTimeout(1000);
+    const sheetLocator = page.locator('.sheet.actor').last();
+    await sheetLocator.locator('.rollable[data-ability-key="mle"]').first().click();
+    await page.waitForTimeout(2000);
+
+    await page.evaluate(() => {
+      const buttons = document.querySelectorAll('button.damage');
+      if (!buttons.length) throw new Error('No damage button rendered on the attack card');
+      buttons[buttons.length - 1].click();
+    });
+    await page.waitForFunction(
+      () => document.querySelectorAll('.mm-damage-target').length > 0,
+      { timeout: 15_000 },
+    );
+
+    await expect(page.locator('.mm-damage-target')).toHaveCount(1);
+    await expect(page.locator('.mm-damage-group-heading')).toHaveCount(0);
   });
 });

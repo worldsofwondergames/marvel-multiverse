@@ -4,11 +4,13 @@ function _getAttackTargets(attackTargetAbility) {
   return Array.from(targets).map(token => {
     const actor = token.actor;
     const ac = actor?.system?.abilities?.[attackTargetAbility]?.defense ?? null;
+    const combatant = game.combat?.combatants?.find((c) => c.actorId === actor?.id);
     return {
       name: token.name,
       img: token.document?.texture?.src ?? actor?.img ?? "",
       ac,
-      uuid: actor?.uuid ?? ""
+      uuid: actor?.uuid ?? "",
+      combatantId: combatant?.id ?? null
     };
   }).filter(t => t.ac !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -2481,39 +2483,54 @@ class ChatMessageMarvel extends ChatMessage {
     /** Per-target amounts, recorded on the message so the button never has to read them back out of the rendered text. */
     const damageFlagTargets = [];
 
-    const damageContent = resolvedTargets.map((t) => {
-      const dmgTypeLabel = damageType ? ` ${damageType}` : "";
-      if (!t.hit) {
-        damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: 0, hit: false });
-        return `<div class="mm-damage-target -miss" data-target-uuid="${t.uuid}">
-          <p style="margin:4px 0;"><b>${t.name}</b> — <span style="color:#a00;font-weight:700;"><i class="fas fa-times"></i> Miss</span>, no damage</p>
+    // Purely cosmetic: groups the per-target lines below under a
+    // "<Group Name>: N hit, M missed" heading when Big Fight mode has 2+ of
+    // the declared targets grouped together. Does not change who gets a
+    // button or how much damage is computed.
+    const bigFight = bigFightFlag(game.combat);
+    const buckets = isBigFightEnabled(bigFight)
+      ? groupDamageTargetsByGroup(resolvedTargets, bigFight.groups ?? [])
+      : resolvedTargets.map((t) => ({ group: null, targets: [t] }));
+
+    const damageContent = buckets.flatMap(({ group, targets: bucketTargets }) => {
+      const lines = bucketTargets.map((t) => {
+        const dmgTypeLabel = damageType ? ` ${damageType}` : "";
+        if (!t.hit) {
+          damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: 0, hit: false });
+          return `<div class="mm-damage-target -miss" data-target-uuid="${t.uuid}">
+            <p style="margin:4px 0;"><b>${t.name}</b> — <span style="color:#a00;font-weight:700;"><i class="fas fa-times"></i> Miss</span>, no damage</p>
+          </div>`;
+        }
+        const damageReduction =
+          t.actor.system[damageReductionPath(damageType)] ?? 0;
+        const { amount: dmg, effectiveMultiplier } = computeDamage({
+          marvelDieTotal: marvelDie.total,
+          damageMultiplier,
+          damageReduction,
+          abilityValue,
+          fantastic: !!fantastic,
+          scale: damageScale,
+        });
+        damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
+        const fantasticLabel = fantastic ? " Fantastic" : "";
+        const drLine = damageReduction > 0
+          ? `<br/><span style="font-size:11px;color:#555;">Multiplier ${damageMultiplier} − DR ${damageReduction} = ${effectiveMultiplier}</span>`
+          : "";
+        const multiplierText = damageReduction > 0
+          ? `(Multiplier - DR) ${effectiveMultiplier}`
+          : `Multiplier ${damageMultiplier}`;
+        const fantasticMult = fantastic ? " × 2" : "";
+        const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
+        return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
+          <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
+          <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}</p>
+          <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
         </div>`;
-      }
-      const damageReduction =
-        t.actor.system[damageReductionPath(damageType)] ?? 0;
-      const { amount: dmg, effectiveMultiplier } = computeDamage({
-        marvelDieTotal: marvelDie.total,
-        damageMultiplier,
-        damageReduction,
-        abilityValue,
-        fantastic: !!fantastic,
-        scale: damageScale,
       });
-      damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
-      const fantasticLabel = fantastic ? " Fantastic" : "";
-      const drLine = damageReduction > 0
-        ? `<br/><span style="font-size:11px;color:#555;">Multiplier ${damageMultiplier} − DR ${damageReduction} = ${effectiveMultiplier}</span>`
-        : "";
-      const multiplierText = damageReduction > 0
-        ? `(Multiplier - DR) ${effectiveMultiplier}`
-        : `Multiplier ${damageMultiplier}`;
-      const fantasticMult = fantastic ? " × 2" : "";
-      const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
-      return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
-        <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}</p>
-        <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
-      </div>`;
+      if (!group || bucketTargets.length < 2) return lines;
+      const hitCount = bucketTargets.filter((t) => t.hit).length;
+      const heading = `<div class="mm-damage-group-heading"><b>${group.name}:</b> ${hitCount} hit, ${bucketTargets.length - hitCount} missed</div>`;
+      return [heading, ...lines];
     });
 
     if (damageContent.length === 0) {
@@ -8301,6 +8318,30 @@ function nextInRangeValue(current) {
   return current !== true;
 }
 
+/**
+ * Buckets declared damage targets by the Big Fight group they belong to, so
+ * the damage card can print "Rival Gang: 2 hit, 1 missed" instead of three
+ * unassociated lines. Consecutive targets sharing a group merge into one
+ * bucket; a target with no group (or grouping disabled) gets a bucket of one,
+ * preserving today's per-target line for anyone not in Big Fight mode.
+ * @param {Array<{uuid: string, combatantId?: string}>} targets
+ * @param {Array<{id: string, memberCombatantIds: string[]}>} groups
+ * @returns {Array<{group: object|null, targets: object[]}>}
+ */
+function groupDamageTargetsByGroup(targets, groups) {
+  const buckets = [];
+  for (const target of targets) {
+    const group = target.combatantId ? findGroup(groups, target.combatantId) : null;
+    const last = buckets.at(-1);
+    if (group && last?.group?.id === group.id) {
+      last.targets.push(target);
+    } else {
+      buckets.push({ group, targets: [target] });
+    }
+  }
+  return buckets;
+}
+
 const BIG_FIGHT_DEFAULT = { enabled: false, sideInitiative: { hero: null, foe: null }, groups: [] };
 
 /** @param {Combat} combat */
@@ -10035,5 +10076,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, findGroup, groupAttackBonus, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, findGroup, groupAttackBonus, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

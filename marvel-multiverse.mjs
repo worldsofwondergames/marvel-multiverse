@@ -1255,8 +1255,9 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       // Retrieve roll data.
       const rollData = this.getRollData();
       // Invoke the roll and submit it to chat.
+      const formula = applyAttackBonusToFormula(rollData.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        rollData.formula,
+        formula,
         rollData.actor
       );
 
@@ -3947,8 +3948,9 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
       else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
 
+      const formula = applyAttackBonusToFormula(dataset.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        dataset.formula,
+        formula,
         this.actor.getRollData(),
         { edgeMode }
       );
@@ -5116,8 +5118,9 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
       else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
 
+      const formula = applyAttackBonusToFormula(dataset.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        dataset.formula,
+        formula,
         this.actor.getRollData(),
         { edgeMode }
       );
@@ -8452,6 +8455,25 @@ async function ungroupCombatants(combat, groupId) {
   await setBigFightFlag(combat, { groups: (current.groups ?? []).filter((g) => g.id !== groupId) });
 }
 
+/**
+ * The group attack bonus for whoever is about to roll, resolved against the
+ * currently viewed combat. Returns 0 outside Big Fight mode, for a combatant
+ * not in this combat, or for an ungrouped combatant — so every call site can
+ * add this unconditionally without its own Big-Fight check.
+ * @param {Actor} actor
+ * @returns {number}
+ */
+function groupAttackBonusForActor(actor) {
+  const combat = game.combat;
+  if (!combat) return 0;
+  const bigFight = bigFightFlag(combat);
+  if (!isBigFightEnabled(bigFight)) return 0;
+  const combatant = combat.combatants.find((c) => c.actorId === actor?.id);
+  if (!combatant) return 0;
+  const group = findGroup(bigFight.groups, combatant.id);
+  return groupAttackBonus(group, combatantsById(combat));
+}
+
 function _getWhisperRecipients(actor) {
   const ids = new Set();
   for (const user of game.users) {
@@ -9850,7 +9872,8 @@ async function rollAbilityCheck(
     return null;
   }
 
-  const formula = `{1d6,1dm,1d6}+@abilities.${abilityKey}.${noncom ? "noncom" : "value"}`;
+  const baseFormula = `{1d6,1dm,1d6}+@abilities.${abilityKey}.${noncom ? "noncom" : "value"}`;
+  const formula = applyAttackBonusToFormula(baseFormula, groupAttackBonusForActor(actor));
   const abilityLabel =
     game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[abilityKey]) ??
     abilityKey;

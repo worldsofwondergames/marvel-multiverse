@@ -443,3 +443,116 @@ test.describe('Foe grouping', () => {
     await expect(page.locator('.mm-big-fight-select')).toHaveCount(0);
   });
 });
+
+test.describe('Group attack bonus', () => {
+  const FOE_1 = 'E2E Big Fight Attacker 1';
+  const FOE_2 = 'E2E Big Fight Attacker 2';
+  const ATTACK_BONUS_SCENE = 'E2E Big Fight Attack Bonus Scene';
+
+  test.afterEach(async ({ foundryPage }) => {
+    await deleteCombat(foundryPage);
+    await deleteActor(foundryPage, FOE_1);
+    await deleteActor(foundryPage, FOE_2);
+    await deleteScene(foundryPage, ATTACK_BONUS_SCENE);
+  });
+
+  test('a Melee attack from a grouped combatant carries the group bonus in its formula', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createActorViaAPI(page, FOE_1);
+    await createActorViaAPI(page, FOE_2);
+
+    // A freshly created actor's Health starts at 0 (schema default) while
+    // its computed max is always at least 10 -- see actor-base.mjs's
+    // Math.max(10, ...) -- so combatantsById would read both foes as
+    // already "destroyed" and groupAttackBonus would always be 0. Top them
+    // off first, same as the Foe grouping tests above.
+    await page.evaluate(async (names) => {
+      for (const name of names) {
+        const actor = game.actors.find((a) => a.name === name);
+        await actor.update({ 'system.health.value': actor.system.health.max });
+      }
+    }, [FOE_1, FOE_2]);
+
+    // Real hostile-disposition tokens, same reasoning as the Foe grouping
+    // tests: a token-less combatant always reads as "hero" via
+    // combatantSide, and this needs a real foe side to be representative
+    // of how Big Fight mode is actually used.
+    await createScene(page, ATTACK_BONUS_SCENE);
+    await activateScene(page, ATTACK_BONUS_SCENE);
+    const foe1TokenId = await placeToken(page, FOE_1, 100, 100);
+    const foe2TokenId = await placeToken(page, FOE_2, 150, 100);
+    await createCombat(page);
+    await page.evaluate(
+      async ({ foe1TokenId, foe2TokenId }) => {
+        const [foe1Token, foe2Token] = [foe1TokenId, foe2TokenId].map(
+          (id) => canvas.tokens.placeables.find((t) => t.id === id)?.document
+        );
+        await foe1Token.update({ disposition: CONST.TOKEN_DISPOSITIONS.HOSTILE });
+        await foe2Token.update({ disposition: CONST.TOKEN_DISPOSITIONS.HOSTILE });
+        await game.combat.createEmbeddedDocuments(
+          'Combatant',
+          [foe1Token, foe2Token].map((t) => ({
+            tokenId: t.id,
+            sceneId: t.parent.id,
+            actorId: t.actorId,
+            hidden: false,
+          }))
+        );
+      },
+      { foe1TokenId, foe2TokenId }
+    );
+
+    const ids = await page.evaluate((names) =>
+      game.combat.combatants.filter((c) => names.includes(c.actor.name)).map((c) => c.id),
+      [FOE_1, FOE_2]);
+
+    // Open the attacker's sheet; the ungrouped roll below is the baseline
+    // showing the formula carries no extra additive term yet.
+    await page.evaluate(async (name) => {
+      const actor = game.actors.find((a) => a.name === name);
+      await actor.sheet.render(true);
+    }, FOE_1);
+    await page.waitForTimeout(1000);
+
+    const sheetLocator = page.locator('.sheet.actor').last();
+    await sheetLocator.locator('input[name="system.attributes.rank.value"]').waitFor({ state: 'attached', timeout: 10_000 });
+    await sheetLocator.locator('.rollable[data-ability-key="mle"]').first().click();
+    await page.waitForTimeout(2000);
+
+    const dialogSubmit = page.locator('dialog button[type="submit"], dialog button.dialog-button');
+    if (await dialogSubmit.count() > 0) {
+      await dialogSubmit.first().click();
+      await page.waitForTimeout(2000);
+    }
+
+    const withoutGroup = await page.evaluate(() => game.messages.contents.at(-1).rolls[0].formula);
+    expect(withoutGroup).not.toMatch(/\+\s*1\s*$/);
+
+    // Group the two combatants together, then roll the same check again.
+    await page.evaluate(async ({ ids }) => {
+      const combat = game.combat;
+      const before = combat.getFlag('marvel-multiverse', 'bigFight') ?? { enabled: false, sideInitiative: { hero: null, foe: null }, groups: [] };
+      await combat.setFlag('marvel-multiverse', 'bigFight', {
+        ...before,
+        enabled: true,
+        groups: [{ id: 'atk-group', name: 'Attackers', side: 'foe', memberCombatantIds: ids }],
+      });
+    }, { ids });
+
+    await sheetLocator.locator('.rollable[data-ability-key="mle"]').first().click();
+    await page.waitForTimeout(2000);
+
+    const dialogSubmit2 = page.locator('dialog button[type="submit"], dialog button.dialog-button');
+    if (await dialogSubmit2.count() > 0) {
+      await dialogSubmit2.first().click();
+      await page.waitForTimeout(2000);
+    }
+
+    const withGroup = await page.evaluate(() => game.messages.contents.at(-1).rolls[0].formula);
+    // A live group of 2 grants +1; the appended term must be exactly that,
+    // not merely present, so a bonus of the wrong size still fails this.
+    expect(withGroup.trim().endsWith('+ 1')).toBe(true);
+
+    await sheetLocator.locator('[data-action="close"], .header-button.close').first().click().catch(() => {});
+  });
+});

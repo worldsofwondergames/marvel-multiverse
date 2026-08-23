@@ -1,4 +1,5 @@
 import { findRollLinks } from "../helpers/roll-links.mjs";
+import { isBigFightEnabled, findGroup, groupAttackBonus } from "../helpers/big-fight.mjs";
 
 /**
  * Whether a power's own text names the check that rolls it.
@@ -255,8 +256,16 @@ export class MarvelMultiverseItem extends Item {
       // Retrieve roll data.
       const rollData = this.getRollData();
       // Invoke the roll and submit it to chat.
+      // bigFightFlag() itself is monolith-only glue (no module twin exists
+      // for it), so the flag is read inline here the same way it defines it:
+      // combat?.getFlag(...) ?? null.
+      const bigFight = game.combat?.getFlag("marvel-multiverse", "bigFight") ?? null;
+      const bigFightCombatant = game.combat?.combatants?.find((c) => c.actorId === this.actor?.id);
+      const bigFightGroup = bigFightCombatant ? findGroup(bigFight?.groups, bigFightCombatant.id) : null;
+      const groupBonus = isBigFightEnabled(bigFight) ? groupAttackBonus(bigFightGroup, {}) : 0;
+      const formula = groupBonus ? `${rollData.formula} + ${groupBonus}` : rollData.formula;
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        rollData.formula,
+        formula,
         rollData.actor
       );
       // If you need to store the value first, uncomment the next line.

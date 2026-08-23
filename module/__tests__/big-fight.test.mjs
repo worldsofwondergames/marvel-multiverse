@@ -10,6 +10,7 @@ import {
   applyAttackBonusToFormula,
   bestVigilanceBySide,
   needsInitiativeReroll,
+  nextInRangeValue,
 } from '../../marvel-multiverse.mjs';
 
 import * as twin from '../helpers/big-fight.mjs';
@@ -153,8 +154,20 @@ describe('pooled resource shrinks as members are destroyed one at a time', () =>
   });
 });
 
+describe('in-range marker', () => {
+  test('nextInRangeValue flips an unset marker to true', () => {
+    expect(nextInRangeValue(undefined)).toBe(true);
+  });
+  test('nextInRangeValue flips true to false', () => {
+    expect(nextInRangeValue(true)).toBe(false);
+  });
+  test('nextInRangeValue flips false to true', () => {
+    expect(nextInRangeValue(false)).toBe(true);
+  });
+});
+
 describe('the twin agrees with the shipping monolith', () => {
-  test('exports the same 9 function names', () => {
+  test('exports the same 10 function names', () => {
     expect(Object.keys(twin).sort()).toEqual([
       'applyAttackBonusToFormula',
       'bestVigilanceBySide',
@@ -164,6 +177,7 @@ describe('the twin agrees with the shipping monolith', () => {
       'isBigFightEnabled',
       'liveMembers',
       'needsInitiativeReroll',
+      'nextInRangeValue',
       'pooledResource',
     ]);
   });
@@ -247,5 +261,9 @@ describe('the twin agrees with the shipping monolith', () => {
     [12, 11],
   ])('needsInitiativeReroll matches for heroTotal %i foeTotal %i', (h, f) => {
     expect(twin.needsInitiativeReroll(h, f)).toBe(needsInitiativeReroll(h, f));
+  });
+
+  test.each([undefined, true, false])('nextInRangeValue matches for %o', (current) => {
+    expect(twin.nextInRangeValue(current)).toBe(nextInRangeValue(current));
   });
 });

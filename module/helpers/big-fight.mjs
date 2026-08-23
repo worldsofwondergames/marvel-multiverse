@@ -108,3 +108,11 @@ export function bestVigilanceBySide(combatants) {
 export function needsInitiativeReroll(heroTotal, foeTotal) {
   return heroTotal === foeTotal;
 }
+
+/**
+ * @param {boolean|undefined} current
+ * @returns {boolean}
+ */
+export function nextInRangeValue(current) {
+  return current !== true;
+}

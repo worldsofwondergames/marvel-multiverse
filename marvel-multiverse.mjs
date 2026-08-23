@@ -8293,6 +8293,14 @@ function needsInitiativeReroll(heroTotal, foeTotal) {
   return heroTotal === foeTotal;
 }
 
+/**
+ * @param {boolean|undefined} current
+ * @returns {boolean}
+ */
+function nextInRangeValue(current) {
+  return current !== true;
+}
+
 const BIG_FIGHT_DEFAULT = { enabled: false, sideInitiative: { hero: null, foe: null }, groups: [] };
 
 /** @param {Combat} combat */
@@ -8682,6 +8690,7 @@ Hooks.on("renderCombatTracker", (app, html) => {
   root.querySelector(".mm-big-fight-group-btn")?.remove();
   root.querySelectorAll(".mm-big-fight-pool").forEach((el) => el.remove());
   root.querySelectorAll(".mm-big-fight-select").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-in-range").forEach((el) => el.remove());
   // Reset any rows a previous render hid to display a group's pooled row --
   // otherwise a combatant that gets ungrouped (or Big Fight mode turned off)
   // would stay hidden even though nothing hides it any more.
@@ -8758,6 +8767,29 @@ Hooks.on("renderCombatTracker", (app, html) => {
 
         row.appendChild(pool);
       });
+    }
+
+    // A per-combatant marker for whether it is in range this round -- pure
+    // toggle logic, no interaction with grouping/initiative/attack bonus.
+    // Every combatant gets one, grouped or not, so this loop reads straight
+    // off app.viewed.combatants rather than the grouping state above.
+    for (const c of app.viewed.combatants) {
+      const row = root.querySelector(`li.combatant[data-combatant-id="${c.id}"]`);
+      if (!row) continue;
+      const inRange = c.getFlag("marvel-multiverse", "inRange") === true;
+      const icon = document.createElement("button");
+      icon.type = "button";
+      icon.className = "mm-big-fight-in-range" + (inRange ? " -active" : "");
+      icon.title = inRange
+        ? game.i18n.localize("MARVEL_MULTIVERSE.BigFight.InRange")
+        : game.i18n.localize("MARVEL_MULTIVERSE.BigFight.NotInRange");
+      icon.textContent = inRange ? "●" : "○";
+      icon.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        await c.setFlag("marvel-multiverse", "inRange", nextInRangeValue(inRange));
+      });
+      row.appendChild(icon);
     }
 
     // Foundry's v14 tracker rows have no selection affordance of their own --
@@ -10003,5 +10035,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, findGroup, groupAttackBonus, isBigFightEnabled, liveMembers, needsInitiativeReroll, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, findGroup, groupAttackBonus, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

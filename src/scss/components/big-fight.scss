@@ -74,3 +74,20 @@
     cursor: pointer;
   }
 }
+
+.mm-big-fight-in-range {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  color: #888;
+
+  &.-active {
+    color: #8b0502;
+  }
+}

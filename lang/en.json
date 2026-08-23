@@ -207,7 +207,9 @@
       "RollSideInitiative": "Roll Side Initiative",
       "GroupSelected": "Group Selected",
       "Ungroup": "Ungroup",
-      "GroupNameTitle": "Group Name"
+      "GroupNameTitle": "Group Name",
+      "InRange": "In range",
+      "NotInRange": "Not in range"
     }
   },
   "InitiativeRoll": "Initiative Roll",

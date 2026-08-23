@@ -556,3 +556,88 @@ test.describe('Group attack bonus', () => {
     await sheetLocator.locator('[data-action="close"], .header-button.close').first().click().catch(() => {});
   });
 });
+
+test.describe('In-range marker', () => {
+  const HERO = 'E2E Big Fight In Range';
+
+  test.afterEach(async ({ foundryPage }) => {
+    await deleteCombat(foundryPage);
+    await deleteActor(foundryPage, HERO);
+  });
+
+  test('clicking the in-range icon toggles the combatant flag', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createActorViaAPI(page, HERO);
+    await createCombat(page);
+    await addToCombat(page, HERO);
+
+    await page.evaluate(() => {
+      ui.sidebar.expand();
+      ui.sidebar.activateTab('combat');
+    });
+
+    await page.locator('.mm-big-fight-toggle').click();
+    await expect(page.locator('.mm-big-fight-in-range')).toBeVisible();
+
+    await page.locator('.mm-big-fight-in-range').click();
+    await page.waitForTimeout(300);
+    const afterFirstClick = await page.evaluate(() =>
+      game.combat.combatants.contents[0].getFlag('marvel-multiverse', 'inRange')
+    );
+    expect(afterFirstClick).toBe(true);
+
+    await page.locator('.mm-big-fight-in-range').click();
+    await page.waitForTimeout(300);
+    const afterSecondClick = await page.evaluate(() =>
+      game.combat.combatants.contents[0].getFlag('marvel-multiverse', 'inRange')
+    );
+    expect(afterSecondClick).toBe(false);
+  });
+
+  test('the in-range icon only appears while Big Fight mode is enabled', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createActorViaAPI(page, HERO);
+    await createCombat(page);
+    await addToCombat(page, HERO);
+
+    await page.evaluate(() => {
+      ui.sidebar.expand();
+      ui.sidebar.activateTab('combat');
+    });
+
+    await expect(page.locator('.mm-big-fight-in-range')).toHaveCount(0);
+
+    await page.locator('.mm-big-fight-toggle').click();
+    await expect(page.locator('.mm-big-fight-in-range')).toBeVisible();
+
+    await page.locator('.mm-big-fight-toggle.-enabled').click();
+    await expect(page.locator('.mm-big-fight-in-range')).toHaveCount(0);
+  });
+
+  test('the icon survives a re-render without duplicating', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createActorViaAPI(page, HERO);
+    await createCombat(page);
+    await addToCombat(page, HERO);
+
+    await page.evaluate(() => {
+      ui.sidebar.expand();
+      ui.sidebar.activateTab('combat');
+    });
+
+    await page.locator('.mm-big-fight-toggle').click();
+    await expect(page.locator('.mm-big-fight-in-range')).toHaveCount(1);
+
+    // Foundry can re-fire renderCombatTracker against the same rendered
+    // element more than once for a single logical update (the chat-message
+    // render hook does the same thing -- see the mm-bound guard on
+    // renderChatMessageHTML). Re-invoking the hook directly against the
+    // tracker's own element reproduces that without depending on which
+    // combat action happens to trigger it, and proves the top-of-hook
+    // cleanup keeps this to one icon per row, not two.
+    await page.evaluate(() => Hooks.callAll('renderCombatTracker', ui.combat, ui.combat.element));
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('.mm-big-fight-in-range')).toHaveCount(1);
+  });
+});

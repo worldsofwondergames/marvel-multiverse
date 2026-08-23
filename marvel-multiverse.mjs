@@ -8184,7 +8184,7 @@ function _getConditionDamage(actor) {
  * initiative, foe grouping, pooled Health/Focus, and the group attack bonus.
  *
  * Every function here is pure — no Foundry Document is touched. The glue that
- * adapts a real Combat/Combatant into the plain shapes these take is mirrored in
+ * adapts a real Combat/Combatant into the plain shapes these take. That glue is mirrored in
  * marvel-multiverse.mjs next to the other combat hooks, the same split
  * damage-application.mjs uses for computeDamage/isTargetHit.
  */

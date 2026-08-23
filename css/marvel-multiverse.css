@@ -1511,6 +1511,23 @@
   font-size: 12px;
 }
 
+.mm-big-fight-toggle {
+  display: block;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #333;
+  color: #fff;
+}
+.mm-big-fight-toggle.-enabled {
+  background: #8b0502;
+  border-color: #8b0502;
+}
+
 .marvel-multiverse.sheet .window-content {
   background-position: top -360px center;
   background-repeat: no-repeat;

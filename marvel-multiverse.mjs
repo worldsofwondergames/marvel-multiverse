@@ -8290,6 +8290,35 @@ function needsInitiativeReroll(heroTotal, foeTotal) {
   return heroTotal === foeTotal;
 }
 
+const BIG_FIGHT_DEFAULT = { enabled: false, sideInitiative: { hero: null, foe: null }, groups: [] };
+
+/** @param {Combat} combat */
+function bigFightFlag(combat) {
+  return combat?.getFlag("marvel-multiverse", "bigFight") ?? null;
+}
+
+/**
+ * @param {Combat} combat
+ * @param {object} patch  Shallow-merged onto the current flag (or the default
+ *   shape, the first time Big Fight is touched on this encounter).
+ */
+async function setBigFightFlag(combat, patch) {
+  const current = bigFightFlag(combat) ?? BIG_FIGHT_DEFAULT;
+  await combat.setFlag("marvel-multiverse", "bigFight", { ...current, ...patch });
+}
+
+/**
+ * Flips the encounter's Big Fight state. Turning it off leaves
+ * groups/sideInitiative in the flag untouched -- they're simply unread until
+ * it's turned back on, which is what lets the tracker resume normal combat
+ * immediately without losing the GM's group setup.
+ * @param {Combat} combat
+ */
+async function toggleBigFight(combat) {
+  const current = bigFightFlag(combat);
+  await setBigFightFlag(combat, { enabled: !isBigFightEnabled(current) });
+}
+
 function _getWhisperRecipients(actor) {
   const ids = new Set();
   for (const user of game.users) {
@@ -8481,6 +8510,33 @@ Hooks.on("updateCombat", (combat, changed, options, userId) => {
   if (prevCombatant) _processEndOfTurn(prevCombatant);
   const current = combat.combatant;
   if (current) _processStartOfTurn(current);
+});
+
+/**
+ * Injects the Big Fight toggle into the combat tracker header. Prepended to
+ * the tracker root rather than a specific internal class, so this does not
+ * depend on Foundry's internal tracker markup staying byte-identical across
+ * versions -- only on the hook firing with the tracker's root element.
+ */
+Hooks.on("renderCombatTracker", (app, html) => {
+  const root = html instanceof HTMLElement ? html : html?.[0];
+  if (!root || !app.viewed) return;
+
+  root.querySelector(".mm-big-fight-toggle")?.remove();
+
+  const enabled = isBigFightEnabled(bigFightFlag(app.viewed));
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "mm-big-fight-toggle" + (enabled ? " -enabled" : "");
+  button.textContent = enabled
+    ? game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Disable")
+    : game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Enable");
+  button.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    await toggleBigFight(app.viewed);
+  });
+
+  root.prepend(button);
 });
 
 /**

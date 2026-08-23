@@ -8319,6 +8319,61 @@ async function toggleBigFight(combat) {
   await setBigFightFlag(combat, { enabled: !isBigFightEnabled(current) });
 }
 
+/** @param {Combatant} combatant */
+function combatantSide(combatant) {
+  const disposition = combatant?.token?.disposition ?? combatant?.disposition ?? 0;
+  return combatantSideFromDisposition(disposition, CONST.TOKEN_DISPOSITIONS.HOSTILE);
+}
+
+/**
+ * Rolls one {1d6,1dm,1d6} + best-Vigilance check per side, re-rolling once on
+ * a tie, writes the totals to the encounter's Big Fight flag, and sets every
+ * member of a side to that side's total so Foundry's own turn-order sort
+ * groups the side together without needing a custom turn-advancement
+ * override.
+ * @param {Combat} combat
+ * @returns {Promise<{hero: number, foe: number}>}
+ */
+async function rollSideInitiative(combat) {
+  const bySide = { hero: [], foe: [] };
+  for (const c of combat.combatants) {
+    bySide[combatantSide(c)].push(c);
+  }
+  const vigilanceInput = [...bySide.hero, ...bySide.foe].map((c) => ({
+    side: combatantSide(c),
+    vigilance: c.actor?.system?.abilities?.vig?.value ?? 0,
+  }));
+  const bestVig = bestVigilanceBySide(vigilanceInput);
+
+  async function rollSide(side) {
+    if (bySide[side].length === 0) return null;
+    const roll = new CONFIG.Dice.MarvelMultiverseRoll(`{1d6,1dm,1d6} + ${bestVig[side]}`, {});
+    await roll.evaluate();
+    return roll.total;
+  }
+
+  let totals = { hero: await rollSide("hero"), foe: await rollSide("foe") };
+  if (totals.hero !== null && totals.foe !== null && needsInitiativeReroll(totals.hero, totals.foe)) {
+    totals = { hero: await rollSide("hero"), foe: await rollSide("foe") };
+  }
+
+  await setBigFightFlag(combat, { sideInitiative: totals });
+
+  const updates = [];
+  for (const side of ["hero", "foe"]) {
+    if (totals[side] === null) continue;
+    for (const c of bySide[side]) updates.push({ _id: c.id, initiative: totals[side] });
+  }
+  if (updates.length) await combat.updateEmbeddedDocuments("Combatant", updates);
+
+  await ChatMessage.create({
+    speaker: { alias: "Big Fight" },
+    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>Heroes: ${totals.hero ?? "—"}  |  Foes: ${totals.foe ?? "—"}</span></h4></div></div>`,
+  });
+
+  return totals;
+}
+
 function _getWhisperRecipients(actor) {
   const ids = new Set();
   for (const user of game.users) {
@@ -8523,6 +8578,7 @@ Hooks.on("renderCombatTracker", (app, html) => {
   if (!root) return;
 
   root.querySelector(".mm-big-fight-toggle")?.remove();
+  root.querySelector(".mm-big-fight-roll-initiative")?.remove();
   if (!app.viewed) return;
 
   const enabled = isBigFightEnabled(bigFightFlag(app.viewed));
@@ -8538,6 +8594,18 @@ Hooks.on("renderCombatTracker", (app, html) => {
   });
 
   root.prepend(button);
+
+  if (enabled) {
+    const rollButton = document.createElement("button");
+    rollButton.type = "button";
+    rollButton.className = "mm-big-fight-roll-initiative";
+    rollButton.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollSideInitiative");
+    rollButton.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      await rollSideInitiative(app.viewed);
+    });
+    root.prepend(rollButton);
+  }
 });
 
 /**

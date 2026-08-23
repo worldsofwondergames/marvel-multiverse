@@ -203,7 +203,8 @@
     },
     "BigFight": {
       "Enable": "Enable Big Fight Mode",
-      "Disable": "Disable Big Fight Mode"
+      "Disable": "Disable Big Fight Mode",
+      "RollSideInitiative": "Roll Side Initiative"
     }
   },
   "InitiativeRoll": "Initiative Roll",

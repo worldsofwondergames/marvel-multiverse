@@ -348,7 +348,9 @@ test.describe('Foe grouping', () => {
     await page.locator('.dialog-buttons button[data-button="ok"]').click();
     await page.waitForTimeout(300);
 
-    const row = page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"]`);
+    // Whichever of the two checked rows sits first in the tracker's own DOM
+    // order becomes the kept row -- not necessarily the one checked first.
+    const row = page.locator('li.combatant:has(.mm-big-fight-group-hp)');
     await expect(row.locator('.name')).toContainText('(2)');
     await expect(row.locator('.mm-big-fight-group-hp')).toContainText(`HP ${totalMax}/${totalMax}`);
 
@@ -356,11 +358,17 @@ test.describe('Foe grouping', () => {
     // once it represents a group, one thumbnail per member (2 here).
     await expect(row.locator('.mm-big-fight-group-icons img')).toHaveCount(2);
 
-    // Hiding or marking one member of a group defeated individually doesn't
-    // apply once the row represents the whole group -- hidden rather than
-    // removed so ungrouping can bring them back (checked further below).
+    // Hiding, marking defeated, or pinging one member of a group
+    // individually doesn't apply once the row represents the whole group --
+    // hidden rather than removed so ungrouping can bring them back (checked
+    // further below).
     await expect(row.locator('[data-action="toggleHidden"]')).toBeHidden();
     await expect(row.locator('[data-action="toggleDefeated"]')).toBeHidden();
+    await expect(row.locator('[data-action="pingCombatant"]')).toBeHidden();
+    // Foundry's own per-row initiative control also doesn't apply -- Roll
+    // Side Initiative above is the only thing that should set a group's
+    // initiative.
+    await expect(row.locator('.token-initiative')).toBeHidden();
 
     // Grouped rows lose their selection checkbox; only the ungrouped hero's
     // remains, proving the checkbox pass reads the just-written group back.
@@ -399,6 +407,8 @@ test.describe('Foe grouping', () => {
     await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] .name`)).toContainText(FOE_1);
     await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_2]}"] .name`)).toContainText(FOE_2);
     await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] [data-action="toggleHidden"]`)).toBeVisible();
+    await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] [data-action="pingCombatant"]`)).toBeVisible();
+    await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] .token-initiative`)).toBeVisible();
     await expect(page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`)).toBeVisible();
     await expect(page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`)).toBeVisible();
   });

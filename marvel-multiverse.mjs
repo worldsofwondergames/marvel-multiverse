@@ -8774,6 +8774,8 @@ Hooks.on("renderCombatTracker", (app, html) => {
     el.querySelector(".token-image")?.style.removeProperty("display");
     el.querySelector('[data-action="toggleHidden"]')?.style.removeProperty("display");
     el.querySelector('[data-action="toggleDefeated"]')?.style.removeProperty("display");
+    el.querySelector('[data-action="pingCombatant"]')?.style.removeProperty("display");
+    el.querySelector(".token-initiative")?.style.removeProperty("display");
     const nameEl = el.querySelector(".name");
     if (nameEl?.dataset.mmOriginalName) nameEl.textContent = nameEl.dataset.mmOriginalName;
   });
@@ -8897,12 +8899,22 @@ Hooks.on("renderCombatTracker", (app, html) => {
             nameEl.textContent = `${group.name} (${liveCount})`;
           }
 
-          // Hiding or marking one member of a group defeated individually
-          // stops making sense once the row represents the whole group --
-          // damage already drops the pooled Health below, and defeat is
-          // derived from that, not toggled per row.
+          // Hiding, marking defeated, or pinging one member of a group
+          // individually stops making sense once the row represents the
+          // whole group -- damage already drops the pooled Health below,
+          // defeat is derived from that rather than toggled per row, and
+          // there's no single token left for "ping" to point at.
           row.querySelector('[data-action="toggleHidden"]')?.style.setProperty("display", "none");
           row.querySelector('[data-action="toggleDefeated"]')?.style.setProperty("display", "none");
+          row.querySelector('[data-action="pingCombatant"]')?.style.setProperty("display", "none");
+          // Foundry's own per-row initiative control (the d20 icon, or the
+          // editable value once rolled) only knows about this one
+          // combatant -- clicking it rolls and posts a standard chat card
+          // for just the group's first member, which reads as though that
+          // member's initiative is the group's when Roll Side Initiative
+          // above is what actually sets it (for both groups and
+          // individuals). Hidden here so it can't be reached by mistake.
+          row.querySelector(".token-initiative")?.style.setProperty("display", "none");
 
           const hp = document.createElement("div");
           hp.className = "mm-big-fight-group-hp";

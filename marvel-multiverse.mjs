@@ -8944,10 +8944,35 @@ Hooks.on("renderCombatTracker", (app, html) => {
           ui.notifications.warn("Select at least two combatants to group.");
           return;
         }
-        const name = await Dialog.prompt({
-          title: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
-          content: '<input type="text" name="groupName" value="Group" style="width:100%;">',
-          callback: (html) => html.find('[name="groupName"]').val(),
+        const groupNameLabel = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameLabel");
+        const name = await new Promise((resolve) => {
+          new Dialog(
+            {
+              title: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
+              content: `<form><div class="form-group">
+                <label>${groupNameLabel}</label>
+                <input type="text" name="groupName" placeholder="${groupNameLabel}">
+              </div></form>`,
+              buttons: {
+                // Keyed "ok" (rather than e.g. "confirm") to match the
+                // data-button="ok" the previous Dialog.prompt-based version
+                // rendered, which e2e/big-fight.spec.mjs's locators depend on.
+                ok: {
+                  icon: '<i class="fas fa-check"></i>',
+                  label: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
+                  callback: (html) => resolve(html.find('[name="groupName"]').val().trim() || "Group"),
+                },
+                cancel: {
+                  icon: '<i class="fas fa-times"></i>',
+                  label: "Cancel",
+                  callback: () => resolve(null),
+                },
+              },
+              default: "ok",
+              close: () => resolve(null),
+            },
+            { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }
+          ).render(true);
         });
         if (name) await groupCombatants(app.viewed, ids, name);
       });

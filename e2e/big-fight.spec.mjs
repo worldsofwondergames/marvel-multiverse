@@ -348,9 +348,19 @@ test.describe('Foe grouping', () => {
     await page.locator('.dialog-buttons button[data-button="ok"]').click();
     await page.waitForTimeout(300);
 
-    const pool = page.locator('.mm-big-fight-pool');
-    await expect(pool).toContainText('(2)');
-    await expect(pool).toContainText(`HP ${totalMax}/${totalMax}`);
+    const row = page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"]`);
+    await expect(row.locator('.name')).toContainText('(2)');
+    await expect(row.locator('.mm-big-fight-group-hp')).toContainText(`HP ${totalMax}/${totalMax}`);
+
+    // A quarter-sized icon grid stands in for the row's own single portrait
+    // once it represents a group, one thumbnail per member (2 here).
+    await expect(row.locator('.mm-big-fight-group-icons img')).toHaveCount(2);
+
+    // Hiding or marking one member of a group defeated individually doesn't
+    // apply once the row represents the whole group -- hidden rather than
+    // removed so ungrouping can bring them back (checked further below).
+    await expect(row.locator('[data-action="toggleHidden"]')).toBeHidden();
+    await expect(row.locator('[data-action="toggleDefeated"]')).toBeHidden();
 
     // Grouped rows lose their selection checkbox; only the ungrouped hero's
     // remains, proving the checkbox pass reads the just-written group back.
@@ -367,7 +377,8 @@ test.describe('Foe grouping', () => {
     await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`).check();
     await page.locator('.mm-big-fight-group-btn').click();
     await page.locator('.dialog-buttons button[data-button="ok"]').click();
-    await expect(page.locator('.mm-big-fight-pool')).toContainText('(2)');
+    const groupedRow = page.locator('li.combatant:has(.mm-big-fight-group-hp)');
+    await expect(groupedRow.locator('.name')).toContainText('(2)');
 
     // No document is deleted -- the actor's Health simply drops to 0, which
     // is this glue's "destroyed" threshold (see combatantsById).
@@ -376,14 +387,18 @@ test.describe('Foe grouping', () => {
       await actor.update({ 'system.health.value': 0 });
     }, FOE_1);
     await page.waitForTimeout(300);
-    await expect(page.locator('.mm-big-fight-pool')).toContainText('(1)');
+    await expect(groupedRow.locator('.name')).toContainText('(1)');
 
     const combatantCountAfterDrop = await page.evaluate(() => game.combat.combatants.size);
     expect(combatantCountAfterDrop).toBe(3);
 
     await page.locator('.mm-big-fight-ungroup').click();
     await page.waitForTimeout(300);
-    await expect(page.locator('.mm-big-fight-pool')).toHaveCount(0);
+    await expect(page.locator('.mm-big-fight-group-hp')).toHaveCount(0);
+    // Both members' rows are back to their own name, icon, and controls.
+    await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] .name`)).toContainText(FOE_1);
+    await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_2]}"] .name`)).toContainText(FOE_2);
+    await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] [data-action="toggleHidden"]`)).toBeVisible();
     await expect(page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`)).toBeVisible();
     await expect(page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`)).toBeVisible();
   });
@@ -418,7 +433,7 @@ test.describe('Foe grouping', () => {
 
     expect(warnings.some((w) => w.toLowerCase().includes('same side'))).toBe(true);
     expect(groupCount).toBe(0);
-    await expect(page.locator('.mm-big-fight-pool')).toHaveCount(0);
+    await expect(page.locator('.mm-big-fight-group-hp')).toHaveCount(0);
   });
 
   test('the group controls only appear while Big Fight mode is enabled', async ({ foundryPage }) => {

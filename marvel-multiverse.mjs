@@ -8757,14 +8757,25 @@ Hooks.on("renderCombatTracker", (app, html) => {
   root.querySelector(".mm-big-fight-toggle")?.remove();
   root.querySelector(".mm-big-fight-roll-initiative")?.remove();
   root.querySelector(".mm-big-fight-group-btn")?.remove();
-  root.querySelectorAll(".mm-big-fight-pool").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-group-icons").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-group-hp").forEach((el) => el.remove());
   root.querySelectorAll(".mm-big-fight-select").forEach((el) => el.remove());
   root.querySelectorAll(".mm-big-fight-in-range").forEach((el) => el.remove());
-  // Reset any rows a previous render hid to display a group's pooled row --
+  // Reset any rows a previous render altered to stand in for a group --
   // otherwise a combatant that gets ungrouped (or Big Fight mode turned off)
-  // would stay hidden even though nothing hides it any more.
+  // would stay hidden, keep the group's name, or stay missing its own
+  // portrait and Hide/Mark Defeated controls, even though nothing overrides
+  // them any more. The portrait and those two controls are hidden rather
+  // than removed when a row stands in for a group (below), specifically so
+  // this reset can bring them back without needing Foundry to have
+  // rebuilt the row from scratch in between.
   root.querySelectorAll("li.combatant[data-combatant-id]").forEach((el) => {
     el.style.display = "";
+    el.querySelector(".token-image")?.style.removeProperty("display");
+    el.querySelector('[data-action="toggleHidden"]')?.style.removeProperty("display");
+    el.querySelector('[data-action="toggleDefeated"]')?.style.removeProperty("display");
+    const nameEl = el.querySelector(".name");
+    if (nameEl?.dataset.mmOriginalName) nameEl.textContent = nameEl.dataset.mmOriginalName;
   });
   if (!app.viewed) return;
   // The world setting is a hard off switch: when a GM disables it, the whole
@@ -8843,7 +8854,6 @@ Hooks.on("renderCombatTracker", (app, html) => {
 
       for (const group of groups) {
         const health = pooledResource(group, byId, "health");
-        const focus = pooledResource(group, byId, "focus");
         const liveCount = liveMembers(group, byId).length;
 
         group.memberCombatantIds.forEach((memberId, index) => {
@@ -8851,7 +8861,8 @@ Hooks.on("renderCombatTracker", (app, html) => {
           // sidebar list renders a `li.combatant` -- both carry
           // data-combatant-id, so an unqualified attribute selector would
           // match the portrait first. Only the sidebar list row is where a
-          // pooled-resource line and a hidden duplicate member make sense.
+          // group's own name/icons/HP and a hidden duplicate member make
+          // sense.
           const row = root.querySelector(`li.combatant[data-combatant-id="${memberId}"]`);
           if (!row) return;
           if (index > 0) {
@@ -8859,13 +8870,43 @@ Hooks.on("renderCombatTracker", (app, html) => {
             return;
           }
 
-          const pool = document.createElement("div");
-          pool.className = "mm-big-fight-pool";
+          // A quarter-sized portrait grid for up to the first 4 members,
+          // filled left to right then top to bottom, so the row reads as a
+          // group at a glance instead of showing just its first member.
+          // Hidden rather than replaced (see the cleanup reset above).
+          const portrait = row.querySelector(".token-image");
+          portrait?.style.setProperty("display", "none");
+          const iconGrid = document.createElement("div");
+          iconGrid.className = "token-image mm-big-fight-group-icons";
+          for (const iconMemberId of group.memberCombatantIds.slice(0, 4)) {
+            const memberCombatant = app.viewed.combatants.get(iconMemberId);
+            if (!memberCombatant) continue;
+            const icon = document.createElement("img");
+            icon.className = "mm-big-fight-group-icon";
+            icon.src = memberCombatant.img;
+            icon.alt = memberCombatant.name;
+            iconGrid.appendChild(icon);
+          }
+          portrait?.insertAdjacentElement("afterend", iconGrid);
 
-          const info = document.createElement("span");
-          info.className = "mm-big-fight-pool-info";
-          info.textContent = `${group.name} (${liveCount}) — HP ${health.value}/${health.max}, Focus ${focus.value}/${focus.max}`;
-          pool.appendChild(info);
+          // The row's name is this group's, not just whichever member
+          // happens to sit in the first slot.
+          const nameEl = row.querySelector(".name");
+          if (nameEl) {
+            nameEl.dataset.mmOriginalName ??= nameEl.textContent;
+            nameEl.textContent = `${group.name} (${liveCount})`;
+          }
+
+          // Hiding or marking one member of a group defeated individually
+          // stops making sense once the row represents the whole group --
+          // damage already drops the pooled Health below, and defeat is
+          // derived from that, not toggled per row.
+          row.querySelector('[data-action="toggleHidden"]')?.style.setProperty("display", "none");
+          row.querySelector('[data-action="toggleDefeated"]')?.style.setProperty("display", "none");
+
+          const hp = document.createElement("div");
+          hp.className = "mm-big-fight-group-hp";
+          hp.textContent = `HP ${health.value}/${health.max}`;
 
           const ungroupLink = document.createElement("a");
           ungroupLink.className = "mm-big-fight-ungroup";
@@ -8875,9 +8916,9 @@ Hooks.on("renderCombatTracker", (app, html) => {
             ev.stopPropagation();
             await ungroupCombatants(app.viewed, group.id);
           });
-          pool.appendChild(ungroupLink);
+          hp.appendChild(ungroupLink);
 
-          row.appendChild(pool);
+          nameEl?.insertAdjacentElement("afterend", hp);
         });
       }
     }

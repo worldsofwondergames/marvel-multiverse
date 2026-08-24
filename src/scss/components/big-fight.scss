@@ -32,29 +32,37 @@
   margin-right: 4px;
 }
 
-.mm-big-fight-pool {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+// A quarter-sized portrait grid standing in for a grouped row's own single
+// token-image. Reuses the token-image class for its overall footprint
+// (Foundry sizes that class via --sidebar-item-height, so this tracks
+// whatever size core actually renders instead of a hardcoded value) and
+// overrides its layout to a 2x2 grid, filled left to right then top to
+// bottom by DOM order.
+.mm-big-fight-group-icons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 1px;
+  padding: 0;
+}
+
+.mm-big-fight-group-icon {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+// No explicit color: inherits the tracker's own (theme-dependent) text
+// color rather than hardcoding one that could go low-contrast under a
+// theme this system doesn't control.
+.mm-big-fight-group-hp {
   margin-top: 2px;
-  padding: 2px 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #fff;
-  background: #8b0502;
-  border-radius: 3px;
-
-  .mm-big-fight-pool-info {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  opacity: 0.85;
 
   .mm-big-fight-ungroup {
-    flex: 0 0 auto;
-    color: #fff;
+    margin-left: 6px;
     text-decoration: underline;
     cursor: pointer;
   }

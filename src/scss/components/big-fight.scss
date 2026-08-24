@@ -9,9 +9,16 @@
 .mm-big-fight-roll-initiative,
 .mm-big-fight-group-btn {
   flex: 0 0 auto;
-  width: 100%;
+  width: calc(100% - 16px);
   margin: 0 8px 8px;
   font-weight: 700;
+}
+
+// Group Selected is prepended after Roll Side Initiative, so it always ends
+// up as the tracker's first child and needs its own top margin -- nothing
+// above it to inherit spacing from.
+.mm-big-fight-group-btn {
+  margin-top: 8px;
 }
 
 .mm-big-fight-toggle.-enabled {

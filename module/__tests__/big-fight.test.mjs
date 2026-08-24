@@ -11,6 +11,7 @@ import {
   bestVigilanceBySide,
   needsInitiativeReroll,
   nextInRangeValue,
+  groupBestVigilance,
 } from '../../marvel-multiverse.mjs';
 
 import * as twin from '../helpers/big-fight.mjs';
@@ -128,6 +129,28 @@ describe('bestVigilanceBySide', () => {
   });
 });
 
+describe('groupBestVigilance', () => {
+  test('picks the highest Vigilance among the group\'s own members', () => {
+    const group = { memberCombatantIds: ['c1', 'c2', 'c3'] };
+    const byId = {
+      c1: { vigilance: 2 },
+      c2: { vigilance: 5 },
+      c3: { vigilance: 3 },
+    };
+    expect(groupBestVigilance(group, byId)).toBe(5);
+  });
+
+  test('ignores a combatant outside the group even if higher', () => {
+    const group = { memberCombatantIds: ['c1'] };
+    const byId = { c1: { vigilance: 2 }, c9: { vigilance: 9 } };
+    expect(groupBestVigilance(group, byId)).toBe(2);
+  });
+
+  test('no group is 0', () => {
+    expect(groupBestVigilance(null, {})).toBe(0);
+  });
+});
+
 describe('needsInitiativeReroll', () => {
   test('a tie needs a reroll', () => {
     expect(needsInitiativeReroll(11, 11)).toBe(true);
@@ -167,13 +190,14 @@ describe('in-range marker', () => {
 });
 
 describe('the twin agrees with the shipping monolith', () => {
-  test('exports the same 11 function names', () => {
+  test('exports the same 12 function names', () => {
     expect(Object.keys(twin).sort()).toEqual([
       'applyAttackBonusToFormula',
       'bestVigilanceBySide',
       'combatantSideFromDisposition',
       'findGroup',
       'groupAttackBonus',
+      'groupBestVigilance',
       'groupDamageTargetsByGroup',
       'isBigFightEnabled',
       'liveMembers',
@@ -236,6 +260,14 @@ describe('the twin agrees with the shipping monolith', () => {
     };
     expect(twin.groupAttackBonus(group, combatantsById)).toBe(
       groupAttackBonus(group, combatantsById)
+    );
+  });
+
+  test('groupBestVigilance matches for a group of 3 with mixed Vigilance', () => {
+    const group = { memberCombatantIds: ['c1', 'c2', 'c3'] };
+    const combatantsById = { c1: { vigilance: 2 }, c2: { vigilance: 5 }, c3: { vigilance: 3 } };
+    expect(twin.groupBestVigilance(group, combatantsById)).toBe(
+      groupBestVigilance(group, combatantsById)
     );
   });
 

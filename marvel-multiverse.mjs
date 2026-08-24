@@ -8328,6 +8328,23 @@ function needsInitiativeReroll(heroTotal, foeTotal) {
 }
 
 /**
+ * The highest Vigilance among a group's own members -- the same "best of the
+ * side" idea bestVigilanceBySide uses for side initiative, scoped down to
+ * just this group so re-rolling its initiative doesn't touch the rest of
+ * its side.
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {vigilance?: number}>} combatantsById
+ * @returns {number}
+ */
+function groupBestVigilance(group, combatantsById) {
+  if (!group) return 0;
+  return group.memberCombatantIds.reduce(
+    (best, id) => Math.max(best, combatantsById[id]?.vigilance ?? 0),
+    0
+  );
+}
+
+/**
  * @param {boolean|undefined} current
  * @returns {boolean}
  */
@@ -8441,6 +8458,36 @@ async function rollSideInitiative(combat) {
   });
 
   return totals;
+}
+
+/**
+ * Rolls initiative for one group only, using the best Vigilance among its
+ * own members rather than the whole side's -- unlike rollSideInitiative,
+ * this deliberately does not touch any other combatant or group, since a
+ * GM re-rolling one group mid-encounter has no reason to reshuffle everyone
+ * else's turn.
+ * @param {Combat} combat
+ * @param {object} group
+ * @param {Record<string, object>} byId
+ * @returns {Promise<number>}
+ */
+async function rollGroupInitiative(combat, group, byId) {
+  const vigilance = groupBestVigilance(group, byId);
+  const roll = new CONFIG.Dice.MarvelMultiverseRoll(`{1d6,1dm,1d6} + ${vigilance}`, {});
+  await roll.evaluate();
+  const total = roll.total;
+
+  await combat.updateEmbeddedDocuments(
+    "Combatant",
+    group.memberCombatantIds.map((id) => ({ _id: id, initiative: total }))
+  );
+
+  await ChatMessage.create({
+    speaker: { alias: "Big Fight" },
+    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>${group.name}: ${total}</span></h4></div></div>`,
+  });
+
+  return total;
 }
 
 /**
@@ -8775,7 +8822,10 @@ Hooks.on("renderCombatTracker", (app, html) => {
     el.querySelector('[data-action="toggleHidden"]')?.style.removeProperty("display");
     el.querySelector('[data-action="toggleDefeated"]')?.style.removeProperty("display");
     el.querySelector('[data-action="pingCombatant"]')?.style.removeProperty("display");
-    el.querySelector(".token-initiative")?.style.removeProperty("display");
+    const tokenInitiative = el.querySelector(".token-initiative");
+    if (tokenInitiative?.dataset.mmOriginalHtml !== undefined) {
+      tokenInitiative.innerHTML = tokenInitiative.dataset.mmOriginalHtml;
+    }
     const nameEl = el.querySelector(".name");
     if (nameEl?.dataset.mmOriginalName) nameEl.textContent = nameEl.dataset.mmOriginalName;
   });
@@ -8907,14 +8957,39 @@ Hooks.on("renderCombatTracker", (app, html) => {
           row.querySelector('[data-action="toggleHidden"]')?.style.setProperty("display", "none");
           row.querySelector('[data-action="toggleDefeated"]')?.style.setProperty("display", "none");
           row.querySelector('[data-action="pingCombatant"]')?.style.setProperty("display", "none");
-          // Foundry's own per-row initiative control (the d20 icon, or the
-          // editable value once rolled) only knows about this one
-          // combatant -- clicking it rolls and posts a standard chat card
-          // for just the group's first member, which reads as though that
-          // member's initiative is the group's when Roll Side Initiative
-          // above is what actually sets it (for both groups and
-          // individuals). Hidden here so it can't be reached by mistake.
-          row.querySelector(".token-initiative")?.style.setProperty("display", "none");
+          // Foundry's own per-row initiative control only knows about this
+          // one combatant -- clicking it would roll and post a standard chat
+          // card for just the group's first member, and reading its value
+          // back would show only that member's own initiative. Replaced
+          // (not just hidden) with a control that rolls and displays the
+          // whole group's shared value instead.
+          const tokenInitiative = row.querySelector(".token-initiative");
+          if (tokenInitiative) {
+            tokenInitiative.dataset.mmOriginalHtml ??= tokenInitiative.innerHTML;
+            tokenInitiative.innerHTML = "";
+
+            const rollBtn = document.createElement("button");
+            rollBtn.type = "button";
+            rollBtn.className = "combatant-control roll mm-big-fight-group-roll-initiative";
+            rollBtn.style.setProperty("--initiative-icon", "url('../icons/svg/d20.svg')");
+            rollBtn.style.setProperty("--initiative-icon-hover", "url('../icons/svg/d20-highlight.svg')");
+            rollBtn.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollGroupInitiative");
+            rollBtn.setAttribute("aria-label", rollBtn.title);
+            rollBtn.addEventListener("click", async (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              await rollGroupInitiative(app.viewed, group, byId);
+            });
+            tokenInitiative.appendChild(rollBtn);
+
+            const groupInitiative = app.viewed.combatants.get(memberId)?.initiative;
+            if (groupInitiative !== null && groupInitiative !== undefined) {
+              const value = document.createElement("span");
+              value.className = "mm-big-fight-group-initiative-value";
+              value.textContent = String(groupInitiative);
+              tokenInitiative.appendChild(value);
+            }
+          }
 
           const hp = document.createElement("div");
           hp.className = "mm-big-fight-group-hp";
@@ -10236,5 +10311,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, findGroup, groupAttackBonus, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, findGroup, groupAttackBonus, groupBestVigilance, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

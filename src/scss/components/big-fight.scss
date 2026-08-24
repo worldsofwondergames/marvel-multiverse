@@ -68,6 +68,15 @@
   }
 }
 
+// The roll button reuses the core .combatant-control.roll class for its
+// d20-icon look; only the value readout beside it (once the group has
+// rolled) needs its own styling, matched to core's own .initiative-input
+// font-size so it doesn't read as smaller than any other row's number.
+.mm-big-fight-group-initiative-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .mm-damage-group-heading {
   margin: 6px 0 2px;
   padding-bottom: 2px;

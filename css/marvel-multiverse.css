@@ -1561,6 +1561,11 @@
   cursor: pointer;
 }
 
+.mm-big-fight-group-initiative-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .mm-damage-group-heading {
   margin: 6px 0 2px;
   padding-bottom: 2px;

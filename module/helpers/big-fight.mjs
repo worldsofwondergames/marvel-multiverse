@@ -110,6 +110,23 @@ export function needsInitiativeReroll(heroTotal, foeTotal) {
 }
 
 /**
+ * The highest Vigilance among a group's own members -- the same "best of the
+ * side" idea bestVigilanceBySide uses for side initiative, scoped down to
+ * just this group so re-rolling its initiative doesn't touch the rest of
+ * its side.
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {vigilance?: number}>} combatantsById
+ * @returns {number}
+ */
+export function groupBestVigilance(group, combatantsById) {
+  if (!group) return 0;
+  return group.memberCombatantIds.reduce(
+    (best, id) => Math.max(best, combatantsById[id]?.vigilance ?? 0),
+    0
+  );
+}
+
+/**
  * @param {boolean|undefined} current
  * @returns {boolean}
  */

@@ -365,10 +365,11 @@ test.describe('Foe grouping', () => {
     await expect(row.locator('[data-action="toggleHidden"]')).toBeHidden();
     await expect(row.locator('[data-action="toggleDefeated"]')).toBeHidden();
     await expect(row.locator('[data-action="pingCombatant"]')).toBeHidden();
-    // Foundry's own per-row initiative control also doesn't apply -- Roll
-    // Side Initiative above is the only thing that should set a group's
-    // initiative.
-    await expect(row.locator('.token-initiative')).toBeHidden();
+    // Foundry's native per-row initiative control (rolls/edits just one
+    // combatant) is replaced with one that rolls the whole group instead.
+    await expect(row.locator('[data-action="rollInitiative"]')).toHaveCount(0);
+    await expect(row.locator('.initiative-input')).toHaveCount(0);
+    await expect(row.locator('.mm-big-fight-group-roll-initiative')).toBeVisible();
 
     // Grouped rows lose their selection checkbox; only the ungrouped hero's
     // remains, proving the checkbox pass reads the just-written group back.
@@ -408,9 +409,44 @@ test.describe('Foe grouping', () => {
     await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_2]}"] .name`)).toContainText(FOE_2);
     await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] [data-action="toggleHidden"]`)).toBeVisible();
     await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] [data-action="pingCombatant"]`)).toBeVisible();
-    await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] .token-initiative`)).toBeVisible();
+    await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] [data-action="rollInitiative"]`)).toBeVisible();
+    await expect(page.locator(`li.combatant[data-combatant-id="${ids[FOE_1]}"] .mm-big-fight-group-roll-initiative`)).toHaveCount(0);
     await expect(page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`)).toBeVisible();
     await expect(page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`)).toBeVisible();
+  });
+
+  test('the die on a grouped row rolls only that group\'s initiative, leaving other combatants alone', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await setUpGroupingCombat(page);
+    const ids = await combatantIdsByName(page, [FOE_1, FOE_2, HERO]);
+
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`).check();
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`).check();
+    await page.locator('.mm-big-fight-group-btn').click();
+    await page.locator('.dialog-buttons button[data-button="ok"]').click();
+    await page.waitForTimeout(300);
+
+    await page.locator('.mm-big-fight-group-roll-initiative').click();
+    await page.waitForTimeout(500);
+
+    const initiatives = await page.evaluate(
+      (ids) => ({
+        foe1: game.combat.combatants.get(ids.foe1)?.initiative,
+        foe2: game.combat.combatants.get(ids.foe2)?.initiative,
+        hero: game.combat.combatants.get(ids.hero)?.initiative,
+      }),
+      { foe1: ids[FOE_1], foe2: ids[FOE_2], hero: ids[HERO] }
+    );
+
+    // Both group members land on the same freshly rolled value, and the
+    // hero (not in this group, and on the other side entirely) is left
+    // exactly as it was -- never rolled.
+    expect(initiatives.foe1).not.toBeNull();
+    expect(initiatives.foe1).toBe(initiatives.foe2);
+    expect(initiatives.hero).toBeNull();
+
+    const groupedRow = page.locator('li.combatant:has(.mm-big-fight-group-hp)');
+    await expect(groupedRow.locator('.mm-big-fight-group-initiative-value')).toHaveText(String(initiatives.foe1));
   });
 
   test('grouping combatants from different sides is rejected', async ({ foundryPage }) => {

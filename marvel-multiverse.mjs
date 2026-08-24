@@ -8827,8 +8827,14 @@ Hooks.on("renderCombatTracker", (app, html) => {
     if (game.user.isGM) {
       const rollButton = document.createElement("button");
       rollButton.type = "button";
-      rollButton.className = "mm-big-fight-roll-initiative";
-      rollButton.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollSideInitiative");
+      rollButton.className = "combat-control combat-control-lg mm-big-fight-roll-initiative";
+      const rollIcon = document.createElement("i");
+      rollIcon.className = "fa-solid fa-dice-d20";
+      rollIcon.inert = true;
+      rollButton.appendChild(rollIcon);
+      const rollLabel = document.createElement("span");
+      rollLabel.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollSideInitiative");
+      rollButton.appendChild(rollLabel);
       rollButton.addEventListener("click", async (ev) => {
         ev.preventDefault();
         await rollSideInitiative(app.viewed);
@@ -8921,8 +8927,14 @@ Hooks.on("renderCombatTracker", (app, html) => {
 
       const groupButton = document.createElement("button");
       groupButton.type = "button";
-      groupButton.className = "mm-big-fight-group-btn";
-      groupButton.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupSelected");
+      groupButton.className = "combat-control combat-control-lg mm-big-fight-group-btn";
+      const groupIcon = document.createElement("i");
+      groupIcon.className = "fa-solid fa-layer-group";
+      groupIcon.inert = true;
+      groupButton.appendChild(groupIcon);
+      const groupLabel = document.createElement("span");
+      groupLabel.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupSelected");
+      groupButton.appendChild(groupLabel);
       groupButton.addEventListener("click", async (ev) => {
         ev.preventDefault();
         const ids = Array.from(root.querySelectorAll(".mm-big-fight-select:checked")).map(

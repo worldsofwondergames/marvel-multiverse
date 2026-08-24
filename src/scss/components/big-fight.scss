@@ -1,42 +1,22 @@
-// Layout (flex row, icon + label, height, padding, border-radius) comes from
-// the core combat-control/combat-control-lg classes this button also
-// carries, so only the width/spacing needed to stack it as its own row above
-// Start Combat, plus the on/off coloring, are set here.
-.mm-big-fight-toggle {
-  width: 100%;
-  margin: 4px 8px 8px;
-  font-weight: 700;
-
-  &.-enabled {
-    background: #8b0502;
-    border-color: #8b0502;
-    color: #fff;
-  }
-}
-
-.mm-big-fight-roll-initiative {
-  display: block;
-  width: 100%;
-  margin-bottom: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid #555;
-  border-radius: 3px;
-  background: #333;
-  color: #fff;
-}
-
+// These buttons carry the core combat-control/combat-control-lg classes so
+// their row layout (icon + label), padding, border-radius, and font-size
+// match Start Combat. That core class also carries flex: 1 1 auto, meant for
+// sitting beside siblings inside nav.combat-controls's row -- here each
+// button is instead its own row in #combat's column flex layout, so
+// flex-grow has to be zeroed or the button stretches to fill the tracker's
+// leftover vertical space instead of sizing to its content.
+.mm-big-fight-toggle,
+.mm-big-fight-roll-initiative,
 .mm-big-fight-group-btn {
-  display: block;
+  flex: 0 0 auto;
   width: 100%;
-  margin-bottom: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
+  margin: 0 8px 8px;
   font-weight: 700;
-  border: 1px solid #555;
-  border-radius: 3px;
-  background: #333;
+}
+
+.mm-big-fight-toggle.-enabled {
+  background: #8b0502;
+  border-color: #8b0502;
   color: #fff;
 }
 

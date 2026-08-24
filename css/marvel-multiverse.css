@@ -1511,40 +1511,18 @@
   font-size: 12px;
 }
 
-.mm-big-fight-toggle {
+.mm-big-fight-toggle,
+.mm-big-fight-roll-initiative,
+.mm-big-fight-group-btn {
+  flex: 0 0 auto;
   width: 100%;
-  margin: 4px 8px 8px;
+  margin: 0 8px 8px;
   font-weight: 700;
 }
+
 .mm-big-fight-toggle.-enabled {
   background: #8b0502;
   border-color: #8b0502;
-  color: #fff;
-}
-
-.mm-big-fight-roll-initiative {
-  display: block;
-  width: 100%;
-  margin-bottom: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid #555;
-  border-radius: 3px;
-  background: #333;
-  color: #fff;
-}
-
-.mm-big-fight-group-btn {
-  display: block;
-  width: 100%;
-  margin-bottom: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid #555;
-  border-radius: 3px;
-  background: #333;
   color: #fff;
 }
 

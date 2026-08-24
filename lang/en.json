@@ -209,7 +209,11 @@
       "Ungroup": "Ungroup",
       "GroupNameTitle": "Group Name",
       "InRange": "In range",
-      "NotInRange": "Not in range"
+      "NotInRange": "Not in range",
+      "Setting": {
+        "Enable": "Enable Big Fight Mode",
+        "EnableHint": "Allow the Big Fight abstraction mode to be turned on for an encounter. Disabling this hides its controls and stops it from applying, without discarding any encounter's existing Big Fight setup."
+      }
     }
   },
   "InitiativeRoll": "Initiative Roll",

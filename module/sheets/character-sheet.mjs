@@ -754,7 +754,10 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
       const bigFight = game.combat?.getFlag("marvel-multiverse", "bigFight") ?? null;
       const bigFightCombatant = game.combat?.combatants?.find((c) => c.actorId === this.actor.id);
       const bigFightGroup = bigFightCombatant ? findGroup(bigFight?.groups, bigFightCombatant.id) : null;
-      const groupBonus = isBigFightEnabled(bigFight) ? groupAttackBonus(bigFightGroup, {}) : 0;
+      const groupBonus =
+        game.settings.get("marvel-multiverse", "bigFightEnabled") && isBigFightEnabled(bigFight)
+          ? groupAttackBonus(bigFightGroup, {})
+          : 0;
       const formula = groupBonus ? `${dataset.formula} + ${groupBonus}` : dataset.formula;
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
         formula,

@@ -1,18 +1,16 @@
+// Layout (flex row, icon + label, height, padding, border-radius) comes from
+// the core combat-control/combat-control-lg classes this button also
+// carries, so only the width/spacing needed to stack it as its own row above
+// Start Combat, plus the on/off coloring, are set here.
 .mm-big-fight-toggle {
-  display: block;
   width: 100%;
-  margin-bottom: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
+  margin: 4px 8px 8px;
   font-weight: 700;
-  border: 1px solid #555;
-  border-radius: 3px;
-  background: #333;
-  color: #fff;
 
   &.-enabled {
     background: #8b0502;
     border-color: #8b0502;
+    color: #fff;
   }
 }
 

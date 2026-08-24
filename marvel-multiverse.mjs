@@ -7977,6 +7977,15 @@ Hooks.once("init", () => {
     default: true,
   });
 
+  game.settings.register("marvel-multiverse", "bigFightEnabled", {
+    name: "MARVEL_MULTIVERSE.BigFight.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.BigFight.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+  });
+
   // Active Effects are never copied to the Actor, but still apply to the Actor
   // from within the Item when the effect's transfer property is true. This is
   // core behavior as of v14 (the legacy transferral framework was removed).
@@ -8523,6 +8532,7 @@ async function ungroupCombatants(combat, groupId) {
 function groupAttackBonusForActor(actor) {
   const combat = game.combat;
   if (!combat) return 0;
+  if (!game.settings.get("marvel-multiverse", "bigFightEnabled")) return 0;
   const bigFight = bigFightFlag(combat);
   if (!isBigFightEnabled(bigFight)) return 0;
   // An unlinked token's synthetic actor shares its base actor's id with every
@@ -8757,6 +8767,12 @@ Hooks.on("renderCombatTracker", (app, html) => {
     el.style.display = "";
   });
   if (!app.viewed) return;
+  // The world setting is a hard off switch: when a GM disables it, the whole
+  // feature disappears from the tracker for every client, the same way the
+  // cleanup above already removed it. An encounter's bigFight flag data is
+  // left untouched, so re-enabling the setting resumes exactly where the GM
+  // left off -- matching toggleBigFight's own "off doesn't discard" design.
+  if (!game.settings.get("marvel-multiverse", "bigFightEnabled")) return;
 
   const enabled = isBigFightEnabled(bigFightFlag(app.viewed));
 
@@ -8769,18 +8785,37 @@ Hooks.on("renderCombatTracker", (app, html) => {
   // GM-only. The cleanup above and the per-combatant in-range marker below
   // still run for every client.
   if (game.user.isGM) {
+    // Styled to match the tracker's own Start Combat button (same core
+    // combat-control-lg classes) and placed directly above it in the footer,
+    // rather than at the top with the rest of Big Fight's controls -- this is
+    // the encounter-level on/off switch, so it belongs with the other
+    // encounter-level control.
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "mm-big-fight-toggle" + (enabled ? " -enabled" : "");
-    button.textContent = enabled
+    button.className = "combat-control combat-control-lg mm-big-fight-toggle" + (enabled ? " -enabled" : "");
+
+    const icon = document.createElement("i");
+    icon.className = "fa-solid fa-people-group";
+    icon.inert = true;
+    button.appendChild(icon);
+
+    const label = document.createElement("span");
+    label.textContent = enabled
       ? game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Disable")
       : game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Enable");
+    button.appendChild(label);
+
     button.addEventListener("click", async (ev) => {
       ev.preventDefault();
       await toggleBigFight(app.viewed);
     });
 
-    root.prepend(button);
+    const footer = root.querySelector('nav.combat-controls[data-application-part="footer"]');
+    if (footer) {
+      footer.before(button);
+    } else {
+      root.appendChild(button);
+    }
   }
 
   if (enabled) {

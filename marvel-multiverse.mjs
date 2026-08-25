@@ -8976,26 +8976,28 @@ Hooks.on("renderCombatTracker", (app, html) => {
             tokenInitiative.dataset.mmOriginalHtml ??= tokenInitiative.innerHTML;
             tokenInitiative.innerHTML = "";
 
-            const rollBtn = document.createElement("button");
-            rollBtn.type = "button";
-            rollBtn.className = "combatant-control roll mm-big-fight-group-roll-initiative";
-            rollBtn.style.setProperty("--initiative-icon", "url('../icons/svg/d20.svg')");
-            rollBtn.style.setProperty("--initiative-icon-hover", "url('../icons/svg/d20-highlight.svg')");
-            rollBtn.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollGroupInitiative");
-            rollBtn.setAttribute("aria-label", rollBtn.title);
-            rollBtn.addEventListener("click", async (ev) => {
-              ev.preventDefault();
-              ev.stopPropagation();
-              await rollGroupInitiative(app.viewed, group, byId);
-            });
-            tokenInitiative.appendChild(rollBtn);
-
             const groupInitiative = app.viewed.combatants.get(memberId)?.initiative;
+            // Same either/or as Foundry's own token-initiative markup: once a
+            // value exists, show only the number, not the roll button too.
             if (groupInitiative !== null && groupInitiative !== undefined) {
               const value = document.createElement("span");
               value.className = "mm-big-fight-group-initiative-value";
               value.textContent = String(groupInitiative);
               tokenInitiative.appendChild(value);
+            } else {
+              const rollBtn = document.createElement("button");
+              rollBtn.type = "button";
+              rollBtn.className = "combatant-control roll mm-big-fight-group-roll-initiative";
+              rollBtn.style.setProperty("--initiative-icon", "url('../icons/svg/d20.svg')");
+              rollBtn.style.setProperty("--initiative-icon-hover", "url('../icons/svg/d20-highlight.svg')");
+              rollBtn.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollGroupInitiative");
+              rollBtn.setAttribute("aria-label", rollBtn.title);
+              rollBtn.addEventListener("click", async (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                await rollGroupInitiative(app.viewed, group, byId);
+              });
+              tokenInitiative.appendChild(rollBtn);
             }
           }
 

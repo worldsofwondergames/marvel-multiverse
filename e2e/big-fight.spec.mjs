@@ -449,6 +449,50 @@ test.describe('Foe grouping', () => {
     await expect(groupedRow.locator('.mm-big-fight-group-initiative-value')).toHaveText(String(initiatives.foe1));
   });
 
+  test('right-clicking a grouped row and choosing Re-roll Initiative rerolls the whole group', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await setUpGroupingCombat(page);
+    const ids = await combatantIdsByName(page, [FOE_1, FOE_2, HERO]);
+
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`).check();
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`).check();
+    await page.locator('.mm-big-fight-group-btn').click();
+    await page.locator('.dialog-buttons button[data-button="ok"]').click();
+    await page.waitForTimeout(300);
+
+    await page.locator('.mm-big-fight-group-roll-initiative').click();
+    await page.waitForTimeout(500);
+
+    // Capture the Combatant update core's Reroll action and this fix's
+    // rollGroupInitiative both funnel through, rather than reading back the
+    // rolled totals -- a random reroll can coincidentally land on the same
+    // number as before, but the update it sends can't coincidentally cover
+    // the wrong combatant count.
+    await page.evaluate(() => {
+      window.__bigFightCombatantUpdates = [];
+      window.__bigFightOriginalUpdateEmbedded = game.combat.updateEmbeddedDocuments.bind(game.combat);
+      game.combat.updateEmbeddedDocuments = (type, updates, options) => {
+        if (type === 'Combatant') window.__bigFightCombatantUpdates.push(updates);
+        return window.__bigFightOriginalUpdateEmbedded(type, updates, options);
+      };
+    });
+
+    const groupedRow = page.locator('li.combatant:has(.mm-big-fight-group-hp)');
+    await groupedRow.click({ button: 'right' });
+    await page.getByText('Re-roll Initiative', { exact: true }).click();
+    await page.waitForTimeout(500);
+
+    const updates = await page.evaluate(() => {
+      game.combat.updateEmbeddedDocuments = window.__bigFightOriginalUpdateEmbedded;
+      return window.__bigFightCombatantUpdates;
+    });
+
+    expect(updates).toHaveLength(1);
+    const updatedIds = updates[0].map((u) => u._id).sort();
+    expect(updatedIds).toEqual([ids[FOE_1], ids[FOE_2]].sort());
+    expect(updates[0][0].initiative).toBe(updates[0][1].initiative);
+  });
+
   test('grouping combatants from different sides is rejected', async ({ foundryPage }) => {
     const page = foundryPage;
     await setUpGroupingCombat(page);

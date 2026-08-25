@@ -8800,6 +8800,36 @@ Hooks.on("updateCombat", (combat, changed, options, userId) => {
 });
 
 /**
+ * A grouped row's context menu still belongs to its first member's
+ * combatant id (that is the row left visible), so core's own "Reroll
+ * Initiative" entry would silently reroll just that one member instead of
+ * the group. Swap its handler to roll the whole group when the row is a
+ * group's stand-in, and leave it untouched for every ungrouped combatant.
+ *
+ * The combat tracker only builds this context menu once, the first time its
+ * sidebar tab renders -- typically at world load, well before any combat or
+ * grouping exists. So every check here must happen inside onClick itself,
+ * against live state at click time, rather than once when this hook fires.
+ */
+Hooks.on("getCombatTrackerContextOptions", (app, menuItems) => {
+  const rerollEntry = menuItems.find((entry) => entry.label === "COMBATANT.ACTIONS.Reroll");
+  if (!rerollEntry) return;
+
+  const originalOnClick = rerollEntry.onClick;
+  rerollEntry.onClick = (event, li) => {
+    const combat = app.viewed;
+    if (!combat || !game.settings.get("marvel-multiverse", "bigFightEnabled")) {
+      return originalOnClick?.(event, li);
+    }
+    const bigFight = bigFightFlag(combat);
+    if (!isBigFightEnabled(bigFight)) return originalOnClick?.(event, li);
+    const group = findGroup(bigFight?.groups, li.dataset.combatantId);
+    if (!group) return originalOnClick?.(event, li);
+    return rollGroupInitiative(combat, group, combatantsById(combat));
+  };
+});
+
+/**
  * Injects the Big Fight toggle into the combat tracker header. Prepended to
  * the tracker root rather than a specific internal class, so this does not
  * depend on Foundry's internal tracker markup staying byte-identical across

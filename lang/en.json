@@ -206,6 +206,8 @@
       "Disable": "Disable Big Fight Mode",
       "RollSideInitiative": "Roll Side Initiative",
       "RollGroupInitiative": "Roll Group Initiative",
+      "HeroesInitiative": "Heroes Initiative",
+      "FoesInitiative": "Foes Initiative",
       "GroupSelected": "Group Selected",
       "Ungroup": "Ungroup",
       "GroupNameTitle": "Group Name",

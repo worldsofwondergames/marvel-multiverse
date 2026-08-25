@@ -8435,13 +8435,18 @@ async function rollSideInitiative(combat) {
     if (bySide[side].length === 0) return null;
     const roll = new CONFIG.Dice.MarvelMultiverseRoll(`{1d6,1dm,1d6} + ${bestVig[side]}`, {});
     await roll.evaluate();
-    return roll.total;
+    return roll;
   }
 
-  let totals = { hero: await rollSide("hero"), foe: await rollSide("foe") };
-  if (totals.hero !== null && totals.foe !== null && needsInitiativeReroll(totals.hero, totals.foe)) {
-    totals = { hero: await rollSide("hero"), foe: await rollSide("foe") };
+  // Kept as Roll objects, not just their totals, so the final (kept) rolls
+  // can each be posted with roll.toMessage() below -- a plain summary string
+  // has no per-die breakdown for a GM to expand, unlike every other roll in
+  // this system.
+  let rolls = { hero: await rollSide("hero"), foe: await rollSide("foe") };
+  if (rolls.hero && rolls.foe && needsInitiativeReroll(rolls.hero.total, rolls.foe.total)) {
+    rolls = { hero: await rollSide("hero"), foe: await rollSide("foe") };
   }
+  const totals = { hero: rolls.hero?.total ?? null, foe: rolls.foe?.total ?? null };
 
   await setBigFightFlag(combat, { sideInitiative: totals });
 
@@ -8452,10 +8457,13 @@ async function rollSideInitiative(combat) {
   }
   if (updates.length) await combat.updateEmbeddedDocuments("Combatant", updates);
 
-  await ChatMessage.create({
-    speaker: { alias: "Big Fight" },
-    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>Heroes: ${totals.hero ?? "—"}  |  Foes: ${totals.foe ?? "—"}</span></h4></div></div>`,
-  });
+  const speaker = { alias: "Big Fight" };
+  if (rolls.hero) {
+    await rolls.hero.toMessage({ speaker, flavor: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.HeroesInitiative") });
+  }
+  if (rolls.foe) {
+    await rolls.foe.toMessage({ speaker, flavor: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.FoesInitiative") });
+  }
 
   return totals;
 }
@@ -8482,10 +8490,10 @@ async function rollGroupInitiative(combat, group, byId) {
     group.memberCombatantIds.map((id) => ({ _id: id, initiative: total }))
   );
 
-  await ChatMessage.create({
-    speaker: { alias: "Big Fight" },
-    content: `<div class="marvel-multiverse dice-roll marvel-roll"><div class="dice-result"><h4 class="dice-total"><span>${group.name}: ${total}</span></h4></div></div>`,
-  });
+  // roll.toMessage() (not a hand-built summary string) so the chat card's
+  // total is expandable to the individual die results, same as every other
+  // roll in this system.
+  await roll.toMessage({ speaker: { alias: "Big Fight" }, flavor: group.name });
 
   return total;
 }

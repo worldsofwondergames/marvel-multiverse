@@ -68,6 +68,18 @@
   }
 }
 
+.mm-big-fight-group-hp-input {
+  width: 3em;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
 // The roll button reuses the core .combatant-control.roll class for its
 // d20-icon look; only the value readout beside it (once the group has
 // rolled) needs its own styling, matched to core's own .initiative-input

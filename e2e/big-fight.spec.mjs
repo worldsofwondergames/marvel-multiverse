@@ -352,7 +352,8 @@ test.describe('Foe grouping', () => {
     // order becomes the kept row -- not necessarily the one checked first.
     const row = page.locator('li.combatant:has(.mm-big-fight-group-hp)');
     await expect(row.locator('.name')).toContainText('(2)');
-    await expect(row.locator('.mm-big-fight-group-hp')).toContainText(`HP ${totalMax}/${totalMax}`);
+    await expect(row.locator('.mm-big-fight-group-hp-input')).toHaveValue(String(totalMax));
+    await expect(row.locator('.mm-big-fight-group-hp-max')).toContainText(`/ ${totalMax}`);
 
     // A quarter-sized icon grid stands in for the row's own single portrait
     // once it represents a group, one thumbnail per member (2 here).
@@ -491,6 +492,48 @@ test.describe('Foe grouping', () => {
     const updatedIds = updates[0].map((u) => u._id).sort();
     expect(updatedIds).toEqual([ids[FOE_1], ids[FOE_2]].sort());
     expect(updates[0][0].initiative).toBe(updates[0][1].initiative);
+  });
+
+  test('typing a new pooled HP total distributes the change across the group\'s members', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await setUpGroupingCombat(page);
+    const ids = await combatantIdsByName(page, [FOE_1, FOE_2]);
+    const maxes = await page.evaluate(
+      (names) => names.map((name) => game.actors.find((a) => a.name === name).system.health.max),
+      [FOE_1, FOE_2]
+    );
+    const totalMax = maxes[0] + maxes[1];
+
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`).check();
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`).check();
+    await page.locator('.mm-big-fight-group-btn').click();
+    await page.locator('.dialog-buttons button[data-button="ok"]').click();
+    await page.waitForTimeout(300);
+
+    // Both foes start at full Health -- typing a reduced total should be
+    // reflected back in the members' own combatant actors (unlinked-token
+    // synthetic actors here, not the world actors), not just the input's
+    // own displayed value.
+    const newTotal = totalMax - maxes[0];
+    const groupedRow = page.locator('li.combatant:has(.mm-big-fight-group-hp)');
+    const hpInput = groupedRow.locator('.mm-big-fight-group-hp-input');
+    // A plain .fill() does not reliably fire this input's "change" listener
+    // (a number input only fires "change" natively on blur, and Playwright's
+    // synthetic fill doesn't consistently trigger that here) -- set the
+    // value and dispatch "change" directly, the same event the real click-
+    // away/Enter path ends up sending.
+    await hpInput.fill(String(newTotal));
+    await hpInput.evaluate((el) => el.dispatchEvent(new Event('change', { bubbles: true })));
+    await page.waitForTimeout(300);
+
+    const healthValues = await page.evaluate(
+      (idPair) => idPair.map((id) => game.combat.combatants.get(id).actor.system.health.value),
+      [ids[FOE_1], ids[FOE_2]]
+    );
+    expect(healthValues[0] + healthValues[1]).toBe(newTotal);
+    // The distribution drains one live member down to 0 before touching
+    // the other, rather than splitting the reduction evenly between them.
+    expect(healthValues.some((v) => v === 0)).toBe(true);
   });
 
   test('grouping combatants from different sides is rejected', async ({ foundryPage }) => {

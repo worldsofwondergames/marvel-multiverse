@@ -8283,6 +8283,40 @@ function pooledResource(group, combatantsById, resource) {
 }
 
 /**
+ * Translates a GM-typed pooled Health total into per-member `value` updates,
+ * cascading the delta across live members in their existing order rather
+ * than spreading it evenly -- damage drains the first live member to 0
+ * before spilling to the next, and healing tops the first live member back
+ * up to its own max before spilling onward. A typed value outside the pool's
+ * current bounds simply drains/fills every live member and discards the
+ * rest, since the sum of members' max is the pool's real ceiling.
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, health?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+function distributePooledHealthDelta(group, combatantsById, newPooledValue) {
+  const members = liveMembers(group, combatantsById);
+  if (!members.length) return [];
+
+  let remaining = newPooledValue - members.reduce((sum, m) => sum + (m.health?.value ?? 0), 0);
+  if (remaining === 0) return [];
+
+  const updates = [];
+  for (const member of members) {
+    if (remaining === 0) break;
+    const value = member.health?.value ?? 0;
+    const max = member.health?.max ?? 0;
+    const room = remaining > 0 ? max - value : -value;
+    const applied = remaining > 0 ? Math.min(room, remaining) : Math.max(room, remaining);
+    if (applied === 0) continue;
+    updates.push({ id: member.id, value: value + applied });
+    remaining -= applied;
+  }
+  return updates;
+}
+
+/**
  * "+1 per additional foe beyond the first" — a live group of `n` members
  * grants `n - 1`. A destroyed member stops counting toward its own group's
  * bonus the moment it drops, same round.
@@ -9033,7 +9067,43 @@ Hooks.on("renderCombatTracker", (app, html) => {
 
           const hp = document.createElement("div");
           hp.className = "mm-big-fight-group-hp";
-          hp.textContent = `HP ${health.value}/${health.max}`;
+
+          const hpLabel = document.createElement("span");
+          hpLabel.textContent = "HP ";
+          hp.appendChild(hpLabel);
+
+          // A typed pooled total, not a display of one member's own Health --
+          // clicking or typing here must not also select the row underneath,
+          // and Enter should commit the same as clicking away.
+          const hpInput = document.createElement("input");
+          hpInput.type = "number";
+          hpInput.className = "mm-big-fight-group-hp-input";
+          hpInput.value = health.value;
+          hpInput.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupHealthValue");
+          hpInput.addEventListener("click", (ev) => ev.stopPropagation());
+          hpInput.addEventListener("keydown", (ev) => {
+            ev.stopPropagation();
+            if (ev.key === "Enter") hpInput.blur();
+          });
+          hpInput.addEventListener("change", async (ev) => {
+            ev.stopPropagation();
+            const newValue = Number(hpInput.value);
+            if (!Number.isFinite(newValue)) {
+              hpInput.value = health.value;
+              return;
+            }
+            const updates = distributePooledHealthDelta(group, byId, newValue);
+            for (const update of updates) {
+              const memberCombatant = app.viewed.combatants.get(update.id);
+              await memberCombatant?.actor?.update({ "system.health.value": update.value });
+            }
+          });
+          hp.appendChild(hpInput);
+
+          const hpMax = document.createElement("span");
+          hpMax.className = "mm-big-fight-group-hp-max";
+          hpMax.textContent = ` / ${health.max}`;
+          hp.appendChild(hpMax);
 
           const ungroupLink = document.createElement("a");
           ungroupLink.className = "mm-big-fight-ungroup";
@@ -10351,5 +10421,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, findGroup, groupAttackBonus, groupBestVigilance, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, distributePooledHealthDelta, findGroup, groupAttackBonus, groupBestVigilance, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

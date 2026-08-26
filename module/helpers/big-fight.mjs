@@ -135,6 +135,40 @@ export function nextInRangeValue(current) {
 }
 
 /**
+ * Translates a GM-typed pooled Health total into per-member `value` updates,
+ * cascading the delta across live members in their existing order rather
+ * than spreading it evenly -- damage drains the first live member to 0
+ * before spilling to the next, and healing tops the first live member back
+ * up to its own max before spilling onward. A typed value outside the pool's
+ * current bounds simply drains/fills every live member and discards the
+ * rest, since the sum of members' max is the pool's real ceiling.
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, health?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+export function distributePooledHealthDelta(group, combatantsById, newPooledValue) {
+  const members = liveMembers(group, combatantsById);
+  if (!members.length) return [];
+
+  let remaining = newPooledValue - members.reduce((sum, m) => sum + (m.health?.value ?? 0), 0);
+  if (remaining === 0) return [];
+
+  const updates = [];
+  for (const member of members) {
+    if (remaining === 0) break;
+    const value = member.health?.value ?? 0;
+    const max = member.health?.max ?? 0;
+    const room = remaining > 0 ? max - value : -value;
+    const applied = remaining > 0 ? Math.min(room, remaining) : Math.max(room, remaining);
+    if (applied === 0) continue;
+    updates.push({ id: member.id, value: value + applied });
+    remaining -= applied;
+  }
+  return updates;
+}
+
+/**
  * Buckets declared damage targets by the Big Fight group they belong to, so
  * the damage card can print "Rival Gang: 2 hit, 1 missed" instead of three
  * unassociated lines. Consecutive targets sharing a group merge into one

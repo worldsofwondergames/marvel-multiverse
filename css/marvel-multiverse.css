@@ -1561,6 +1561,18 @@
   cursor: pointer;
 }
 
+.mm-big-fight-group-hp-input {
+  width: 3em;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
 .mm-big-fight-group-initiative-value {
   font-size: 14px;
   font-weight: 700;

@@ -6,6 +6,7 @@ import {
   findGroup,
   liveMembers,
   pooledResource,
+  distributePooledHealthDelta,
   groupAttackBonus,
   applyAttackBonusToFormula,
   bestVigilanceBySide,
@@ -80,6 +81,86 @@ describe('liveMembers and pooledResource', () => {
   test('a member missing from combatantsById is treated as gone, not zero-filled', () => {
     const withMissing = { id: 'g2', memberCombatantIds: ['c1', 'missing'] };
     expect(pooledResource(withMissing, combatantsById, 'health')).toEqual({ value: 10, max: 10 });
+  });
+});
+
+describe('distributePooledHealthDelta', () => {
+  test('healing tops up the first live member before spilling to the next', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', health: { value: 5, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledHealthDelta(group, byId, 20)).toEqual([
+      { id: 'c1', value: 10 },
+      { id: 'c2', value: 10 },
+    ]);
+  });
+
+  test('damage drains the first live member to 0 before spilling to the next', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', health: { value: 10, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledHealthDelta(group, byId, 0)).toEqual([
+      { id: 'c1', value: 0 },
+      { id: 'c2', value: 0 },
+    ]);
+  });
+
+  test('a partial reduction comes entirely from the first live member when it can absorb it', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', health: { value: 10, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledHealthDelta(group, byId, 10)).toEqual([{ id: 'c1', value: 5 }]);
+  });
+
+  test('a member already at max is skipped and the rest spills to the next', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', health: { value: 10, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledHealthDelta(group, byId, 20)).toEqual([{ id: 'c2', value: 10 }]);
+  });
+
+  test('a destroyed member is skipped entirely, not zero-filled', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', health: { value: 0, max: 10, destroyed: true } },
+      c2: { id: 'c2', health: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledHealthDelta(group, byId, 10)).toEqual([{ id: 'c2', value: 10 }]);
+  });
+
+  test('a typed value equal to the current pool total produces no updates', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', health: { value: 10, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledHealthDelta(group, byId, 15)).toEqual([]);
+  });
+
+  test('a typed value beyond the pool max discards the unusable remainder', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', health: { value: 5, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledHealthDelta(group, byId, 999)).toEqual([
+      { id: 'c1', value: 10 },
+      { id: 'c2', value: 10 },
+    ]);
+  });
+
+  test('no live members produces no updates', () => {
+    const group = { memberCombatantIds: ['c1'] };
+    const byId = { c1: { id: 'c1', health: { value: 0, max: 10, destroyed: true } } };
+    expect(distributePooledHealthDelta(group, byId, 5)).toEqual([]);
   });
 });
 
@@ -190,11 +271,12 @@ describe('in-range marker', () => {
 });
 
 describe('the twin agrees with the shipping monolith', () => {
-  test('exports the same 12 function names', () => {
+  test('exports the same 13 function names', () => {
     expect(Object.keys(twin).sort()).toEqual([
       'applyAttackBonusToFormula',
       'bestVigilanceBySide',
       'combatantSideFromDisposition',
+      'distributePooledHealthDelta',
       'findGroup',
       'groupAttackBonus',
       'groupBestVigilance',
@@ -249,6 +331,17 @@ describe('the twin agrees with the shipping monolith', () => {
     };
     expect(twin.pooledResource(group, combatantsById, 'health')).toEqual(
       pooledResource(group, combatantsById, 'health')
+    );
+  });
+
+  test('distributePooledHealthDelta matches for a partial reduction', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const combatantsById = {
+      c1: { id: 'c1', health: { value: 10, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(twin.distributePooledHealthDelta(group, combatantsById, 10)).toEqual(
+      distributePooledHealthDelta(group, combatantsById, 10)
     );
   });
 

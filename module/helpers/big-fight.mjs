@@ -135,30 +135,31 @@ export function nextInRangeValue(current) {
 }
 
 /**
- * Translates a GM-typed pooled Health total into per-member `value` updates,
- * cascading the delta across live members in their existing order rather
- * than spreading it evenly -- damage drains the first live member to 0
- * before spilling to the next, and healing tops the first live member back
+ * Translates a GM-typed pooled resource total into per-member `value`
+ * updates, cascading the delta across live members in their existing order
+ * rather than spreading it evenly -- damage drains the first live member to
+ * 0 before spilling to the next, and healing tops the first live member back
  * up to its own max before spilling onward. A typed value outside the pool's
  * current bounds simply drains/fills every live member and discards the
  * rest, since the sum of members' max is the pool's real ceiling.
  * @param {{memberCombatantIds: string[]}|null} group
- * @param {Record<string, {id: string, health?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {Record<string, {id: string}>} combatantsById
+ * @param {"health"|"focus"} resource
  * @param {number} newPooledValue
  * @returns {Array<{id: string, value: number}>}
  */
-export function distributePooledHealthDelta(group, combatantsById, newPooledValue) {
+function distributePooledDelta(group, combatantsById, resource, newPooledValue) {
   const members = liveMembers(group, combatantsById);
   if (!members.length) return [];
 
-  let remaining = newPooledValue - members.reduce((sum, m) => sum + (m.health?.value ?? 0), 0);
+  let remaining = newPooledValue - members.reduce((sum, m) => sum + (m[resource]?.value ?? 0), 0);
   if (remaining === 0) return [];
 
   const updates = [];
   for (const member of members) {
     if (remaining === 0) break;
-    const value = member.health?.value ?? 0;
-    const max = member.health?.max ?? 0;
+    const value = member[resource]?.value ?? 0;
+    const max = member[resource]?.max ?? 0;
     const room = remaining > 0 ? max - value : -value;
     const applied = remaining > 0 ? Math.min(room, remaining) : Math.max(room, remaining);
     if (applied === 0) continue;
@@ -166,6 +167,26 @@ export function distributePooledHealthDelta(group, combatantsById, newPooledValu
     remaining -= applied;
   }
   return updates;
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, health?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+export function distributePooledHealthDelta(group, combatantsById, newPooledValue) {
+  return distributePooledDelta(group, combatantsById, "health", newPooledValue);
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, focus?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+export function distributePooledFocusDelta(group, combatantsById, newPooledValue) {
+  return distributePooledDelta(group, combatantsById, "focus", newPooledValue);
 }
 
 /**

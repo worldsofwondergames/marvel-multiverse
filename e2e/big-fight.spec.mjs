@@ -276,13 +276,19 @@ test.describe('Foe grouping', () => {
     await createActorViaAPI(page, FOE_1);
     await createActorViaAPI(page, FOE_2);
     await createActorViaAPI(page, HERO);
-    // A freshly created actor's Health starts at 0 (schema default), not at
-    // its computed max -- the GM normally tops it off before a fight. Do
-    // that here so the foes start alive instead of already "destroyed".
+    // A freshly created actor's Health and Focus start at 0 (schema
+    // default), not at their computed max -- the GM normally tops them off
+    // before a fight. Do that here so the foes start alive instead of
+    // already "destroyed", and give them a nonzero Vigilance first so Focus
+    // max isn't the degenerate 0 an unset ability score would leave it at.
     await page.evaluate(async (names) => {
       for (const name of names) {
         const actor = game.actors.find((a) => a.name === name);
-        await actor.update({ 'system.health.value': actor.system.health.max });
+        await actor.update({ 'system.abilities.vig.value': 2 });
+        await actor.update({
+          'system.health.value': actor.system.health.max,
+          'system.focus.value': actor.system.focus.max,
+        });
       }
     }, [FOE_1, FOE_2]);
     await createScene(page, GROUPING_SCENE);
@@ -335,12 +341,18 @@ test.describe('Foe grouping', () => {
     await setUpGroupingCombat(page);
 
     const ids = await combatantIdsByName(page, [FOE_1, FOE_2, HERO]);
-    const maxes = await page.evaluate(
-      (names) =>
-        names.map((name) => game.actors.find((a) => a.name === name).system.health.max),
-      [FOE_1, FOE_2]
-    );
-    const totalMax = maxes[0] + maxes[1];
+    const [healthMaxes, focusMaxes] = await Promise.all([
+      page.evaluate(
+        (names) => names.map((name) => game.actors.find((a) => a.name === name).system.health.max),
+        [FOE_1, FOE_2]
+      ),
+      page.evaluate(
+        (names) => names.map((name) => game.actors.find((a) => a.name === name).system.focus.max),
+        [FOE_1, FOE_2]
+      ),
+    ]);
+    const totalMax = healthMaxes[0] + healthMaxes[1];
+    const totalFocusMax = focusMaxes[0] + focusMaxes[1];
 
     await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`).check();
     await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`).check();
@@ -354,6 +366,8 @@ test.describe('Foe grouping', () => {
     await expect(row.locator('.name')).toContainText('(2)');
     await expect(row.locator('.mm-big-fight-group-hp-input')).toHaveValue(String(totalMax));
     await expect(row.locator('.mm-big-fight-group-hp-max')).toContainText(`/ ${totalMax}`);
+    await expect(row.locator('.mm-big-fight-group-focus-input')).toHaveValue(String(totalFocusMax));
+    await expect(row.locator('.mm-big-fight-group-focus-max')).toContainText(`/ ${totalFocusMax}`);
 
     // A quarter-sized icon grid stands in for the row's own single portrait
     // once it represents a group, one thumbnail per member (2 here).
@@ -534,6 +548,54 @@ test.describe('Foe grouping', () => {
     // The distribution drains one live member down to 0 before touching
     // the other, rather than splitting the reduction evenly between them.
     expect(healthValues.some((v) => v === 0)).toBe(true);
+  });
+
+  test('typing a new pooled Focus total distributes the change across the group\'s members', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await setUpGroupingCombat(page);
+    const ids = await combatantIdsByName(page, [FOE_1, FOE_2]);
+    const maxes = await page.evaluate(
+      (names) => names.map((name) => game.actors.find((a) => a.name === name).system.focus.max),
+      [FOE_1, FOE_2]
+    );
+    const totalMax = maxes[0] + maxes[1];
+
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`).check();
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`).check();
+    await page.locator('.mm-big-fight-group-btn').click();
+    await page.locator('.dialog-buttons button[data-button="ok"]').click();
+    await page.waitForTimeout(300);
+
+    // Both foes start at full Focus -- typing a reduced total should be
+    // reflected back in the members' own combatant actors, not just the
+    // input's own displayed value, and must not touch their Health.
+    const newTotal = totalMax - maxes[0];
+    const groupedRow = page.locator('li.combatant:has(.mm-big-fight-group-focus)');
+    const focusInput = groupedRow.locator('.mm-big-fight-group-focus-input');
+    await focusInput.fill(String(newTotal));
+    await focusInput.evaluate((el) => el.dispatchEvent(new Event('change', { bubbles: true })));
+    await page.waitForTimeout(300);
+
+    const [focusValues, healthValuesAfter] = await Promise.all([
+      page.evaluate(
+        (idPair) => idPair.map((id) => game.combat.combatants.get(id).actor.system.focus.value),
+        [ids[FOE_1], ids[FOE_2]]
+      ),
+      page.evaluate(
+        (idPair) => idPair.map((id) => game.combat.combatants.get(id).actor.system.health.value),
+        [ids[FOE_1], ids[FOE_2]]
+      ),
+    ]);
+    expect(focusValues[0] + focusValues[1]).toBe(newTotal);
+    // The distribution drains one live member down to 0 before touching
+    // the other, rather than splitting the reduction evenly between them.
+    expect(focusValues.some((v) => v === 0)).toBe(true);
+    // Editing the pooled Focus input must not touch either member's Health.
+    const healthMaxes = await page.evaluate(
+      (names) => names.map((name) => game.actors.find((a) => a.name === name).system.health.max),
+      [FOE_1, FOE_2]
+    );
+    expect(healthValuesAfter).toEqual(healthMaxes);
   });
 
   test('grouping combatants from different sides is rejected', async ({ foundryPage }) => {

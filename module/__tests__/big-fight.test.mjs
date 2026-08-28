@@ -7,6 +7,7 @@ import {
   liveMembers,
   pooledResource,
   distributePooledHealthDelta,
+  distributePooledFocusDelta,
   groupAttackBonus,
   applyAttackBonusToFormula,
   bestVigilanceBySide,
@@ -164,6 +165,51 @@ describe('distributePooledHealthDelta', () => {
   });
 });
 
+describe('distributePooledFocusDelta', () => {
+  test('damage drains the first live member to 0 before spilling to the next', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', focus: { value: 10, max: 10, destroyed: false } },
+      c2: { id: 'c2', focus: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledFocusDelta(group, byId, 0)).toEqual([
+      { id: 'c1', value: 0 },
+      { id: 'c2', value: 0 },
+    ]);
+  });
+
+  test('healing tops up the first live member before spilling to the next', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', focus: { value: 5, max: 10, destroyed: false } },
+      c2: { id: 'c2', focus: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledFocusDelta(group, byId, 20)).toEqual([
+      { id: 'c1', value: 10 },
+      { id: 'c2', value: 10 },
+    ]);
+  });
+
+  test('a member dropped out by Health is skipped for Focus too, not zero-filled', () => {
+    // liveMembers gates on Health, not Focus -- a foe is out of the fight
+    // once its Health is gone, regardless of how much Focus it has left.
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const byId = {
+      c1: { id: 'c1', health: { destroyed: true }, focus: { value: 8, max: 10, destroyed: false } },
+      c2: { id: 'c2', health: { destroyed: false }, focus: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledFocusDelta(group, byId, 10)).toEqual([{ id: 'c2', value: 10 }]);
+  });
+
+  test('reading Focus does not touch a member\'s Health', () => {
+    const group = { memberCombatantIds: ['c1'] };
+    const byId = {
+      c1: { id: 'c1', health: { value: 7, max: 10, destroyed: false }, focus: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(distributePooledFocusDelta(group, byId, 10)).toEqual([{ id: 'c1', value: 10 }]);
+  });
+});
+
 describe('groupAttackBonus', () => {
   const combatantsById = {
     c1: { id: 'c1', health: { destroyed: false } },
@@ -271,11 +317,12 @@ describe('in-range marker', () => {
 });
 
 describe('the twin agrees with the shipping monolith', () => {
-  test('exports the same 13 function names', () => {
+  test('exports the same 14 function names', () => {
     expect(Object.keys(twin).sort()).toEqual([
       'applyAttackBonusToFormula',
       'bestVigilanceBySide',
       'combatantSideFromDisposition',
+      'distributePooledFocusDelta',
       'distributePooledHealthDelta',
       'findGroup',
       'groupAttackBonus',
@@ -342,6 +389,17 @@ describe('the twin agrees with the shipping monolith', () => {
     };
     expect(twin.distributePooledHealthDelta(group, combatantsById, 10)).toEqual(
       distributePooledHealthDelta(group, combatantsById, 10)
+    );
+  });
+
+  test('distributePooledFocusDelta matches for a partial reduction', () => {
+    const group = { memberCombatantIds: ['c1', 'c2'] };
+    const combatantsById = {
+      c1: { id: 'c1', focus: { value: 10, max: 10, destroyed: false } },
+      c2: { id: 'c2', focus: { value: 5, max: 10, destroyed: false } },
+    };
+    expect(twin.distributePooledFocusDelta(group, combatantsById, 10)).toEqual(
+      distributePooledFocusDelta(group, combatantsById, 10)
     );
   });
 

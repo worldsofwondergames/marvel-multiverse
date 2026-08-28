@@ -213,6 +213,7 @@
       "GroupNameTitle": "Group Name",
       "GroupNameLabel": "Group Name",
       "GroupHealthValue": "Group's pooled Health -- editing this distributes the change across the group's members",
+      "GroupFocusValue": "Group's pooled Focus -- editing this distributes the change across the group's members",
       "InRange": "In range",
       "NotInRange": "Not in range",
       "Setting": {

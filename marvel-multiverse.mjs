@@ -1,6 +1,7 @@
 function _getAttackTargets(attackTargetAbility) {
   const targets = game.user.targets;
   if (!targets?.size || !attackTargetAbility) return [];
+  const combatants = game.combat?.combatants;
   return Array.from(targets).map(token => {
     const actor = token.actor;
     const ac = actor?.system?.abilities?.[attackTargetAbility]?.defense ?? null;
@@ -10,9 +11,18 @@ function _getAttackTargets(attackTargetAbility) {
     // the same combat), so matching by actorId would always resolve to
     // whichever combatant happens to be first, not the one this token
     // actually is.
-    const combatant = game.combat?.combatants?.find(
+    let combatant = combatants?.find(
       (c) => c.tokenId === (token.document?.id ?? token.id)
     );
+    // A Combatant added to combat without a token link (e.g. an actor added
+    // directly rather than dragged in as a token) has no tokenId to match
+    // above. Falling back to actorId is only safe when it resolves to
+    // exactly one combatant -- with duplicates sharing an actorId (see
+    // above), guessing among them would attribute a hit to the wrong one.
+    if (!combatant && actor?.id) {
+      const byActor = combatants?.filter((c) => c.actorId === actor.id) ?? [];
+      if (byActor.length === 1) combatant = byActor[0];
+    }
     return {
       name: token.name,
       img: token.document?.texture?.src ?? actor?.img ?? "",
@@ -8283,30 +8293,31 @@ function pooledResource(group, combatantsById, resource) {
 }
 
 /**
- * Translates a GM-typed pooled Health total into per-member `value` updates,
- * cascading the delta across live members in their existing order rather
- * than spreading it evenly -- damage drains the first live member to 0
- * before spilling to the next, and healing tops the first live member back
+ * Translates a GM-typed pooled resource total into per-member `value`
+ * updates, cascading the delta across live members in their existing order
+ * rather than spreading it evenly -- damage drains the first live member to
+ * 0 before spilling to the next, and healing tops the first live member back
  * up to its own max before spilling onward. A typed value outside the pool's
  * current bounds simply drains/fills every live member and discards the
  * rest, since the sum of members' max is the pool's real ceiling.
  * @param {{memberCombatantIds: string[]}|null} group
- * @param {Record<string, {id: string, health?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {Record<string, {id: string}>} combatantsById
+ * @param {"health"|"focus"} resource
  * @param {number} newPooledValue
  * @returns {Array<{id: string, value: number}>}
  */
-function distributePooledHealthDelta(group, combatantsById, newPooledValue) {
+function distributePooledDelta(group, combatantsById, resource, newPooledValue) {
   const members = liveMembers(group, combatantsById);
   if (!members.length) return [];
 
-  let remaining = newPooledValue - members.reduce((sum, m) => sum + (m.health?.value ?? 0), 0);
+  let remaining = newPooledValue - members.reduce((sum, m) => sum + (m[resource]?.value ?? 0), 0);
   if (remaining === 0) return [];
 
   const updates = [];
   for (const member of members) {
     if (remaining === 0) break;
-    const value = member.health?.value ?? 0;
-    const max = member.health?.max ?? 0;
+    const value = member[resource]?.value ?? 0;
+    const max = member[resource]?.max ?? 0;
     const room = remaining > 0 ? max - value : -value;
     const applied = remaining > 0 ? Math.min(room, remaining) : Math.max(room, remaining);
     if (applied === 0) continue;
@@ -8314,6 +8325,26 @@ function distributePooledHealthDelta(group, combatantsById, newPooledValue) {
     remaining -= applied;
   }
   return updates;
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, health?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+function distributePooledHealthDelta(group, combatantsById, newPooledValue) {
+  return distributePooledDelta(group, combatantsById, "health", newPooledValue);
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, focus?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+function distributePooledFocusDelta(group, combatantsById, newPooledValue) {
+  return distributePooledDelta(group, combatantsById, "focus", newPooledValue);
 }
 
 /**
@@ -8878,6 +8909,7 @@ Hooks.on("renderCombatTracker", (app, html) => {
   root.querySelector(".mm-big-fight-group-btn")?.remove();
   root.querySelectorAll(".mm-big-fight-group-icons").forEach((el) => el.remove());
   root.querySelectorAll(".mm-big-fight-group-hp").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-group-focus").forEach((el) => el.remove());
   root.querySelectorAll(".mm-big-fight-select").forEach((el) => el.remove());
   root.querySelectorAll(".mm-big-fight-in-range").forEach((el) => el.remove());
   // Reset any rows a previous render altered to stand in for a group --
@@ -8978,6 +9010,7 @@ Hooks.on("renderCombatTracker", (app, html) => {
 
       for (const group of groups) {
         const health = pooledResource(group, byId, "health");
+        const focus = pooledResource(group, byId, "focus");
         const liveCount = liveMembers(group, byId).length;
 
         group.memberCombatantIds.forEach((memberId, index) => {
@@ -9115,7 +9148,47 @@ Hooks.on("renderCombatTracker", (app, html) => {
           });
           hp.appendChild(ungroupLink);
 
+          const focusRow = document.createElement("div");
+          focusRow.className = "mm-big-fight-group-focus";
+
+          const focusLabel = document.createElement("span");
+          focusLabel.textContent = "FP ";
+          focusRow.appendChild(focusLabel);
+
+          // Mirrors the HP input above: a typed pooled total that cascades
+          // across live members via distributePooledFocusDelta.
+          const focusInput = document.createElement("input");
+          focusInput.type = "number";
+          focusInput.className = "mm-big-fight-group-focus-input";
+          focusInput.value = focus.value;
+          focusInput.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupFocusValue");
+          focusInput.addEventListener("click", (ev) => ev.stopPropagation());
+          focusInput.addEventListener("keydown", (ev) => {
+            ev.stopPropagation();
+            if (ev.key === "Enter") focusInput.blur();
+          });
+          focusInput.addEventListener("change", async (ev) => {
+            ev.stopPropagation();
+            const newValue = Number(focusInput.value);
+            if (!Number.isFinite(newValue)) {
+              focusInput.value = focus.value;
+              return;
+            }
+            const updates = distributePooledFocusDelta(group, byId, newValue);
+            for (const update of updates) {
+              const memberCombatant = app.viewed.combatants.get(update.id);
+              await memberCombatant?.actor?.update({ "system.focus.value": update.value });
+            }
+          });
+          focusRow.appendChild(focusInput);
+
+          const focusMax = document.createElement("span");
+          focusMax.className = "mm-big-fight-group-focus-max";
+          focusMax.textContent = ` / ${focus.max}`;
+          focusRow.appendChild(focusMax);
+
           nameEl?.insertAdjacentElement("afterend", hp);
+          hp.insertAdjacentElement("afterend", focusRow);
         });
       }
     }
@@ -10421,5 +10494,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, distributePooledHealthDelta, findGroup, groupAttackBonus, groupBestVigilance, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, distributePooledHealthDelta, distributePooledFocusDelta, findGroup, groupAttackBonus, groupBestVigilance, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

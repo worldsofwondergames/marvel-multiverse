@@ -281,6 +281,15 @@
 
   .editor {
     background: $mm-input-bg;
+
+    // Same reason as the `.mm-styled-input` floor above: `.editor-container`
+    // only exists once the editor is open, so an empty History, Personality
+    // or Features field had no height at all and took the edit pencil down
+    // with it.
+    > .editor-content {
+      min-height: 33px;
+      padding: $mm-spacing-sm;
+    }
   }
 
   .editor-menu {

@@ -2,6 +2,10 @@
 
 ## 3.1.1
 
+### Fixes
+
+- **Biography fields on a new character.** History, Personality and Features rendered with no height at all while they were empty, so a new character showed three headings and nothing to type into. They now keep a minimum height whether or not they hold text.
+
 ### Big Fight Abstraction Mode
 
 - A **Big Fight** toggle on the combat tracker simplifies large battles: side-based initiative, foe grouping, and a group attack bonus.

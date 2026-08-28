@@ -773,6 +773,10 @@
 .mm-input .editor {
   background: #fff2ec;
 }
+.mm-input .editor > .editor-content {
+  min-height: 33px;
+  padding: 4px;
+}
 .mm-input .editor-menu {
   border-radius: 0;
 }

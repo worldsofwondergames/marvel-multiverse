@@ -16,11 +16,13 @@ function _getAttackTargets(attackTargetAbility) {
     );
     // A Combatant added to combat without a token link (e.g. an actor added
     // directly rather than dragged in as a token) has no tokenId to match
-    // above. Falling back to actorId is only safe when it resolves to
-    // exactly one combatant -- with duplicates sharing an actorId (see
-    // above), guessing among them would attribute a hit to the wrong one.
+    // above, so fall back to its actorId. Only token-less combatants are
+    // considered: one that names a different token of this same actor is a
+    // different combatant, and claiming it here would credit the hit to a
+    // token that was never targeted. Duplicates sharing an actorId are
+    // likewise skipped, since guessing among them lands on the wrong one.
     if (!combatant && actor?.id) {
-      const byActor = combatants?.filter((c) => c.actorId === actor.id) ?? [];
+      const byActor = combatants?.filter((c) => !c.tokenId && c.actorId === actor.id) ?? [];
       if (byActor.length === 1) combatant = byActor[0];
     }
     return {

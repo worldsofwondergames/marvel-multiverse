@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 3.1.1
+
+### Big Fight Abstraction Mode
+
+- A **Big Fight** toggle on the combat tracker simplifies large battles: side-based initiative, foe grouping, and a group attack bonus.
+- **Side-based initiative:** one roll per side, using its best Vigilance, instead of per-combatant rolls. Ties reroll once.
+- **Foe grouping:** same-side combatants group into one tracker row with pooled, editable Health and Focus. A member drops out of the pool as its Health is depleted; damage to an individual target still applies to that combatant directly.
+- **Group attack bonus:** a grouped attacker's roll gets +1 per additional live member beyond the first.
+- **In-range toggle** replaces movement tracking with a per-combatant in/out-of-range marker.
+- Attacking multiple foes in one roll resolves each target's hit/miss and damage individually, with a grouped heading on the damage card when two or more targets share a group.
+
+### Sinister Plot Points, Battle Multiplier & Ultimate Fantastic Initiative
+
+- **Sinister Plot Points.** A Villainous-tagged actor gets an SPP tracker in place of Karma, gated by a world setting.
+- **Battle Multiplier.** The x30 Health/Focus scaling is now a world setting, x10–x100 (default x30).
+- **Ultimate Fantastic Initiative.** An M on the initiative roll posts a chat note for the bonus round.
+- **Fixed:** Fantastic detection on the Marvel die and initiative-roll registration, both pre-existing.
+- Disarming, from the same source material, remains a manual GM action — not automated.
+
+### Stunts
+
+- **New Stunt item type**, off by default behind a "Stunts" world setting, linked to a specific power.
+- A power gains a **Stunts tab** listing its stunts, split Learned/Available.
+- Learning is manual: a Learn control matches the actor's powers against the stunt's prerequisite text, or prompts for confirmation on no match.
+- A learned stunt rolls and posts its effect to chat, like traits and tags.
+
+### Reaction Powers
+
+- A power whose action text names "Reaction" shows a red "R" icon next to its name.
+- **Fixed:** a missing closing tag on the power row was silently breaking item-detail sub-text styling.
+
+### Items Sidebar & Equipment
+
+- The Items sidebar gains a filter panel matching the Actor directory's: Type, Source, Tags, Traits, plus Power Set/Duration or Equipment Type.
+- **Fixed:** the equipment HP field showed current and max on separate lines instead of current / max.
+
 ## 3.1.0
 
 ### Rolling a Power

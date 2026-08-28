@@ -1036,11 +1036,17 @@ test.describe('Multi-target damage card grouping', () => {
       buttons[buttons.length - 1].click();
     });
     await page.waitForFunction(
-      () => document.querySelectorAll('.mm-damage-target').length > 0,
+      () => document.querySelectorAll('#chat .mm-damage-target').length > 0,
       { timeout: 15_000 },
     );
 
-    const heading = page.locator('.mm-damage-group-heading');
+    // Scoped to the newest card in the chat log: Foundry v14 renders every
+    // chat message twice -- once in #chat and again in the transient
+    // #chat-notifications toast -- so an unscoped locator matches the same
+    // card twice and trips Playwright's strict mode depending on whether the
+    // toast has faded yet.
+    const damageCard = page.locator('#chat li.chat-message').last();
+    const heading = damageCard.locator('.mm-damage-group-heading');
     await expect(heading).toContainText('Test Targets');
     await expect(heading).toContainText('2 hit');
   });
@@ -1093,11 +1099,14 @@ test.describe('Multi-target damage card grouping', () => {
       buttons[buttons.length - 1].click();
     });
     await page.waitForFunction(
-      () => document.querySelectorAll('.mm-damage-target').length > 0,
+      () => document.querySelectorAll('#chat .mm-damage-target').length > 0,
       { timeout: 15_000 },
     );
 
-    await expect(page.locator('.mm-damage-target')).toHaveCount(1);
-    await expect(page.locator('.mm-damage-group-heading')).toHaveCount(0);
+    // Scoped to the newest card in the chat log for the same reason as above
+    // -- the #chat-notifications toast renders a second copy of it.
+    const damageCard = page.locator('#chat li.chat-message').last();
+    await expect(damageCard.locator('.mm-damage-target')).toHaveCount(1);
+    await expect(damageCard.locator('.mm-damage-group-heading')).toHaveCount(0);
   });
 });

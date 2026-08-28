@@ -1,14 +1,36 @@
 function _getAttackTargets(attackTargetAbility) {
   const targets = game.user.targets;
   if (!targets?.size || !attackTargetAbility) return [];
+  const combatants = game.combat?.combatants;
   return Array.from(targets).map(token => {
     const actor = token.actor;
     const ac = actor?.system?.abilities?.[attackTargetAbility]?.defense ?? null;
+    // Match by token, not actorId: an unlinked token's synthetic actor shares
+    // its base actor's id with every other unlinked copy of that actor (e.g.
+    // several identical enemy tokens placed from the same prototype actor in
+    // the same combat), so matching by actorId would always resolve to
+    // whichever combatant happens to be first, not the one this token
+    // actually is.
+    let combatant = combatants?.find(
+      (c) => c.tokenId === (token.document?.id ?? token.id)
+    );
+    // A Combatant added to combat without a token link (e.g. an actor added
+    // directly rather than dragged in as a token) has no tokenId to match
+    // above, so fall back to its actorId. Only token-less combatants are
+    // considered: one that names a different token of this same actor is a
+    // different combatant, and claiming it here would credit the hit to a
+    // token that was never targeted. Duplicates sharing an actorId are
+    // likewise skipped, since guessing among them lands on the wrong one.
+    if (!combatant && actor?.id) {
+      const byActor = combatants?.filter((c) => !c.tokenId && c.actorId === actor.id) ?? [];
+      if (byActor.length === 1) combatant = byActor[0];
+    }
     return {
       name: token.name,
       img: token.document?.texture?.src ?? actor?.img ?? "",
       ac,
-      uuid: actor?.uuid ?? ""
+      uuid: actor?.uuid ?? "",
+      combatantId: combatant?.id ?? null
     };
   }).filter(t => t.ac !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -17,17 +39,18 @@ function _getAttackTargets(attackTargetAbility) {
 /**
  * Whether an attack roll beat a target's defense.
  *
- * A Fantastic result hits regardless of the number, so it is checked before the
- * comparison rather than folded into it. `_enrichAttackTargets` draws the
- * Hit/Miss list from this and the damage card decides who gets a button from
- * the same call, so the two can never disagree about what a hit is.
+ * A Fantastic roll doubles damage on a hit; it does not bypass the defense
+ * check. Only an ultimate Fantastic (6 M 6) auto-succeeds regardless of the
+ * target number, and that is a narrower case than `isFantastic` reports.
+ * `_enrichAttackTargets` draws the Hit/Miss list from this and the damage
+ * card decides who gets a button from the same call, so the two can never
+ * disagree about what a hit is.
  *
- * @param {{isFantastic?: boolean, total?: number}} attackRoll
+ * @param {{total?: number}} attackRoll
  * @param {number} ac  The target's defense against the attacking ability.
  * @returns {boolean}
  */
 function isTargetHit(attackRoll, ac) {
-  if (attackRoll?.isFantastic) return true;
   return Number(attackRoll?.total) >= Number(ac);
 }
 
@@ -117,6 +140,50 @@ function collectHalfDamageUpdates(items) {
     updates.push({ _id: item.id ?? item._id, "system.damageScale": HALF_DAMAGE_SCALE });
   }
   return updates;
+}
+
+/**
+ * How many power slots a power occupies.
+ *
+ * Ranked powers are named with their rank as a trailing number -- "Mighty 3",
+ * "Elemental Protection 2". Taking rank N requires ranks 1 through N-1, so a
+ * rank-N power occupies N slots. 71 of the 407 powers in the compendium are
+ * named this way; everything else occupies one.
+ *
+ * @param {string} name  A power's name.
+ * @returns {number}     Slots occupied, at least 1.
+ */
+function powerSlotCost(name) {
+  const rank = String(name ?? "").match(/\s+(\d+)$/);
+  return rank ? Number(rank[1]) : 1;
+}
+
+/**
+ * Total slots occupied by a list of powers.
+ *
+ * @param {Array<{name: string}>} powers  Powers, or the name-bearing snapshots
+ *                                        an iconic item or battle suit stores.
+ * @returns {number}
+ */
+function sumPowerSlots(powers) {
+  return (powers ?? []).reduce((total, power) => total + powerSlotCost(power?.name), 0);
+}
+
+/**
+ * An iconic item's or battle suit's power value.
+ *
+ * Restrictions buy powers back, one slot each, and an item that carries
+ * anything at all is worth at least 1.
+ *
+ * @param {Array<{name: string}>} powers
+ * @param {Array<object>} restrictions
+ * @returns {number}
+ */
+function calculatePowerValue(powers, restrictions) {
+  const slots = sumPowerSlots(powers);
+  const restrictionsCount = restrictions?.length ?? 0;
+  if (slots === 0 && restrictionsCount === 0) return 0;
+  return Math.max(1, slots - restrictionsCount);
 }
 
 /**
@@ -371,6 +438,15 @@ function _isConcentrationPower(system) {
 }
 
 /**
+ * True when a power can be used as a reaction. Action is free text, and a
+ * power may list several options ("Standard or Reaction"), so this matches
+ * on the word rather than an exact value.
+ */
+function _isReactionPower(action) {
+  return /reaction/i.test(String(action ?? ""));
+}
+
+/**
  * How many powers a character may concentrate on at once: one per rank, per the
  * core rulebook's "Breaking Concentration".
  */
@@ -405,6 +481,30 @@ const CONCENTRATION_BREAKERS = ["unconscious", "demoralized", "stunned", "prone"
 /** Whether this user may activate powers on the actor: its owner, or a GM. */
 function _canActivatePowers(actor) {
   return !!(game.user?.isGM || actor?.isOwner);
+}
+
+/**
+ * Whether an actor's owned powers satisfy a stunt's free-text prerequisite.
+ *
+ * Prerequisites are not power references -- several are compound ("Clobber and
+ * Iconic Item") or a category ("A power that splits attacks in two") rather
+ * than a single named power. A case-insensitive substring match against the
+ * actor's power names catches the simple, single-power cases; compound and
+ * category prerequisites will not match unless one of the actor's power names
+ * happens to appear in the text, which is the correct, conservative outcome --
+ * callers fall back to asking the GM/player to confirm instead.
+ *
+ * @param {string} prerequisite
+ * @param {string[]} powerNames
+ * @returns {boolean}
+ */
+function stuntEligible(prerequisite, powerNames) {
+  const text = String(prerequisite ?? "").trim().toLowerCase();
+  if (!text) return false;
+  return (powerNames ?? []).some((name) => {
+    const n = String(name ?? "").trim().toLowerCase();
+    return n && text.includes(n);
+  });
 }
 
 /**
@@ -698,9 +798,7 @@ class MarvelMultiverseRoll extends Roll {
    */
   static fromTerms(terms) {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
-    const newRoll = super.fromTerms(terms);
-    Object.assign(newRoll, roll);
-    return newRoll;
+    return super.fromTerms(terms);
   }
 
   /* -------------------------------------------- */
@@ -807,7 +905,11 @@ class MarvelMultiverseRoll extends Roll {
    */
   get isFantastic() {
     if (!this._evaluated) return undefined;
-    return this.dice[1].result === 1;
+    // DiceTerm has no top-level `.result` -- only `.results`, an array of
+    // individual roll results. Read the raw face of the active one.
+    const results = this.dice[1].results ?? [];
+    const active = results.find((r) => r.active) ?? results[results.length - 1];
+    return active?.result === 1;
   }
 
   /* -------------------------------------------- */
@@ -1091,12 +1193,26 @@ const ITEM_DEFAULT_ICONS = {
   origin: "systems/marvel-multiverse/icons/origin.svg",
   powerSet: "icons/svg/card-hand.svg",
   power: "systems/marvel-multiverse/icons/super-powers.svg",
+  stunt: "systems/marvel-multiverse/icons/super-powers.svg",
   tag: "systems/marvel-multiverse/icons/tags.svg",
   hqTag: "systems/marvel-multiverse/icons/tags.svg",
   hqTrait: "systems/marvel-multiverse/icons/trait.svg"
 };
 
 let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
+  /**
+   * Hide the stunt type from the Create Item dialog while the stunts system
+   * is switched off, so a GM can't create one that has nowhere to show up.
+   * @override
+   */
+  static async createDialog(data = {}, createOptions = {}, dialogOptions = {}, renderOptions = {}) {
+    if (!game.settings.get("marvel-multiverse", "stuntsEnabled")) {
+      const types = dialogOptions.types ?? this.TYPES.filter((t) => t !== "base");
+      dialogOptions = { ...dialogOptions, types: types.filter((t) => t !== "stunt") };
+    }
+    return super.createDialog(data, createOptions, dialogOptions, renderOptions);
+  }
+
   async _preCreate(data, options, user) {
     await super._preCreate(data, options, user);
     const defaultIcon = ITEM_DEFAULT_ICONS[data.type];
@@ -1206,8 +1322,9 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       // Retrieve roll data.
       const rollData = this.getRollData();
       // Invoke the roll and submit it to chat.
+      const formula = applyAttackBonusToFormula(rollData.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        rollData.formula,
+        formula,
         rollData.actor
       );
 
@@ -2431,39 +2548,54 @@ class ChatMessageMarvel extends ChatMessage {
     /** Per-target amounts, recorded on the message so the button never has to read them back out of the rendered text. */
     const damageFlagTargets = [];
 
-    const damageContent = resolvedTargets.map((t) => {
-      const dmgTypeLabel = damageType ? ` ${damageType}` : "";
-      if (!t.hit) {
-        damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: 0, hit: false });
-        return `<div class="mm-damage-target -miss" data-target-uuid="${t.uuid}">
-          <p style="margin:4px 0;"><b>${t.name}</b> — <span style="color:#a00;font-weight:700;"><i class="fas fa-times"></i> Miss</span>, no damage</p>
+    // Purely cosmetic: groups the per-target lines below under a
+    // "<Group Name>: N hit, M missed" heading when Big Fight mode has 2+ of
+    // the declared targets grouped together. Does not change who gets a
+    // button or how much damage is computed.
+    const bigFight = bigFightFlag(game.combat);
+    const buckets = isBigFightEnabled(bigFight)
+      ? groupDamageTargetsByGroup(resolvedTargets, bigFight.groups ?? [])
+      : resolvedTargets.map((t) => ({ group: null, targets: [t] }));
+
+    const damageContent = buckets.flatMap(({ group, targets: bucketTargets }) => {
+      const lines = bucketTargets.map((t) => {
+        const dmgTypeLabel = damageType ? ` ${damageType}` : "";
+        if (!t.hit) {
+          damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: 0, hit: false });
+          return `<div class="mm-damage-target -miss" data-target-uuid="${t.uuid}">
+            <p style="margin:4px 0;"><b>${t.name}</b> — <span style="color:#a00;font-weight:700;"><i class="fas fa-times"></i> Miss</span>, no damage</p>
+          </div>`;
+        }
+        const damageReduction =
+          t.actor.system[damageReductionPath(damageType)] ?? 0;
+        const { amount: dmg, effectiveMultiplier } = computeDamage({
+          marvelDieTotal: marvelDie.total,
+          damageMultiplier,
+          damageReduction,
+          abilityValue,
+          fantastic: !!fantastic,
+          scale: damageScale,
+        });
+        damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
+        const fantasticLabel = fantastic ? " Fantastic" : "";
+        const drLine = damageReduction > 0
+          ? `<br/><span style="font-size:11px;color:#555;">Multiplier ${damageMultiplier} − DR ${damageReduction} = ${effectiveMultiplier}</span>`
+          : "";
+        const multiplierText = damageReduction > 0
+          ? `(Multiplier - DR) ${effectiveMultiplier}`
+          : `Multiplier ${damageMultiplier}`;
+        const fantasticMult = fantastic ? " × 2" : "";
+        const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
+        return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
+          <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
+          <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}</p>
+          <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
         </div>`;
-      }
-      const damageReduction =
-        t.actor.system[damageReductionPath(damageType)] ?? 0;
-      const { amount: dmg, effectiveMultiplier } = computeDamage({
-        marvelDieTotal: marvelDie.total,
-        damageMultiplier,
-        damageReduction,
-        abilityValue,
-        fantastic: !!fantastic,
-        scale: damageScale,
       });
-      damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
-      const fantasticLabel = fantastic ? " Fantastic" : "";
-      const drLine = damageReduction > 0
-        ? `<br/><span style="font-size:11px;color:#555;">Multiplier ${damageMultiplier} − DR ${damageReduction} = ${effectiveMultiplier}</span>`
-        : "";
-      const multiplierText = damageReduction > 0
-        ? `(Multiplier - DR) ${effectiveMultiplier}`
-        : `Multiplier ${damageMultiplier}`;
-      const fantasticMult = fantastic ? " × 2" : "";
-      const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
-      return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
-        <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}</p>
-        <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
-      </div>`;
+      if (!group || bucketTargets.length < 2) return lines;
+      const hitCount = bucketTargets.filter((t) => t.hit).length;
+      const heading = `<div class="mm-damage-group-heading"><b>${group.name}:</b> ${hitCount} hit, ${bucketTargets.length - hitCount} missed</div>`;
+      return [heading, ...lines];
     });
 
     if (damageContent.length === 0) {
@@ -3108,6 +3240,9 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       this.actor.allApplicableEffects()
     );
 
+    context.isVillainous = game.settings.get("marvel-multiverse", "sinisterPlotPointsEnabled")
+      && this.actor.items.some((i) => i.type === "tag" && i.name === "Villainous");
+
     context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
     if (context.enableAlternateForms) {
       const alternateForms = this.actor.system.alternateForms ?? [];
@@ -3189,14 +3324,10 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       if (i.type === "occupation") {
         occupations.push(i);
       } else if (i.type === "iconicItem") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         const parts = [];
         const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
         for (const [key, label] of Object.entries(abilityLabels)) {
@@ -3245,10 +3376,8 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       const sortedPowers = {};
       for (const key of Object.keys(powers).sort()) sortedPowers[key] = powers[key];
       context.powers = sortedPowers;
-      context.powerCount = Object.values(sortedPowers).reduce((sum, arr) => sum + arr.reduce((s, p) => {
-        const match = p.name.match(/\s+(\d+)$/);
-        return s + (match ? parseInt(match[1]) : 1);
-      }, 0), 0);
+      context.powerCount = Object.values(sortedPowers)
+        .reduce((total, set) => total + sumPowerSlots(set), 0);
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
       context.equipment = equipment;
@@ -3592,10 +3721,73 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     }
   }
 
+  /**
+   * Ask which of the actor's powers a dropped stunt should be linked to. If
+   * exactly one owned power's name appears in the prerequisite text, link to
+   * it directly with no prompt -- ambiguous prerequisites (compound, a
+   * category, or one naming something that isn't a power at all, like
+   * "Battle suit") still need a human to decide.
+   *
+   * @returns {Promise<string|null>} the chosen power's id, or null if cancelled
+   */
+  async _promptStuntPower(itemData) {
+    if (!game.settings.get("marvel-multiverse", "stuntsEnabled")) return null;
+    const powers = this.actor.items.filter((i) => i.type === "power");
+    if (!powers.length) {
+      ui.notifications.warn(`${this.actor.name} has no powers to link ${itemData.name} to.`);
+      return null;
+    }
+    const prerequisite = String(itemData.system?.prerequisite ?? "").toLowerCase();
+    const matches = powers.filter((p) => prerequisite.includes(p.name.toLowerCase()));
+    if (matches.length === 1) {
+      this._announceStuntLink(itemData.name, matches[0].name);
+      return matches[0].id;
+    }
+    const options = powers
+      .map((p) => `<option value="${p.id}" ${matches[0]?.id === p.id ? "selected" : ""}>${p.name}</option>`)
+      .join("");
+    return new Promise((resolve) => {
+      new Dialog({
+        title: `Link ${itemData.name} to a Power`,
+        content: `<form><div class="form-group"><label>Power${itemData.system?.prerequisite ? ` (Prerequisite: ${itemData.system.prerequisite})` : ""}</label><select name="power">${options}</select></div></form>`,
+        buttons: {
+          link: {
+            label: "Link",
+            callback: (html) => resolve(html.find('[name="power"]').val()),
+          },
+          cancel: {
+            label: "Cancel",
+            callback: () => resolve(null),
+          },
+        },
+        default: "link",
+        close: () => resolve(null),
+      }, { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }).render(true);
+    });
+  }
+
+  /** Whisper the actor's owners and the GMs that a stunt was auto-linked. */
+  _announceStuntLink(stuntName, powerName) {
+    const recipients = game.users.filter(
+      (u) => u.isGM || this.actor.testUserPermission(u, "OWNER")
+    );
+    ChatMessage.create({
+      content: `<p><strong>${stuntName}</strong> was linked to ${this.actor.name}'s <strong>${powerName}</strong> power.</p>`,
+      whisper: recipients.map((u) => u.id),
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+    });
+  }
+
   /** Fired whenever an embedded document is created.
    */
-  _onDropItemCreate(itemData) {
+  async _onDropItemCreate(itemData) {
     if (!this.actor.items.map((item) => item.name).includes(itemData.name)) {
+      if (itemData.type === "stunt") {
+        const powerId = await this._promptStuntPower(itemData);
+        if (!powerId) return;
+        itemData.system.power = powerId;
+        return super._onDropItemCreate(itemData);
+      }
       if (
         itemData.type === "power" &&
         (itemData.system.powerSets?.some(ps => ps.name === "Elemental Control") ||
@@ -3832,8 +4024,9 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
       else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
 
+      const formula = applyAttackBonusToFormula(dataset.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        dataset.formula,
+        formula,
         this.actor.getRollData(),
         { edgeMode }
       );
@@ -4315,6 +4508,9 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       this.actor.allApplicableEffects()
     );
 
+    context.isVillainous = game.settings.get("marvel-multiverse", "sinisterPlotPointsEnabled")
+      && this.actor.items.some((i) => i.type === "tag" && i.name === "Villainous");
+
     context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
     if (context.enableAlternateForms) {
       const alternateForms = this.actor.system.alternateForms ?? [];
@@ -4410,14 +4606,10 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
         if (!powers[firstSet]) powers[firstSet] = [];
         powers[firstSet].push(i);
       } else if (i.type === "iconicItem") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         const parts = [];
         const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
         for (const [key, label] of Object.entries(abilityLabels)) {
@@ -4998,8 +5190,9 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
       else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
 
+      const formula = applyAttackBonusToFormula(dataset.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        dataset.formula,
+        formula,
         this.actor.getRollData(),
         { edgeMode }
       );
@@ -5127,6 +5320,24 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         normal: { label: "Normal" },
         trouble: { label: "Trouble" },
       };
+      if (itemData.type === "power") {
+        const actor = this.item.actor;
+        context.showStuntsTab = !!(
+          actor &&
+          actor.type === "character" &&
+          game.settings.get("marvel-multiverse", "stuntsEnabled")
+        );
+        if (context.showStuntsTab) {
+          context.canActivatePowers = _canActivatePowers(actor);
+          const stunts = actor.items
+            .filter((i) => i.type === "stunt" && i.system.power === this.item.id)
+            .sort((a, b) => a.name.localeCompare(b.name));
+          context.stunts = {
+            learned: stunts.filter((s) => s.system.learned),
+            available: stunts.filter((s) => !s.system.learned),
+          };
+        }
+      }
       context.abilities = {
         mle: {
           label: game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities.mle),
@@ -5150,9 +5361,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
     }
     if (itemData.type === "battleSuit") {
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
-      const powersCount = context.system.powers?.length ?? 0;
-      const restrictionsCount = context.system.restrictions?.length ?? 0;
-      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
+      context.powerValue = calculatePowerValue(context.system.powers, context.system.restrictions);
       context.sortedPowers = (context.system.powers ?? [])
         .map((p, idx) => ({ ...p, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
@@ -5177,9 +5386,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         ])
       );
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
-      const powersCount = context.system.powers?.length ?? 0;
-      const restrictionsCount = context.system.restrictions?.length ?? 0;
-      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
+      context.powerValue = calculatePowerValue(context.system.powers, context.system.restrictions);
       context.sortedPowers = (context.system.powers ?? [])
         .map((p, idx) => ({ ...p, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
@@ -5253,6 +5460,60 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
     });
     dropZone.on("dragleave", (ev) => {
       ev.currentTarget.classList.remove("drag-over");
+    });
+
+    // Power sheet: Stunts tab
+    html.on("click", ".stunt-create", async (ev) => {
+      ev.preventDefault();
+      const actor = this.item.actor;
+      if (!actor) return;
+      const [stunt] = await actor.createEmbeddedDocuments("Item", [{
+        type: "stunt",
+        name: "New Stunt",
+        system: { power: this.item.id },
+      }]);
+      stunt?.sheet.render(true);
+      this.render(false);
+    });
+
+    html.on("click", ".stunt-edit", (ev) => {
+      ev.preventDefault();
+      const id = ev.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      this.item.actor?.items.get(id)?.sheet.render(true);
+    });
+
+    html.on("click", ".stunt-delete", async (ev) => {
+      ev.preventDefault();
+      const id = ev.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      if (!id) return;
+      await this.item.actor?.deleteEmbeddedDocuments("Item", [id]);
+      this.render(false);
+    });
+
+    html.on("click", ".stunt-learn", async (ev) => {
+      ev.preventDefault();
+      const id = ev.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      const actor = this.item.actor;
+      const stunt = actor?.items.get(id);
+      if (!stunt) return;
+      const powerNames = actor.items.filter((i) => i.type === "power").map((i) => i.name);
+      const eligible = stuntEligible(stunt.system.prerequisite, powerNames);
+      if (!eligible) {
+        const confirmed = await Dialog.confirm({
+          title: "Learn Stunt",
+          content: `<p>${actor.name} does not appear to meet the prerequisite for <strong>${stunt.name}</strong>${stunt.system.prerequisite ? ` (${stunt.system.prerequisite})` : ""}. Learn it anyway?</p>`,
+          options: { classes: ["dialog", "marvel-multiverse", "mm-dialog"] },
+        });
+        if (!confirmed) return;
+      }
+      await stunt.update({ "system.learned": true });
+      this.render(false);
+    });
+
+    html.on("click", '[data-tab="stunts"] .rollable[data-roll-type="item"]', (ev) => {
+      ev.preventDefault();
+      const id = ev.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      this.item.actor?.items.get(id)?.roll();
     });
 
     // Iconic item: restriction management
@@ -5536,6 +5797,26 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
       return await this.item.update({ "system.restrictions": restrictions });
     }
 
+    // Handle stunt drops onto powers: link the stunt to this power. A stunt
+    // dropped from a compendium or the world is embedded onto the actor as a
+    // copy; a stunt already owned by this actor is relinked in place.
+    if (droppedItem.type === "stunt" && this.item.type === "power") {
+      const actor = this.item.actor;
+      if (!actor || !game.settings.get("marvel-multiverse", "stuntsEnabled")) return;
+      if (droppedItem.actor?.id === actor.id) {
+        if (droppedItem.system.power === this.item.id) return;
+        await droppedItem.update({ "system.power": this.item.id });
+        this.render(false);
+        return;
+      }
+      const stuntData = droppedItem.toObject();
+      delete stuntData._id;
+      foundry.utils.setProperty(stuntData, "system.power", this.item.id);
+      const [created] = await actor.createEmbeddedDocuments("Item", [stuntData]);
+      this.render(false);
+      return created;
+    }
+
     // Handle power drops onto iconic items
     if (droppedItem.type === "power" && this.item.type === "iconicItem") {
       const powers = [...this.item.system.powers];
@@ -5576,10 +5857,12 @@ const preloadHandlebarsTemplates = async () =>
     // Item partials
     "systems/marvel-multiverse/templates/item/parts/item-effects.hbs",
     "systems/marvel-multiverse/templates/item/parts/item-source.hbs",
+    "systems/marvel-multiverse/templates/item/parts/item-power-stunts.hbs",
     // Dialog partials
     "systems/marvel-multiverse/templates/dialogs/add-form-dialog.hbs",
     // Sidebar partials
     "systems/marvel-multiverse/templates/sidebar/actor-directory-filters.hbs",
+    "systems/marvel-multiverse/templates/sidebar/item-directory-filters.hbs",
     // Vehicle partials
     "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-occupants.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-vehicle-weapons.hbs",
@@ -5691,6 +5974,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
     });
 
     schema.karma = new fields.SchemaField({
+      value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
+      max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
+    });
+
+    schema.sinisterPlotPoints = new fields.SchemaField({
       value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
       max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
     });
@@ -5884,8 +6172,9 @@ class MarvelMultiverseActorBase extends foundry.abstract
       }
     }
 
-    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
+    const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
+    this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
+    this.focus.max = Math.max(10, (this.abilities.vig.value * battleMultiplier) + this.focus.bonus);
 
     const baseRunSpeed = this.movement.run.value;
 
@@ -6029,8 +6318,9 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       }
     }
 
-    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
+    const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
+    this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
+    this.focus.max = Math.max(10, (this.abilities.vig.value * battleMultiplier) + this.focus.bonus);
 
     const baseRunSpeed = this.movement.run.value;
 
@@ -6307,10 +6597,7 @@ class MarvelMultiverseIconicItem extends MarvelMultiverseItemBase {
   }
 
   get powerValue() {
-    const powersCount = this.powers?.length ?? 0;
-    const restrictionsCount = this.restrictions?.length ?? 0;
-    if (powersCount === 0 && restrictionsCount === 0) return 0;
-    return Math.max(1, powersCount - restrictionsCount);
+    return calculatePowerValue(this.powers, this.restrictions);
   }
 }
 
@@ -6525,10 +6812,7 @@ class MarvelMultiverseBattleSuit extends MarvelMultiverseItemBase {
   }
 
   get powerValue() {
-    const powersCount = this.powers?.length ?? 0;
-    const restrictionsCount = this.restrictions?.length ?? 0;
-    if (powersCount === 0 && restrictionsCount === 0) return 0;
-    return Math.max(1, powersCount - restrictionsCount);
+    return calculatePowerValue(this.powers, this.restrictions);
   }
 }
 
@@ -6595,6 +6879,21 @@ class MarvelMultiversePowerSet extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
     const schema = super.defineSchema();
+    return schema;
+  }
+}
+
+class MarvelMultiverseStunt extends MarvelMultiverseItemBase {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    const schema = super.defineSchema();
+
+    schema.prerequisite = new fields.StringField({ required: true, blank: true });
+    schema.duration = new fields.StringField({ required: true, blank: true });
+    schema.effect = new fields.StringField({ required: true, blank: true });
+    schema.learned = new fields.BooleanField({ required: true, initial: false });
+    schema.power = new fields.StringField({ required: true, blank: true });
+
     return schema;
   }
 }
@@ -6704,6 +7003,7 @@ var models = /*#__PURE__*/Object.freeze({
   MarvelMultiverseOrigin: MarvelMultiverseOrigin,
   MarvelMultiversePower: MarvelMultiversePower,
   MarvelMultiversePowerSet: MarvelMultiversePowerSet,
+  MarvelMultiverseStunt: MarvelMultiverseStunt,
   MarvelMultiverseTag: MarvelMultiverseTag,
   MarvelMultiverseTrait: MarvelMultiverseTrait,
   MarvelMultiverseWeapon: MarvelMultiverseWeapon
@@ -7219,6 +7519,353 @@ const ActorDirectoryFilter = {
 };
 
 /* -------------------------------------------- */
+/*  Item Directory Filter Manager                */
+/* -------------------------------------------- */
+
+const ITEM_TYPE_LABELS = {
+  item: "Item",
+  iconicItem: "Iconic Item",
+  weapon: "Weapon",
+  trait: "Trait",
+  tag: "Tag",
+  origin: "Origin",
+  occupation: "Occupation",
+  power: "Power",
+  powerSet: "Power Set",
+  stunt: "Stunt",
+  restriction: "Restriction",
+  battleSuit: "Battlesuit",
+  equipment: "Equipment",
+  vehicleWeapon: "Vehicle Weapon",
+  hqTag: "HQ Tag",
+  hqTrait: "HQ Trait",
+};
+
+const ItemDirectoryFilter = {
+
+  _filterState: null,
+  _directoryApp: null,
+
+  _getDefaultFilterState() {
+    return {
+      logic: "and",
+      panelOpen: false,
+      itemType: "",
+      source: [],
+      powerSets: [],
+      duration: [],
+      equipmentType: [],
+      tags: [],
+      traits: [],
+    };
+  },
+
+  init() {
+    this._filterState = this._getDefaultFilterState();
+  },
+
+  async onRenderDirectory(app, jqHtml) {
+    try {
+      this._directoryApp = app;
+      const html = jqHtml instanceof jQuery ? jqHtml : $(jqHtml);
+      const filterData = this._getFilterTemplateData();
+      const rendered = await foundry.applications.handlebars.renderTemplate(
+        "systems/marvel-multiverse/templates/sidebar/item-directory-filters.hbs",
+        filterData
+      );
+      const header = html.find(".directory-header");
+      if (!header.length) {
+        console.warn("ItemDirectoryFilter | No .directory-header found");
+        return;
+      }
+      header.find(".mm-sidebar-filters").remove();
+      header.append(rendered);
+      this._activateFilterListeners(html);
+      if (this._hasActiveFilters()) {
+        this._applyFilters(html[0]);
+      }
+    } catch (err) {
+      console.error("ItemDirectoryFilter | Render error:", err);
+    }
+  },
+
+  _getFilterTemplateData() {
+    const s = this._filterState;
+    const dynamicOpts = this._buildDynamicOptions();
+
+    const itemTypesUnsorted = {};
+    for (const [key, label] of Object.entries(ITEM_TYPE_LABELS)) {
+      itemTypesUnsorted[key] = { label, selected: s.itemType === key };
+    }
+    const itemTypes = Object.fromEntries(
+      Object.entries(itemTypesUnsorted).sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    );
+
+    const sources = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.sources).map(([key, data]) => [key, {
+        label: data.label,
+        checked: s.source.includes(key),
+      }])
+    );
+
+    const powerSets = dynamicOpts.powerSets.map(name => ({
+      name,
+      checked: s.powerSets.includes(name),
+    }));
+    const durations = dynamicOpts.durations.map(name => ({
+      name,
+      checked: s.duration.includes(name),
+    }));
+    const equipmentTypes = Object.fromEntries(
+      Object.entries(CONFIG.MARVEL_MULTIVERSE.equipmentTypes).map(([key, labelKey]) => [key, {
+        label: game.i18n.localize(labelKey),
+        checked: s.equipmentType.includes(key),
+      }])
+    );
+    const tags = dynamicOpts.tags.map(name => ({
+      name,
+      checked: s.tags.includes(name),
+    }));
+    const traits = dynamicOpts.traits.map(name => ({
+      name,
+      checked: s.traits.includes(name),
+    }));
+
+    return {
+      filterState: s,
+      activeFilterCount: this._countActiveFilters(),
+      filterOptions: {
+        itemTypes,
+        sources,
+        powerSets,
+        durations,
+        equipmentTypes,
+        tags,
+        traits,
+      },
+    };
+  },
+
+  /**
+   * Traits are not only their own item type -- a battleSuit carries
+   * `additionalTraits` as plain trait names, which also count as a source of
+   * the values a trait filter can select.
+   */
+  _buildDynamicOptions() {
+    const powerSets = new Set();
+    const durations = new Set();
+    const tags = new Set();
+    const traits = new Set();
+    for (const item of game.items) {
+      switch (item.type) {
+        case "power": {
+          for (const ps of String(item.system.powerSet ?? "").split(",")) {
+            const trimmed = ps.trim();
+            if (trimmed) powerSets.add(trimmed);
+          }
+          const duration = String(item.system.duration ?? "").trim();
+          if (duration) durations.add(duration);
+          break;
+        }
+        case "tag": tags.add(item.name); break;
+        case "trait": traits.add(item.name); break;
+      }
+      if (item.type === "battleSuit") {
+        for (const t of item.system.additionalTraits ?? []) {
+          if (t) traits.add(t);
+        }
+      }
+    }
+    return {
+      powerSets: [...powerSets].sort(),
+      durations: [...durations].sort(),
+      tags: [...tags].sort(),
+      traits: [...traits].sort(),
+    };
+  },
+
+  _activateFilterListeners(html) {
+    const self = this;
+
+    html.find(".mm-filter-toggle").on("click", (ev) => {
+      ev.preventDefault();
+      self._filterState.panelOpen = !self._filterState.panelOpen;
+      const container = html.find(".mm-sidebar-filters");
+      container.toggleClass("open", self._filterState.panelOpen);
+      container.find(".mm-filter-chevron")
+        .toggleClass("fa-chevron-down", !self._filterState.panelOpen)
+        .toggleClass("fa-chevron-up", self._filterState.panelOpen);
+    });
+
+    html.find(".mm-filter-logic").on("change", (ev) => {
+      self._filterState.logic = ev.currentTarget.value;
+      self._applyFilters(html[0]);
+    });
+
+    html.find(".mm-filter-clear").on("click", (ev) => {
+      ev.preventDefault();
+      self._filterState = self._getDefaultFilterState();
+      self._filterState.panelOpen = true;
+      if (self._directoryApp) self._directoryApp.render(false);
+    });
+
+    html.find(".mm-filter-group-header").on("click", (ev) => {
+      const header = $(ev.currentTarget);
+      const body = header.next(".mm-filter-group-body");
+      header.toggleClass("collapsed");
+      body.toggleClass("collapsed");
+    });
+
+    // The Power Set group only exists when Type is "power", so switching Type
+    // needs the whole panel re-rendered, not just the visible rows re-applied.
+    html.find(".mm-filter-type-select").on("change", (ev) => {
+      self._filterState.itemType = ev.currentTarget.value;
+      if (self._filterState.itemType !== "power") {
+        self._filterState.powerSets = [];
+        self._filterState.duration = [];
+      }
+      if (self._filterState.itemType !== "equipment") {
+        self._filterState.equipmentType = [];
+      }
+      if (self._directoryApp) self._directoryApp.render(false);
+    });
+
+    const checkboxFilters = ["source", "powerSets", "duration", "equipmentType", "tags", "traits"];
+    for (const filterKey of checkboxFilters) {
+      html.find(`.mm-filter-checkbox[data-filter='${filterKey}']`).on("change", () => {
+        self._updateCheckboxFilter(filterKey, html);
+      });
+    }
+  },
+
+  _updateCheckboxFilter(filterKey, html) {
+    const checked = [];
+    html.find(`.mm-filter-checkbox[data-filter='${filterKey}']:checked`).each((i, el) => {
+      checked.push(el.value);
+    });
+    this._filterState[filterKey] = checked;
+    this._applyFilters(html[0]);
+  },
+
+  _applyFilters(htmlEl) {
+    const entries = htmlEl.querySelectorAll(".directory-item.document");
+    for (const entry of entries) {
+      const itemId = entry.dataset.documentId || entry.dataset.entryId;
+      const item = game.items.get(itemId);
+      if (!item) continue;
+      if (this._hasActiveFilters() && !this._matchesFilters(item)) {
+        entry.style.display = "none";
+      } else {
+        entry.style.display = "";
+      }
+    }
+    this._updateFolderVisibility(htmlEl);
+    this._updateFilterCount(htmlEl);
+  },
+
+  _updateFolderVisibility(htmlEl) {
+    const folders = htmlEl.querySelectorAll(".directory-item.folder");
+    for (const folder of folders) {
+      const subdirectory = folder.querySelector(".subdirectory");
+      if (!subdirectory) continue;
+      const visibleEntries = subdirectory.querySelectorAll(".directory-item.document:not([style*='display: none'])");
+      const visibleSubfolders = subdirectory.querySelectorAll(".directory-item.folder:not([style*='display: none'])");
+      if (visibleEntries.length === 0 && visibleSubfolders.length === 0 && this._hasActiveFilters()) {
+        folder.style.display = "none";
+      } else {
+        folder.style.display = "";
+      }
+    }
+  },
+
+  _updateFilterCount(htmlEl) {
+    const count = this._countActiveFilters();
+    const badge = $(htmlEl).find(".mm-filter-count");
+    badge.text(count);
+    badge.toggleClass("hidden", count === 0);
+  },
+
+  _countActiveFilters() {
+    const s = this._filterState;
+    let count = 0;
+    if (s.itemType) count++;
+    if (s.source.length) count++;
+    if (s.powerSets.length) count++;
+    if (s.duration.length) count++;
+    if (s.equipmentType.length) count++;
+    if (s.tags.length) count++;
+    if (s.traits.length) count++;
+    return count;
+  },
+
+  _hasActiveFilters() {
+    return this._countActiveFilters() > 0;
+  },
+
+  _matchesFilters(item) {
+    const s = this._filterState;
+    const results = [];
+
+    if (s.itemType) {
+      results.push(item.type === s.itemType);
+    }
+
+    if (s.source.length) {
+      results.push(s.source.includes(item.system?.source));
+    }
+
+    if (s.powerSets.length) {
+      results.push(s.powerSets.some(ps => this._itemHasPowerSet(item, ps)));
+    }
+
+    if (s.duration.length) {
+      results.push(s.duration.some(d => this._itemHasDuration(item, d)));
+    }
+
+    if (s.equipmentType.length) {
+      results.push(s.equipmentType.some(et => this._itemHasEquipmentType(item, et)));
+    }
+
+    if (s.tags.length) {
+      results.push(s.tags.some(t => this._itemHasTag(item, t)));
+    }
+
+    if (s.traits.length) {
+      results.push(s.traits.some(t => this._itemHasTrait(item, t)));
+    }
+
+    if (!results.length) return true;
+    return s.logic === "and" ? results.every(Boolean) : results.some(Boolean);
+  },
+
+  _itemHasPowerSet(item, name) {
+    if (item.type !== "power") return false;
+    return String(item.system.powerSet ?? "")
+      .split(",")
+      .map(s => s.trim())
+      .includes(name);
+  },
+
+  _itemHasDuration(item, name) {
+    return item.type === "power" && item.system.duration === name;
+  },
+
+  _itemHasEquipmentType(item, name) {
+    return item.type === "equipment" && item.system.equipmentType === name;
+  },
+
+  _itemHasTag(item, name) {
+    return item.type === "tag" && item.name === name;
+  },
+
+  _itemHasTrait(item, name) {
+    if (item.type === "trait") return item.name === name;
+    if (item.type === "battleSuit") return (item.system.additionalTraits ?? []).includes(name);
+    return false;
+  },
+};
+
+/* -------------------------------------------- */
 /*  Init Hook                                   */
 /* -------------------------------------------- */
 
@@ -7283,6 +7930,7 @@ Hooks.once("init", () => {
     tag: MarvelMultiverseTag,
     power: MarvelMultiversePower,
     powerSet: MarvelMultiversePowerSet,
+    stunt: MarvelMultiverseStunt,
     restriction: MarvelMultiverseRestriction,
     battleSuit: MarvelMultiverseBattleSuit,
     equipment: MarvelMultiverseEquipment,
@@ -7306,6 +7954,34 @@ Hooks.once("init", () => {
     config: true,
     type: Boolean,
     default: true,
+  });
+
+  game.settings.register("marvel-multiverse", "stuntsEnabled", {
+    name: "MARVEL_MULTIVERSE.Stunt.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.Stunt.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+  });
+
+  game.settings.register("marvel-multiverse", "sinisterPlotPointsEnabled", {
+    name: "MARVEL_MULTIVERSE.SinisterPlotPoints.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.SinisterPlotPoints.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+  });
+
+  game.settings.register("marvel-multiverse", "battleMultiplier", {
+    name: "MARVEL_MULTIVERSE.BattleMultiplier.Setting.Value",
+    hint: "MARVEL_MULTIVERSE.BattleMultiplier.Setting.ValueHint",
+    scope: "world",
+    config: true,
+    type: Number,
+    range: { min: 10, max: 100, step: 10 },
+    default: 30,
   });
 
   game.settings.register("marvel-multiverse", "mutantReputationEnabled", {
@@ -7338,6 +8014,15 @@ Hooks.once("init", () => {
     default: true,
   });
 
+  game.settings.register("marvel-multiverse", "bigFightEnabled", {
+    name: "MARVEL_MULTIVERSE.BigFight.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.BigFight.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+  });
+
   // Active Effects are never copied to the Actor, but still apply to the Actor
   // from within the Item when the effect's transfer property is true. This is
   // core behavior as of v14 (the legacy transferral framework was removed).
@@ -7349,8 +8034,11 @@ Hooks.once("init", () => {
     "systems/marvel-multiverse/templates/chat/roll-breakdown.hbs";
   Roll.CHAT_TEMPLATE = "systems/marvel-multiverse/templates/dice/roll.hbs";
   CONFIG.Dice.MarvelMultiverseRoll = MarvelMultiverseRoll;
-  // Register Roll Extensions
-  CONFIG.Dice.rolls.push(MarvelMultiverseRoll);
+  // Register Roll Extensions. Foundry's default Roll-building paths (e.g.
+  // Combatant#getInitiativeRoll) use CONFIG.Dice.rolls[0] as the system's
+  // roll class, so this system's subclass must lead the array, not just be
+  // appended to it.
+  CONFIG.Dice.rolls.unshift(MarvelMultiverseRoll);
   CONFIG.Dice.terms.m = MarvelDie;
 
   // Replace Foundry defaults with only MMRPG-valid status effects
@@ -7416,6 +8104,9 @@ Hooks.once("init", () => {
 
   // Initialize Actor Directory Filters
   ActorDirectoryFilter.init();
+
+  // Initialize Item Directory Filters
+  ItemDirectoryFilter.init();
 
   // Add context menu for actor sidebar
   Hooks.on("getActorContextOptions", (app, options) => {
@@ -7560,6 +8251,451 @@ function _getConditionDamage(actor) {
     totalDamage += cfg.turnDamage;
   }
   return { active, totalDamage };
+}
+
+/**
+ * The pure arithmetic and lookups behind Big Fight mode (issue #75): side
+ * initiative, foe grouping, pooled Health/Focus, and the group attack bonus.
+ *
+ * Every function here is pure — no Foundry Document is touched. The glue that
+ * adapts a real Combat/Combatant into the plain shapes these take. That glue is mirrored in
+ * marvel-multiverse.mjs next to the other combat hooks, the same split
+ * damage-application.mjs uses for computeDamage/isTargetHit.
+ */
+
+/** @param {{enabled?: boolean}|null} bigFight */
+function isBigFightEnabled(bigFight) {
+  return bigFight?.enabled === true;
+}
+
+/**
+ * Foundry token disposition only distinguishes hostile from everything else
+ * for this feature's purposes — neutral and secret tokens act with the
+ * heroes' side rather than blocking on a third turn phase the rules don't
+ * define.
+ * @param {number} disposition
+ * @param {number} hostileValue  CONST.TOKEN_DISPOSITIONS.HOSTILE, passed in
+ *   so this file never needs a live Foundry CONST to be testable.
+ * @returns {"hero"|"foe"}
+ */
+function combatantSideFromDisposition(disposition, hostileValue) {
+  return disposition === hostileValue ? "foe" : "hero";
+}
+
+/**
+ * @param {Array<{id: string, memberCombatantIds: string[]}>|undefined} groups
+ * @param {string} combatantId
+ * @returns {object|null}
+ */
+function findGroup(groups, combatantId) {
+  return (groups ?? []).find((g) => g.memberCombatantIds.includes(combatantId)) ?? null;
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {health?: {destroyed?: boolean}}>} combatantsById
+ * @returns {object[]}
+ */
+function liveMembers(group, combatantsById) {
+  if (!group) return [];
+  return group.memberCombatantIds
+    .map((id) => combatantsById[id])
+    .filter((c) => c && c.health?.destroyed !== true);
+}
+
+/**
+ * @param {object|null} group
+ * @param {Record<string, object>} combatantsById
+ * @param {"health"|"focus"} resource
+ * @returns {{value: number, max: number}}
+ */
+function pooledResource(group, combatantsById, resource) {
+  return liveMembers(group, combatantsById).reduce(
+    (acc, c) => ({
+      value: acc.value + (c[resource]?.value ?? 0),
+      max: acc.max + (c[resource]?.max ?? 0),
+    }),
+    { value: 0, max: 0 }
+  );
+}
+
+/**
+ * Translates a GM-typed pooled resource total into per-member `value`
+ * updates, cascading the delta across live members in their existing order
+ * rather than spreading it evenly -- damage drains the first live member to
+ * 0 before spilling to the next, and healing tops the first live member back
+ * up to its own max before spilling onward. A typed value outside the pool's
+ * current bounds simply drains/fills every live member and discards the
+ * rest, since the sum of members' max is the pool's real ceiling.
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string}>} combatantsById
+ * @param {"health"|"focus"} resource
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+function distributePooledDelta(group, combatantsById, resource, newPooledValue) {
+  const members = liveMembers(group, combatantsById);
+  if (!members.length) return [];
+
+  let remaining = newPooledValue - members.reduce((sum, m) => sum + (m[resource]?.value ?? 0), 0);
+  if (remaining === 0) return [];
+
+  const updates = [];
+  for (const member of members) {
+    if (remaining === 0) break;
+    const value = member[resource]?.value ?? 0;
+    const max = member[resource]?.max ?? 0;
+    const room = remaining > 0 ? max - value : -value;
+    const applied = remaining > 0 ? Math.min(room, remaining) : Math.max(room, remaining);
+    if (applied === 0) continue;
+    updates.push({ id: member.id, value: value + applied });
+    remaining -= applied;
+  }
+  return updates;
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, health?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+function distributePooledHealthDelta(group, combatantsById, newPooledValue) {
+  return distributePooledDelta(group, combatantsById, "health", newPooledValue);
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, focus?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+function distributePooledFocusDelta(group, combatantsById, newPooledValue) {
+  return distributePooledDelta(group, combatantsById, "focus", newPooledValue);
+}
+
+/**
+ * "+1 per additional foe beyond the first" — a live group of `n` members
+ * grants `n - 1`. A destroyed member stops counting toward its own group's
+ * bonus the moment it drops, same round.
+ * @param {object|null} group
+ * @param {Record<string, object>} combatantsById
+ * @returns {number}
+ */
+function groupAttackBonus(group, combatantsById) {
+  if (!group) return 0;
+  return Math.max(0, liveMembers(group, combatantsById).length - 1);
+}
+
+/**
+ * @param {string} formula
+ * @param {number} bonus
+ * @returns {string}
+ */
+function applyAttackBonusToFormula(formula, bonus) {
+  return bonus ? `${formula} + ${bonus}` : formula;
+}
+
+/**
+ * @param {Array<{side: "hero"|"foe", vigilance: number}>} combatants
+ * @returns {{hero: number, foe: number}}
+ */
+function bestVigilanceBySide(combatants) {
+  const totals = { hero: 0, foe: 0 };
+  for (const c of combatants) {
+    if (c.vigilance > totals[c.side]) totals[c.side] = c.vigilance;
+  }
+  return totals;
+}
+
+/**
+ * Ties are re-rolled once rather than settled by house rule, since the book
+ * does not say who goes first on a tie.
+ * @param {number} heroTotal
+ * @param {number} foeTotal
+ * @returns {boolean}
+ */
+function needsInitiativeReroll(heroTotal, foeTotal) {
+  return heroTotal === foeTotal;
+}
+
+/**
+ * The highest Vigilance among a group's own members -- the same "best of the
+ * side" idea bestVigilanceBySide uses for side initiative, scoped down to
+ * just this group so re-rolling its initiative doesn't touch the rest of
+ * its side.
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {vigilance?: number}>} combatantsById
+ * @returns {number}
+ */
+function groupBestVigilance(group, combatantsById) {
+  if (!group) return 0;
+  return group.memberCombatantIds.reduce(
+    (best, id) => Math.max(best, combatantsById[id]?.vigilance ?? 0),
+    0
+  );
+}
+
+/**
+ * @param {boolean|undefined} current
+ * @returns {boolean}
+ */
+function nextInRangeValue(current) {
+  return current !== true;
+}
+
+/**
+ * Buckets declared damage targets by the Big Fight group they belong to, so
+ * the damage card can print "Rival Gang: 2 hit, 1 missed" instead of three
+ * unassociated lines. Consecutive targets sharing a group merge into one
+ * bucket; a target with no group (or grouping disabled) gets a bucket of one,
+ * preserving today's per-target line for anyone not in Big Fight mode.
+ * @param {Array<{uuid: string, combatantId?: string}>} targets
+ * @param {Array<{id: string, memberCombatantIds: string[]}>} groups
+ * @returns {Array<{group: object|null, targets: object[]}>}
+ */
+function groupDamageTargetsByGroup(targets, groups) {
+  const buckets = [];
+  for (const target of targets) {
+    const group = target.combatantId ? findGroup(groups, target.combatantId) : null;
+    const last = buckets.at(-1);
+    if (group && last?.group?.id === group.id) {
+      last.targets.push(target);
+    } else {
+      buckets.push({ group, targets: [target] });
+    }
+  }
+  return buckets;
+}
+
+const BIG_FIGHT_DEFAULT = { enabled: false, sideInitiative: { hero: null, foe: null }, groups: [] };
+
+/** @param {Combat} combat */
+function bigFightFlag(combat) {
+  return combat?.getFlag("marvel-multiverse", "bigFight") ?? null;
+}
+
+/**
+ * @param {Combat} combat
+ * @param {object} patch  Shallow-merged onto the current flag (or the default
+ *   shape, the first time Big Fight is touched on this encounter).
+ */
+async function setBigFightFlag(combat, patch) {
+  const current = bigFightFlag(combat) ?? BIG_FIGHT_DEFAULT;
+  await combat.setFlag("marvel-multiverse", "bigFight", { ...current, ...patch });
+}
+
+/**
+ * Flips the encounter's Big Fight state. Turning it off leaves
+ * groups/sideInitiative in the flag untouched -- they're simply unread until
+ * it's turned back on, which is what lets the tracker resume normal combat
+ * immediately without losing the GM's group setup.
+ * @param {Combat} combat
+ */
+async function toggleBigFight(combat) {
+  const current = bigFightFlag(combat);
+  await setBigFightFlag(combat, { enabled: !isBigFightEnabled(current) });
+}
+
+/** @param {Combatant} combatant */
+function combatantSide(combatant) {
+  const disposition = combatant?.token?.disposition ?? combatant?.disposition ?? 0;
+  return combatantSideFromDisposition(disposition, CONST.TOKEN_DISPOSITIONS.HOSTILE);
+}
+
+/**
+ * Rolls one {1d6,1dm,1d6} + best-Vigilance check per side, re-rolling once on
+ * a tie, writes the totals to the encounter's Big Fight flag, and sets every
+ * member of a side to that side's total so Foundry's own turn-order sort
+ * groups the side together without needing a custom turn-advancement
+ * override.
+ * @param {Combat} combat
+ * @returns {Promise<{hero: number, foe: number}>}
+ */
+async function rollSideInitiative(combat) {
+  const bySide = { hero: [], foe: [] };
+  for (const c of combat.combatants) {
+    bySide[combatantSide(c)].push(c);
+  }
+  const vigilanceInput = [...bySide.hero, ...bySide.foe].map((c) => ({
+    side: combatantSide(c),
+    vigilance: c.actor?.system?.abilities?.vig?.value ?? 0,
+  }));
+  const bestVig = bestVigilanceBySide(vigilanceInput);
+
+  async function rollSide(side) {
+    if (bySide[side].length === 0) return null;
+    const roll = new CONFIG.Dice.MarvelMultiverseRoll(`{1d6,1dm,1d6} + ${bestVig[side]}`, {});
+    await roll.evaluate();
+    return roll;
+  }
+
+  // Kept as Roll objects, not just their totals, so the final (kept) rolls
+  // can each be posted with roll.toMessage() below -- a plain summary string
+  // has no per-die breakdown for a GM to expand, unlike every other roll in
+  // this system.
+  let rolls = { hero: await rollSide("hero"), foe: await rollSide("foe") };
+  if (rolls.hero && rolls.foe && needsInitiativeReroll(rolls.hero.total, rolls.foe.total)) {
+    rolls = { hero: await rollSide("hero"), foe: await rollSide("foe") };
+  }
+  const totals = { hero: rolls.hero?.total ?? null, foe: rolls.foe?.total ?? null };
+
+  await setBigFightFlag(combat, { sideInitiative: totals });
+
+  const updates = [];
+  for (const side of ["hero", "foe"]) {
+    if (totals[side] === null) continue;
+    for (const c of bySide[side]) updates.push({ _id: c.id, initiative: totals[side] });
+  }
+  if (updates.length) await combat.updateEmbeddedDocuments("Combatant", updates);
+
+  const speaker = { alias: "Big Fight" };
+  if (rolls.hero) {
+    await rolls.hero.toMessage({ speaker, flavor: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.HeroesInitiative") });
+  }
+  if (rolls.foe) {
+    await rolls.foe.toMessage({ speaker, flavor: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.FoesInitiative") });
+  }
+
+  return totals;
+}
+
+/**
+ * Rolls initiative for one group only, using the best Vigilance among its
+ * own members rather than the whole side's -- unlike rollSideInitiative,
+ * this deliberately does not touch any other combatant or group, since a
+ * GM re-rolling one group mid-encounter has no reason to reshuffle everyone
+ * else's turn.
+ * @param {Combat} combat
+ * @param {object} group
+ * @param {Record<string, object>} byId
+ * @returns {Promise<number>}
+ */
+async function rollGroupInitiative(combat, group, byId) {
+  const vigilance = groupBestVigilance(group, byId);
+  const roll = new CONFIG.Dice.MarvelMultiverseRoll(`{1d6,1dm,1d6} + ${vigilance}`, {});
+  await roll.evaluate();
+  const total = roll.total;
+
+  await combat.updateEmbeddedDocuments(
+    "Combatant",
+    group.memberCombatantIds.map((id) => ({ _id: id, initiative: total }))
+  );
+
+  // roll.toMessage() (not a hand-built summary string) so the chat card's
+  // total is expandable to the individual die results, same as every other
+  // roll in this system.
+  await roll.toMessage({ speaker: { alias: "Big Fight" }, flavor: group.name });
+
+  return total;
+}
+
+/**
+ * Adapts a real Combat's Combatants into the plain shapes the pure Big Fight
+ * helpers (liveMembers/pooledResource/groupAttackBonus) expect.
+ *
+ * The character/NPC actor data model has no computed "destroyed" field on
+ * Health or Focus (that field only exists on the Vehicle data model, with
+ * different semantics -- health at or below negative max). For Big Fight
+ * pooling purposes a combatant simply drops out once its Health reaches 0,
+ * so that is computed here rather than read off a field that does not exist
+ * for character/NPC actors.
+ * @param {Combat} combat
+ * @returns {Record<string, object>}
+ */
+function combatantsById(combat) {
+  const map = {};
+  for (const c of combat.combatants) {
+    const health = c.actor?.system?.health ?? {};
+    const focus = c.actor?.system?.focus ?? {};
+    const healthMax = health.max ?? 0;
+    const healthValue = health.value ?? 0;
+    const focusMax = focus.max ?? 0;
+    const focusValue = focus.value ?? 0;
+    map[c.id] = {
+      id: c.id,
+      side: combatantSide(c),
+      vigilance: c.actor?.system?.abilities?.vig?.value ?? 0,
+      health: {
+        value: healthValue,
+        max: healthMax,
+        destroyed: healthMax > 0 && healthValue <= 0,
+      },
+      focus: {
+        value: focusValue,
+        max: focusMax,
+        destroyed: focusMax > 0 && focusValue <= 0,
+      },
+    };
+  }
+  return map;
+}
+
+/**
+ * @param {Combat} combat
+ * @param {string[]} combatantIds  Must all share one side; mixing sides would
+ *   make "the group acts on its side's turn" meaningless.
+ * @param {string} name
+ */
+async function groupCombatants(combat, combatantIds, name) {
+  if (combatantIds.length < 2) {
+    ui.notifications.warn("Select at least two combatants to group.");
+    return;
+  }
+  const byId = combatantsById(combat);
+  const sides = new Set(combatantIds.map((id) => byId[id]?.side));
+  if (sides.size !== 1) {
+    ui.notifications.warn("A group can only contain combatants on the same side.");
+    return;
+  }
+  const current = bigFightFlag(combat) ?? BIG_FIGHT_DEFAULT;
+  const group = {
+    id: foundry.utils.randomID(),
+    name,
+    side: [...sides][0],
+    memberCombatantIds: combatantIds,
+  };
+  await setBigFightFlag(combat, { groups: [...(current.groups ?? []), group] });
+}
+
+/**
+ * @param {Combat} combat
+ * @param {string} groupId
+ */
+async function ungroupCombatants(combat, groupId) {
+  const current = bigFightFlag(combat);
+  if (!current) return;
+  await setBigFightFlag(combat, { groups: (current.groups ?? []).filter((g) => g.id !== groupId) });
+}
+
+/**
+ * The group attack bonus for whoever is about to roll, resolved against the
+ * currently viewed combat. Returns 0 outside Big Fight mode, for a combatant
+ * not in this combat, or for an ungrouped combatant — so every call site can
+ * add this unconditionally without its own Big-Fight check.
+ * @param {Actor} actor
+ * @returns {number}
+ */
+function groupAttackBonusForActor(actor) {
+  const combat = game.combat;
+  if (!combat) return 0;
+  if (!game.settings.get("marvel-multiverse", "bigFightEnabled")) return 0;
+  const bigFight = bigFightFlag(combat);
+  if (!isBigFightEnabled(bigFight)) return 0;
+  // An unlinked token's synthetic actor shares its base actor's id with every
+  // other unlinked copy of that actor (e.g. several identical enemy tokens
+  // placed from the same prototype actor in the same combat), so matching by
+  // actorId alone would always resolve to whichever combatant happens to be
+  // first in the collection -- not the one that's actually rolling. Prefer
+  // the actor's own token when it has one; a world-level (linked) actor has
+  // no `.token` and genuinely has at most one live combatant, so the actorId
+  // fallback is correct for it.
+  const combatant = actor?.token
+    ? combat.combatants.find((c) => c.tokenId === actor.token.id)
+    : combat.combatants.find((c) => c.actorId === actor?.id);
+  if (!combatant) return 0;
+  const group = findGroup(bigFight.groups, combatant.id);
+  return groupAttackBonus(group, combatantsById(combat));
 }
 
 function _getWhisperRecipients(actor) {
@@ -7756,6 +8892,478 @@ Hooks.on("updateCombat", (combat, changed, options, userId) => {
 });
 
 /**
+ * A grouped row's context menu still belongs to its first member's
+ * combatant id (that is the row left visible), so core's own "Reroll
+ * Initiative" entry would silently reroll just that one member instead of
+ * the group. Swap its handler to roll the whole group when the row is a
+ * group's stand-in, and leave it untouched for every ungrouped combatant.
+ *
+ * The combat tracker only builds this context menu once, the first time its
+ * sidebar tab renders -- typically at world load, well before any combat or
+ * grouping exists. So every check here must happen inside onClick itself,
+ * against live state at click time, rather than once when this hook fires.
+ */
+Hooks.on("getCombatTrackerContextOptions", (app, menuItems) => {
+  const rerollEntry = menuItems.find((entry) => entry.label === "COMBATANT.ACTIONS.Reroll");
+  if (!rerollEntry) return;
+
+  const originalOnClick = rerollEntry.onClick;
+  rerollEntry.onClick = (event, li) => {
+    const combat = app.viewed;
+    if (!combat || !game.settings.get("marvel-multiverse", "bigFightEnabled")) {
+      return originalOnClick?.(event, li);
+    }
+    const bigFight = bigFightFlag(combat);
+    if (!isBigFightEnabled(bigFight)) return originalOnClick?.(event, li);
+    const group = findGroup(bigFight?.groups, li.dataset.combatantId);
+    if (!group) return originalOnClick?.(event, li);
+    return rollGroupInitiative(combat, group, combatantsById(combat));
+  };
+});
+
+/**
+ * Injects the Big Fight toggle into the combat tracker header. Prepended to
+ * the tracker root rather than a specific internal class, so this does not
+ * depend on Foundry's internal tracker markup staying byte-identical across
+ * versions -- only on the hook firing with the tracker's root element.
+ */
+Hooks.on("renderCombatTracker", (app, html) => {
+  const root = html instanceof HTMLElement ? html : html?.[0];
+  if (!root) return;
+
+  root.querySelector(".mm-big-fight-toggle")?.remove();
+  root.querySelector(".mm-big-fight-roll-initiative")?.remove();
+  root.querySelector(".mm-big-fight-group-btn")?.remove();
+  root.querySelectorAll(".mm-big-fight-group-icons").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-group-hp").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-group-focus").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-select").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-in-range").forEach((el) => el.remove());
+  // Reset any rows a previous render altered to stand in for a group --
+  // otherwise a combatant that gets ungrouped (or Big Fight mode turned off)
+  // would stay hidden, keep the group's name, or stay missing its own
+  // portrait and Hide/Mark Defeated controls, even though nothing overrides
+  // them any more. The portrait and those two controls are hidden rather
+  // than removed when a row stands in for a group (below), specifically so
+  // this reset can bring them back without needing Foundry to have
+  // rebuilt the row from scratch in between.
+  root.querySelectorAll("li.combatant[data-combatant-id]").forEach((el) => {
+    el.style.display = "";
+    el.querySelector(".token-image")?.style.removeProperty("display");
+    el.querySelector('[data-action="toggleHidden"]')?.style.removeProperty("display");
+    el.querySelector('[data-action="toggleDefeated"]')?.style.removeProperty("display");
+    el.querySelector('[data-action="pingCombatant"]')?.style.removeProperty("display");
+    const tokenInitiative = el.querySelector(".token-initiative");
+    if (tokenInitiative?.dataset.mmOriginalHtml !== undefined) {
+      tokenInitiative.innerHTML = tokenInitiative.dataset.mmOriginalHtml;
+    }
+    const nameEl = el.querySelector(".name");
+    if (nameEl?.dataset.mmOriginalName) nameEl.textContent = nameEl.dataset.mmOriginalName;
+  });
+  if (!app.viewed) return;
+  // The world setting is a hard off switch: when a GM disables it, the whole
+  // feature disappears from the tracker for every client, the same way the
+  // cleanup above already removed it. An encounter's bigFight flag data is
+  // left untouched, so re-enabling the setting resumes exactly where the GM
+  // left off -- matching toggleBigFight's own "off doesn't discard" design.
+  if (!game.settings.get("marvel-multiverse", "bigFightEnabled")) return;
+
+  const enabled = isBigFightEnabled(bigFightFlag(app.viewed));
+
+  // The toggle button, roll-initiative button, grouping controls, and the
+  // pooled HP/Focus row all either mutate the combat document (denied to a
+  // non-GM by Foundry's permission system -- a player clicking one gets a
+  // permission error, not a graceful no-op) or reveal a hostile group's exact
+  // resource numbers, which stock Foundry already withholds from a player
+  // without at least Observer permission on that actor. All of it is
+  // GM-only. The cleanup above and the per-combatant in-range marker below
+  // still run for every client.
+  if (game.user.isGM) {
+    // Styled to match the tracker's own Start Combat button (same core
+    // combat-control-lg classes) and placed directly above it in the footer,
+    // rather than at the top with the rest of Big Fight's controls -- this is
+    // the encounter-level on/off switch, so it belongs with the other
+    // encounter-level control.
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "combat-control combat-control-lg mm-big-fight-toggle" + (enabled ? " -enabled" : "");
+
+    const icon = document.createElement("i");
+    icon.className = "fa-solid fa-people-group";
+    icon.inert = true;
+    button.appendChild(icon);
+
+    const label = document.createElement("span");
+    label.textContent = enabled
+      ? game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Disable")
+      : game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Enable");
+    button.appendChild(label);
+
+    button.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      await toggleBigFight(app.viewed);
+    });
+
+    const footer = root.querySelector('nav.combat-controls[data-application-part="footer"]');
+    if (footer) {
+      footer.before(button);
+    } else {
+      root.appendChild(button);
+    }
+  }
+
+  if (enabled) {
+    const bigFight = bigFightFlag(app.viewed);
+    const byId = combatantsById(app.viewed);
+    const groups = bigFight?.groups ?? [];
+    const groupedMemberIds = new Set(groups.flatMap((g) => g.memberCombatantIds));
+
+    if (game.user.isGM) {
+      const rollButton = document.createElement("button");
+      rollButton.type = "button";
+      rollButton.className = "combat-control combat-control-lg mm-big-fight-roll-initiative";
+      const rollIcon = document.createElement("i");
+      rollIcon.className = "fa-solid fa-dice-d20";
+      rollIcon.inert = true;
+      rollButton.appendChild(rollIcon);
+      const rollLabel = document.createElement("span");
+      rollLabel.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollSideInitiative");
+      rollButton.appendChild(rollLabel);
+      rollButton.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        await rollSideInitiative(app.viewed);
+      });
+      root.prepend(rollButton);
+
+      for (const group of groups) {
+        const health = pooledResource(group, byId, "health");
+        const focus = pooledResource(group, byId, "focus");
+        const liveCount = liveMembers(group, byId).length;
+
+        group.memberCombatantIds.forEach((memberId, index) => {
+          // The tracker's dock renders a `.combatant-portrait` div AND the
+          // sidebar list renders a `li.combatant` -- both carry
+          // data-combatant-id, so an unqualified attribute selector would
+          // match the portrait first. Only the sidebar list row is where a
+          // group's own name/icons/HP and a hidden duplicate member make
+          // sense.
+          const row = root.querySelector(`li.combatant[data-combatant-id="${memberId}"]`);
+          if (!row) return;
+          if (index > 0) {
+            row.style.display = "none";
+            return;
+          }
+
+          // A quarter-sized portrait grid for up to the first 4 members,
+          // filled left to right then top to bottom, so the row reads as a
+          // group at a glance instead of showing just its first member.
+          // Hidden rather than replaced (see the cleanup reset above).
+          const portrait = row.querySelector(".token-image");
+          portrait?.style.setProperty("display", "none");
+          const iconGrid = document.createElement("div");
+          iconGrid.className = "token-image mm-big-fight-group-icons";
+          for (const iconMemberId of group.memberCombatantIds.slice(0, 4)) {
+            const memberCombatant = app.viewed.combatants.get(iconMemberId);
+            if (!memberCombatant) continue;
+            const icon = document.createElement("img");
+            icon.className = "mm-big-fight-group-icon";
+            icon.src = memberCombatant.img;
+            icon.alt = memberCombatant.name;
+            iconGrid.appendChild(icon);
+          }
+          portrait?.insertAdjacentElement("afterend", iconGrid);
+
+          // The row's name is this group's, not just whichever member
+          // happens to sit in the first slot.
+          const nameEl = row.querySelector(".name");
+          if (nameEl) {
+            nameEl.dataset.mmOriginalName ??= nameEl.textContent;
+            nameEl.textContent = `${group.name} (${liveCount})`;
+          }
+
+          // Hiding, marking defeated, or pinging one member of a group
+          // individually stops making sense once the row represents the
+          // whole group -- damage already drops the pooled Health below,
+          // defeat is derived from that rather than toggled per row, and
+          // there's no single token left for "ping" to point at.
+          row.querySelector('[data-action="toggleHidden"]')?.style.setProperty("display", "none");
+          row.querySelector('[data-action="toggleDefeated"]')?.style.setProperty("display", "none");
+          row.querySelector('[data-action="pingCombatant"]')?.style.setProperty("display", "none");
+          // Foundry's own per-row initiative control only knows about this
+          // one combatant -- clicking it would roll and post a standard chat
+          // card for just the group's first member, and reading its value
+          // back would show only that member's own initiative. Replaced
+          // (not just hidden) with a control that rolls and displays the
+          // whole group's shared value instead.
+          const tokenInitiative = row.querySelector(".token-initiative");
+          if (tokenInitiative) {
+            tokenInitiative.dataset.mmOriginalHtml ??= tokenInitiative.innerHTML;
+            tokenInitiative.innerHTML = "";
+
+            const groupInitiative = app.viewed.combatants.get(memberId)?.initiative;
+            // Same either/or as Foundry's own token-initiative markup: once a
+            // value exists, show only the number, not the roll button too.
+            if (groupInitiative !== null && groupInitiative !== undefined) {
+              const value = document.createElement("span");
+              value.className = "mm-big-fight-group-initiative-value";
+              value.textContent = String(groupInitiative);
+              tokenInitiative.appendChild(value);
+            } else {
+              const rollBtn = document.createElement("button");
+              rollBtn.type = "button";
+              rollBtn.className = "combatant-control roll mm-big-fight-group-roll-initiative";
+              rollBtn.style.setProperty("--initiative-icon", "url('../icons/svg/d20.svg')");
+              rollBtn.style.setProperty("--initiative-icon-hover", "url('../icons/svg/d20-highlight.svg')");
+              rollBtn.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollGroupInitiative");
+              rollBtn.setAttribute("aria-label", rollBtn.title);
+              rollBtn.addEventListener("click", async (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                await rollGroupInitiative(app.viewed, group, byId);
+              });
+              tokenInitiative.appendChild(rollBtn);
+            }
+          }
+
+          const hp = document.createElement("div");
+          hp.className = "mm-big-fight-group-hp";
+
+          const hpLabel = document.createElement("span");
+          hpLabel.textContent = "HP ";
+          hp.appendChild(hpLabel);
+
+          // A typed pooled total, not a display of one member's own Health --
+          // clicking or typing here must not also select the row underneath,
+          // and Enter should commit the same as clicking away.
+          const hpInput = document.createElement("input");
+          hpInput.type = "number";
+          hpInput.className = "mm-big-fight-group-hp-input";
+          hpInput.value = health.value;
+          hpInput.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupHealthValue");
+          hpInput.addEventListener("click", (ev) => ev.stopPropagation());
+          hpInput.addEventListener("keydown", (ev) => {
+            ev.stopPropagation();
+            if (ev.key === "Enter") hpInput.blur();
+          });
+          hpInput.addEventListener("change", async (ev) => {
+            ev.stopPropagation();
+            const newValue = Number(hpInput.value);
+            if (!Number.isFinite(newValue)) {
+              hpInput.value = health.value;
+              return;
+            }
+            const updates = distributePooledHealthDelta(group, byId, newValue);
+            for (const update of updates) {
+              const memberCombatant = app.viewed.combatants.get(update.id);
+              await memberCombatant?.actor?.update({ "system.health.value": update.value });
+            }
+          });
+          hp.appendChild(hpInput);
+
+          const hpMax = document.createElement("span");
+          hpMax.className = "mm-big-fight-group-hp-max";
+          hpMax.textContent = ` / ${health.max}`;
+          hp.appendChild(hpMax);
+
+          const ungroupLink = document.createElement("a");
+          ungroupLink.className = "mm-big-fight-ungroup";
+          ungroupLink.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Ungroup");
+          ungroupLink.addEventListener("click", async (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            await ungroupCombatants(app.viewed, group.id);
+          });
+          hp.appendChild(ungroupLink);
+
+          const focusRow = document.createElement("div");
+          focusRow.className = "mm-big-fight-group-focus";
+
+          const focusLabel = document.createElement("span");
+          focusLabel.textContent = "FP ";
+          focusRow.appendChild(focusLabel);
+
+          // Mirrors the HP input above: a typed pooled total that cascades
+          // across live members via distributePooledFocusDelta.
+          const focusInput = document.createElement("input");
+          focusInput.type = "number";
+          focusInput.className = "mm-big-fight-group-focus-input";
+          focusInput.value = focus.value;
+          focusInput.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupFocusValue");
+          focusInput.addEventListener("click", (ev) => ev.stopPropagation());
+          focusInput.addEventListener("keydown", (ev) => {
+            ev.stopPropagation();
+            if (ev.key === "Enter") focusInput.blur();
+          });
+          focusInput.addEventListener("change", async (ev) => {
+            ev.stopPropagation();
+            const newValue = Number(focusInput.value);
+            if (!Number.isFinite(newValue)) {
+              focusInput.value = focus.value;
+              return;
+            }
+            const updates = distributePooledFocusDelta(group, byId, newValue);
+            for (const update of updates) {
+              const memberCombatant = app.viewed.combatants.get(update.id);
+              await memberCombatant?.actor?.update({ "system.focus.value": update.value });
+            }
+          });
+          focusRow.appendChild(focusInput);
+
+          const focusMax = document.createElement("span");
+          focusMax.className = "mm-big-fight-group-focus-max";
+          focusMax.textContent = ` / ${focus.max}`;
+          focusRow.appendChild(focusMax);
+
+          nameEl?.insertAdjacentElement("afterend", hp);
+          hp.insertAdjacentElement("afterend", focusRow);
+        });
+      }
+    }
+
+    // A per-combatant marker for whether it is in range this round -- pure
+    // toggle logic, no interaction with grouping/initiative/attack bonus, and
+    // low-stakes enough to leave visible to every client rather than gating
+    // it to the GM. Every combatant gets one, grouped or not, so this loop
+    // reads straight off app.viewed.combatants rather than the grouping
+    // state above.
+    for (const c of app.viewed.combatants) {
+      const row = root.querySelector(`li.combatant[data-combatant-id="${c.id}"]`);
+      if (!row) continue;
+      const inRange = c.getFlag("marvel-multiverse", "inRange") === true;
+      const icon = document.createElement("button");
+      icon.type = "button";
+      icon.className = "mm-big-fight-in-range" + (inRange ? " -active" : "");
+      icon.title = inRange
+        ? game.i18n.localize("MARVEL_MULTIVERSE.BigFight.InRange")
+        : game.i18n.localize("MARVEL_MULTIVERSE.BigFight.NotInRange");
+      icon.textContent = inRange ? "●" : "○";
+      icon.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        await c.setFlag("marvel-multiverse", "inRange", nextInRangeValue(inRange));
+      });
+      row.appendChild(icon);
+    }
+
+    if (game.user.isGM) {
+      // Foundry's v14 tracker rows have no selection affordance of their own
+      // -- clicking a row pings/targets the token but toggles no class we
+      // can read back. A checkbox per row is the simplest mechanism that
+      // still lets a GM mark "these N combatants" before clicking Group
+      // Selected. Combatants already in a group are skipped: grouping is not
+      // designed to handle a combatant belonging to two groups at once.
+      for (const row of root.querySelectorAll("li.combatant[data-combatant-id]")) {
+        const combatantId = row.dataset.combatantId;
+        if (groupedMemberIds.has(combatantId)) continue;
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "mm-big-fight-select";
+        checkbox.dataset.combatantId = combatantId;
+        checkbox.addEventListener("click", (ev) => ev.stopPropagation());
+        row.prepend(checkbox);
+      }
+
+      const groupButton = document.createElement("button");
+      groupButton.type = "button";
+      groupButton.className = "combat-control combat-control-lg mm-big-fight-group-btn";
+      const groupIcon = document.createElement("i");
+      groupIcon.className = "fa-solid fa-layer-group";
+      groupIcon.inert = true;
+      groupButton.appendChild(groupIcon);
+      const groupLabel = document.createElement("span");
+      groupLabel.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupSelected");
+      groupButton.appendChild(groupLabel);
+      groupButton.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        const ids = Array.from(root.querySelectorAll(".mm-big-fight-select:checked")).map(
+          (el) => el.dataset.combatantId
+        );
+        if (ids.length < 2) {
+          ui.notifications.warn("Select at least two combatants to group.");
+          return;
+        }
+        const groupNameLabel = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameLabel");
+        const name = await new Promise((resolve) => {
+          new Dialog(
+            {
+              title: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
+              content: `<form><div class="form-group">
+                <label>${groupNameLabel}</label>
+                <input type="text" name="groupName" placeholder="${groupNameLabel}">
+              </div></form>`,
+              buttons: {
+                // Keyed "ok" (rather than e.g. "confirm") to match the
+                // data-button="ok" the previous Dialog.prompt-based version
+                // rendered, which e2e/big-fight.spec.mjs's locators depend on.
+                ok: {
+                  icon: '<i class="fas fa-check"></i>',
+                  label: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
+                  callback: (html) => resolve(html.find('[name="groupName"]').val().trim() || "Group"),
+                },
+                cancel: {
+                  icon: '<i class="fas fa-times"></i>',
+                  label: "Cancel",
+                  callback: () => resolve(null),
+                },
+              },
+              default: "ok",
+              close: () => resolve(null),
+            },
+            { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }
+          ).render(true);
+        });
+        if (name) await groupCombatants(app.viewed, ids, name);
+      });
+      root.prepend(groupButton);
+    }
+  }
+});
+
+/**
+ * Whether the Marvel die term of a d616 roll shows its Fantastic (M) face.
+ *
+ * DiceTerm has no singular `.result` property -- only `.total` (which
+ * MarvelDie maps a raw 6 to as well as the M face, making it ambiguous) and
+ * `.results`, an array of individual roll results. This reads the raw face
+ * of the active result directly.
+ * @param {{results: {result: number, active?: boolean}[]}} marvelDieTerm
+ * @returns {boolean}
+ */
+function _marvelDieIsFantastic(marvelDieTerm) {
+  const results = marvelDieTerm?.results ?? [];
+  const active = results.find((r) => r.active) ?? results[results.length - 1];
+  return active?.result === 1;
+}
+
+/**
+ * Whether a d616 roll is an ultimate Fantastic (6M6) result on an Initiative
+ * check -- the Marvel die shows its Fantastic face and both d6 dice show 6.
+ * @param {{dice: object[]}} roll
+ * @param {string} flavor
+ * @returns {boolean}
+ */
+function _isUltimateFantasticInitiative(roll, flavor) {
+  if (!flavor || !flavor.includes("Initiative")) return false;
+  const dice = roll?.dice ?? [];
+  if (dice.length < 3) return false;
+  return _marvelDieIsFantastic(dice[1]) && dice[0]?.total === 6 && dice[2]?.total === 6;
+}
+
+/** Announces the bonus round an ultimate Fantastic Initiative result grants. */
+Hooks.on("createChatMessage", async (message) => {
+  if (message.author?.id !== game.user.id) return;
+  const roll = message.rolls?.[0];
+  if (!_isUltimateFantasticInitiative(roll, message.flavor ?? "")) return;
+
+  const speakerName = message.speaker?.alias ?? "";
+  await ChatMessage.create({
+    speaker: message.speaker,
+    flavor: "Ultimate Fantastic Initiative",
+    content: `<p>${speakerName ? `${speakerName} rolls` : "This roll is"} an ultimate Fantastic result (6<b>M</b>6) on Initiative! They act in a bonus round before combat begins, and may turn their Marvel die to an M on one action check made during it.</p>`,
+  });
+});
+
+/**
  * A headquarters derives its team rank — and from it its trait slots — from the
  * ranks of its member actors, but those actors are separate documents. Foundry
  * only re-prepares the document that changed, so deleting a member or changing
@@ -7796,6 +9404,9 @@ Handlebars.registerHelper("mmHasFocusCost", (cost) => _parseFocusCost(cost) !== 
 Handlebars.registerHelper("mmIsConcentrating", (held, itemId) =>
   Array.isArray(held) && held.includes(itemId)
 );
+
+/** True when a power's action text names it as usable as a reaction. */
+Handlebars.registerHelper("mmIsReaction", (action) => _isReactionPower(action));
 
 Handlebars.registerHelper("toLowerCase", (mle) => mle.toLowerCase());
 Handlebars.registerHelper("eq", (a, b) => a === b);
@@ -8114,6 +9725,10 @@ Hooks.on("renderDialogV2", (app, html) => {
 
 Hooks.on("renderActorDirectory", (app, html) => {
   ActorDirectoryFilter.onRenderDirectory(app, html);
+});
+
+Hooks.on("renderItemDirectory", (app, html) => {
+  ItemDirectoryFilter.onRenderDirectory(app, html);
 });
 
 /* -------------------------------------------- */
@@ -8775,7 +10390,8 @@ async function rollAbilityCheck(
     return null;
   }
 
-  const formula = `{1d6,1dm,1d6}+@abilities.${abilityKey}.${noncom ? "noncom" : "value"}`;
+  const baseFormula = `{1d6,1dm,1d6}+@abilities.${abilityKey}.${noncom ? "noncom" : "value"}`;
+  const formula = applyAttackBonusToFormula(baseFormula, groupAttackBonusForActor(actor));
   const abilityLabel =
     game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[abilityKey]) ??
     abilityKey;
@@ -8905,5 +10521,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, collectHalfDamageUpdates, collectPowerSyncUpdates, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, distributePooledHealthDelta, distributePooledFocusDelta, findGroup, groupAttackBonus, groupBestVigilance, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

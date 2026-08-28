@@ -178,6 +178,39 @@
     width: auto;
   }
 
+  // A current/max pair (e.g. gadget HP) inside one `.mm-styled-input`. The
+  // `> input` rule above forces each direct-child input to full width, which
+  // stacks a bare pair of inputs onto separate lines -- this wrapper keeps
+  // them side by side instead.
+  .mm-current-max {
+    align-items: center;
+    display: flex;
+    gap: $mm-spacing-xs;
+    position: relative;
+    width: 100%;
+    z-index: 1;
+
+    input {
+      background: none;
+      border: none;
+      color: $mm-text-color;
+      font-size: 14px;
+      font-weight: 600;
+      padding: $mm-spacing-sm 0;
+      text-align: center;
+      width: 50%;
+
+      &:focus {
+        @include focus-state;
+      }
+    }
+
+    span {
+      color: $mm-text-color;
+      font-weight: 600;
+    }
+  }
+
   .editor {
     background: $mm-input-bg;
     z-index: 2;
@@ -248,6 +281,15 @@
 
   .editor {
     background: $mm-input-bg;
+
+    // Same reason as the `.mm-styled-input` floor above: `.editor-container`
+    // only exists once the editor is open, so an empty History, Personality
+    // or Features field had no height at all and took the edit pencil down
+    // with it.
+    > .editor-content {
+      min-height: 33px;
+      padding: $mm-spacing-sm;
+    }
   }
 
   .editor-menu {

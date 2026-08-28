@@ -1,3 +1,4 @@
+import { calculatePowerValue } from "../helpers/power-slots.mjs";
 import {
   onManageActiveEffect,
   prepareActiveEffectCategories,
@@ -116,9 +117,7 @@ export class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
     }
     if (itemData.type === "battleSuit") {
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
-      const powersCount = context.system.powers?.length ?? 0;
-      const restrictionsCount = context.system.restrictions?.length ?? 0;
-      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
+      context.powerValue = calculatePowerValue(context.system.powers, context.system.restrictions);
       context.sortedPowers = (context.system.powers ?? [])
         .map((p, idx) => ({ ...p, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
@@ -143,9 +142,7 @@ export class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         ])
       );
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
-      const powersCount = context.system.powers?.length ?? 0;
-      const restrictionsCount = context.system.restrictions?.length ?? 0;
-      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
+      context.powerValue = calculatePowerValue(context.system.powers, context.system.restrictions);
       context.sortedPowers = (context.system.powers ?? [])
         .map((p, idx) => ({ ...p, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));

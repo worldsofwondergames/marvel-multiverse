@@ -175,6 +175,43 @@ test.describe('Iconic Item Type', () => {
     expect(pv).toBe(1);
   });
 
+  // Ranked powers are named with their rank as a trailing number, and taking
+  // rank N implies ranks 1 through N-1. Only the running system is covered
+  // here -- the unit tests exercise the module copy, which Foundry never loads.
+  test('a ranked power counts as its rank, on the item and on its sheet', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await createIconicItemViaAPI(page, ICONIC_ITEM_NAME);
+
+    await page.evaluate(async (name) => {
+      const item = game.items.find(i => i.name === name);
+      await item.update({
+        'system.powers': [
+          { id: '1', name: 'Ranked Power 3', img: '' },
+          { id: '2', name: 'Power B', img: '' },
+        ],
+      });
+    }, ICONIC_ITEM_NAME);
+    await page.waitForTimeout(500);
+
+    const read = () => page.evaluate(async (name) => {
+      const item = game.items.find(i => i.name === name);
+      return { system: item.system.powerValue, sheet: (await item.sheet.getData()).powerValue };
+    }, ICONIC_ITEM_NAME);
+
+    expect(await read()).toEqual({ system: 4, sheet: 4 });
+
+    // A restriction buys back one slot, not one power.
+    await page.evaluate(async (name) => {
+      const item = game.items.find(i => i.name === name);
+      await item.update({
+        'system.restrictions': [{ kind: 'access', name: 'Carried', description: '' }],
+      });
+    }, ICONIC_ITEM_NAME);
+    await page.waitForTimeout(500);
+
+    expect(await read()).toEqual({ system: 3, sheet: 3 });
+  });
+
   test('dropping a power onto iconic item sheet adds it', async ({ foundryPage }) => {
     const page = foundryPage;
     await createIconicItemViaAPI(page, ICONIC_ITEM_NAME);

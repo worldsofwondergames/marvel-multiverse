@@ -17,13 +17,22 @@
               <div class="mm-hero-portrait">
                 <img src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
               </div>
-              {{!-- Rank, Health & Focus --}}
+              {{!-- Rank, Sinister Plot Points, Health & Focus --}}
               <div class="mm-rank-block">
                 <label class="mm-label" for="system.attributes.rank.value"><span>Rank</span></label>
                 <div class="mm-input">
                   <input type="number" name="system.attributes.rank.value" value="{{system.attributes.rank.value}}" data-dtype="Number"/>
                 </div>
               </div>
+              {{#if isVillainous}}
+              <div class="mm-sinister-block" title="Sinister Plot Points">
+                <label class="mm-label" for="system.sinisterPlotPoints.value"><span>SPP</span></label>
+                <div class="mm-input">
+                  <input type="number" name="system.sinisterPlotPoints.value" value="{{system.sinisterPlotPoints.value}}" data-dtype="Number"/>
+                  <input type="hidden" name="system.sinisterPlotPoints.max" value="{{system.sinisterPlotPoints.value}}"/>
+                </div>
+              </div>
+              {{/if}}
               <div class="mm-npchealth-block">
                 {{!-- Health & Health DR --}}
                 

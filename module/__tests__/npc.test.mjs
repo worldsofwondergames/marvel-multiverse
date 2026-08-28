@@ -248,9 +248,9 @@ describe('MarvelMultiverseNPC — Health/Focus Max', () => {
         expect(npc.focus.max).toBe(120);
     });
 
-    test('focus max is 0 when vigilance is 0', () => {
+    test('focus max minimum is 10 when vigilance is 0', () => {
         const npc = makeNPC({ abilities: { vig: 0 } });
-        expect(npc.focus.max).toBe(0);
+        expect(npc.focus.max).toBe(10);
     });
 });
 

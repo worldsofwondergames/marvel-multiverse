@@ -29,7 +29,7 @@
             "thumbnail": "systems/marvel-multiverse/ui/official/mmrpg-setup-thumbnail.png"
         }
     ],
-    "version": "3.1.0",
+    "version": "3.1.1",
     "compatibility": {
         "minimum": "14",
         "verified": "14"
@@ -150,7 +150,7 @@
     ],
     "socket": true,
     "manifest": "https://raw.githubusercontent.com/worldsofwondergames/marvel-multiverse/main/system.json",
-    "download": "https://github.com/worldsofwondergames/marvel-multiverse/releases/download/release-3.1.0/marvel-multiverse-release-3.1.0.zip",
+    "download": "https://github.com/worldsofwondergames/marvel-multiverse/releases/download/release-3.1.1/marvel-multiverse-release-3.1.1.zip",
     "background": "systems/marvel-multiverse/ui/official/mmrpg-background.webp",
     "grid": {
         "distance": 5,

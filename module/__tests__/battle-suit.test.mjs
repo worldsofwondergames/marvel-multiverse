@@ -90,4 +90,25 @@ describe('MarvelMultiverseBattleSuit — powerValue', () => {
     );
     expect(suit.powerValue).toBe(1);
   });
+
+  test('a ranked power counts as its rank', () => {
+    const suit = makeBattleSuit([{ id: '1', name: 'Mighty 3', img: '' }], []);
+    expect(suit.powerValue).toBe(3);
+  });
+
+  test('ranked and unranked powers are summed', () => {
+    const suit = makeBattleSuit(
+      [{ id: '1', name: 'Mighty 3', img: '' }, { id: '2', name: 'Unranked Power', img: '' }],
+      []
+    );
+    expect(suit.powerValue).toBe(4);
+  });
+
+  test('a restriction comes off the summed ranks', () => {
+    const suit = makeBattleSuit(
+      [{ id: '1', name: 'Mighty 3', img: '' }, { id: '2', name: 'Unranked Power', img: '' }],
+      [{ kind: 'access', name: 'R1', description: '' }]
+    );
+    expect(suit.powerValue).toBe(3);
+  });
 });

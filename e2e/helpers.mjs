@@ -60,9 +60,12 @@ export async function createActor(page, name, type = 'character') {
   await actorsTab.click({ timeout: 10_000 });
   await page.waitForTimeout(1000);
 
-  // Click "Create Actor"
+  // Click "Create Actor". When the directory is empty, Foundry also renders
+  // a placeholder "Create Actor" button inside the empty-state message; only
+  // the persistent header button (marked with the create-button class) is
+  // guaranteed to be present regardless of directory contents.
   await dismissNotifications(page);
-  const createBtn = page.locator('#actors button.create-entry[data-action="createEntry"]');
+  const createBtn = page.locator('#actors button.create-button.create-entry[data-action="createEntry"]');
   await createBtn.waitFor({ state: 'visible', timeout: 10_000 });
   await createBtn.click();
   await page.waitForTimeout(2000);
@@ -353,7 +356,13 @@ export async function getLastChatMessage(page) {
  */
 export async function createCombat(page) {
   await page.evaluate(async () => {
-    await Combat.create({});
+    const combat = await Combat.create({});
+    // Combat.create() alone doesn't make the new encounter the active one --
+    // game.combat still resolves to whatever combat was already active (e.g.
+    // one left over from manual testing in the same world), so every helper
+    // and test that reads game.combat right after this would silently act on
+    // the wrong encounter.
+    await combat.activate();
   });
   await page.waitForTimeout(500);
 }

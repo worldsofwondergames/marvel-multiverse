@@ -22,6 +22,7 @@ import Npc from '../data/npc.mjs';
 import ItemBase from '../data/item-base.mjs';
 import Item from '../data/item.mjs';
 import Power from '../data/power.mjs';
+import Stunt from '../data/stunt.mjs';
 import Tag from '../data/tag.mjs';
 import Trait from '../data/trait.mjs';
 import Weapon from '../data/weapon.mjs';
@@ -39,6 +40,7 @@ const PAIRED_MODELS = [
   ['MarvelMultiverseItemBase', ItemBase],
   ['MarvelMultiverseItem', Item],
   ['MarvelMultiversePower', Power],
+  ['MarvelMultiverseStunt', Stunt],
   ['MarvelMultiverseTag', Tag],
   ['MarvelMultiverseTrait', Trait],
   ['MarvelMultiverseWeapon', Weapon],

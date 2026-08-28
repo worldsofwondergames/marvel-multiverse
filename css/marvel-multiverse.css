@@ -688,6 +688,33 @@
 .mm-styled-input > input[type=checkbox] {
   width: auto;
 }
+.mm-styled-input .mm-current-max {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+.mm-styled-input .mm-current-max input {
+  background: none;
+  border: none;
+  color: #000101;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 0;
+  text-align: center;
+  width: 50%;
+}
+.mm-styled-input .mm-current-max input:focus {
+  box-shadow: inset 0 0 0 2px #e41d18, inset 0 0 0 3px white, 0 1px 2px 0 RGBA(0, 0, 0, 0.3);
+  text-shadow: none;
+  outline: none;
+}
+.mm-styled-input .mm-current-max span {
+  color: #000101;
+  font-weight: 600;
+}
 .mm-styled-input .editor {
   background: #fff2ec;
   z-index: 2;
@@ -745,6 +772,10 @@
 }
 .mm-input .editor {
   background: #fff2ec;
+}
+.mm-input .editor > .editor-content {
+  min-height: 33px;
+  padding: 4px;
 }
 .mm-input .editor-menu {
   border-radius: 0;
@@ -855,6 +886,15 @@
 .mm-battlesuit-powers-drop-zone .item-controls,
 .mm-battlesuit-iconic-drop-zone .item-controls {
   padding-block-start: 0;
+}
+
+.mm-reaction-icon {
+  border: none !important;
+  display: inline-block !important;
+  height: 14px;
+  margin-inline-start: 2px;
+  vertical-align: middle;
+  width: 14px;
 }
 
 .mm-item-name {
@@ -1132,6 +1172,23 @@
 }
 .mm-sidebar-filters .mm-filter-input::placeholder {
   color: #999;
+}
+.mm-sidebar-filters .mm-filter-select-label {
+  display: block;
+  color: #8b0502;
+  font-family: "Roboto", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+.mm-sidebar-filters .mm-filter-type-select {
+  width: 100%;
+  font-size: 12px;
+  font-family: "Roboto", sans-serif;
+  padding: 2px 2px;
+  color: #000101;
+  background: #fff;
+  border: 1px solid #999;
 }
 .mm-sidebar-filters .mm-filter-text {
   width: 100%;
@@ -1458,6 +1515,117 @@
   font-size: 12px;
 }
 
+.mm-big-fight-toggle,
+.mm-big-fight-roll-initiative,
+.mm-big-fight-group-btn {
+  flex: 0 0 auto;
+  width: calc(100% - 16px);
+  margin: 0 8px 8px;
+  font-weight: 700;
+}
+
+.mm-big-fight-group-btn {
+  margin-top: 8px;
+}
+
+.mm-big-fight-toggle.-enabled {
+  background: #8b0502;
+  border-color: #8b0502;
+  color: #fff;
+}
+
+.mm-big-fight-select {
+  flex: 0 0 auto;
+  margin-right: 4px;
+}
+
+.mm-big-fight-group-icons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 1px;
+  padding: 0;
+}
+
+.mm-big-fight-group-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mm-big-fight-group-hp {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+.mm-big-fight-group-hp .mm-big-fight-ungroup {
+  margin-left: 6px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.mm-big-fight-group-hp-input {
+  width: 3em;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
+.mm-big-fight-group-focus {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.mm-big-fight-group-focus-input {
+  width: 3em;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
+.mm-big-fight-group-initiative-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mm-damage-group-heading {
+  margin: 6px 0 2px;
+  padding-bottom: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8b0502;
+  border-bottom: 1px solid #8b0502;
+}
+
+.mm-big-fight-in-range {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  color: #888;
+}
+.mm-big-fight-in-range.-active {
+  color: #8b0502;
+}
+
 .marvel-multiverse.sheet .window-content {
   background-position: top -360px center;
   background-repeat: no-repeat;
@@ -1512,9 +1680,8 @@
   z-index: 1;
 }
 
-.marvel-multiverse.sheet.actor .mm-karma-block {
+.marvel-multiverse.sheet.actor .mm-karma-block, .marvel-multiverse.sheet.actor .mm-sinister-block {
   align-items: center;
-  background: #e41d18;
   bottom: -4px;
   clip-path: polygon(0% 0%, 100% 0%, 100% 7px, calc(100% - 5px) 12px, calc(100% - 5px) calc(100% - 12px), 100% calc(100% - 7px), 100% 100%, 0% 100%, 0% calc(100% - 7px), 5px calc(100% - 12px), 5px 12px, 0% 7px);
   display: flex;
@@ -1524,12 +1691,11 @@
   margin: 0;
   padding: 4px 2px;
   position: absolute;
-  right: 0;
   text-align: center;
   width: 70px;
 }
 
-.marvel-multiverse.sheet.actor .mm-karma-block::before {
+.marvel-multiverse.sheet.actor .mm-karma-block::before, .marvel-multiverse.sheet.actor .mm-sinister-block::before {
   background: #fff2ec;
   bottom: 2px;
   clip-path: polygon(0% 0%, 100% 0%, 100% 5px, calc(100% - 5px) 10px, calc(100% - 5px) calc(100% - 10px), 100% calc(100% - 5px), 100% 100%, 0% 100%, 0% calc(100% - 5px), 5px calc(100% - 10px), 5px 10px, 0% 5px);
@@ -1540,9 +1706,34 @@
   top: 2px;
 }
 
-.marvel-multiverse.sheet.actor .mm-karma-block input {
+.marvel-multiverse.sheet.actor .mm-karma-block input, .marvel-multiverse.sheet.actor .mm-sinister-block input {
   font-size: 28px;
   width: 50%;
+}
+
+.marvel-multiverse.sheet.actor .mm-karma-block {
+  background: #e41d18;
+  right: 0;
+}
+
+.marvel-multiverse.sheet.actor .mm-sinister-block {
+  background: #5a2d8c;
+  right: 0;
+}
+
+.marvel-multiverse.sheet.actor .mm-npc-portrait-block .mm-sinister-block {
+  bottom: auto;
+  clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px);
+  flex: 0 0 60px;
+  height: 60px;
+  top: 4px;
+  width: 60px;
+}
+
+.marvel-multiverse.sheet.actor .mm-npc-portrait-block .mm-sinister-block::before {
+  bottom: auto;
+  clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px);
+  top: 2px;
 }
 
 .marvel-multiverse.sheet.actor .mm-rank-block {

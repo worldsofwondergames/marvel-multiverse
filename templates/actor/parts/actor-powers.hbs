@@ -24,7 +24,8 @@
               {{else}}
                 data-roll-type="item" data-item-id="{{item._id}}"
               {{/if}}
-              <span>{{item.name}}{{#if item.system.detail}}: <span style="text-transform:none;">{{item.system.detail}}</span>{{/if}}</span>
+              >
+              <span>{{item.name}}{{#if (mmIsReaction item.system.action)}} <img class="mm-reaction-icon" src="systems/marvel-multiverse/icons/reaction.svg" title="{{localize 'MARVEL_MULTIVERSE.Reaction'}}" alt="R">{{/if}}{{#if item.system.detail}}: <span style="text-transform:none;">{{item.system.detail}}</span>{{/if}}</span>
             </a>
           </div>
           <div class="item-controls">

@@ -108,6 +108,11 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
     });
 
+    schema.sinisterPlotPoints = new fields.SchemaField({
+      value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
+      max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
+    });
+
     schema.codename = new fields.StringField({ required: true, blank: true }); // equivalent to passing ({initial: ""}) for StringFields
     schema.realname = new fields.StringField({ required: true, blank: true }); // equivalent to passing ({initial: ""}) for StringFields
     schema.height = new fields.StringField({ required: true, blank: true }); // equivalent to passing ({initial: ""}) for StringFields
@@ -297,8 +302,9 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       }
     }
 
-    this.health.max = Math.max(10, (this.abilities.res.value * 30) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * 30) + this.focus.bonus;
+    const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
+    this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
+    this.focus.max = Math.max(10, (this.abilities.vig.value * battleMultiplier) + this.focus.bonus);
 
     const baseRunSpeed = this.movement.run.value;
 

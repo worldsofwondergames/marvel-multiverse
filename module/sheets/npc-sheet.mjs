@@ -1,9 +1,12 @@
+import { calculatePowerValue } from "../helpers/power-slots.mjs";
 import {
   onManageActiveEffect,
   prepareActiveEffectCategories,
 } from "../helpers/effects.mjs";
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
 import { enrichSheetFields } from "../helpers/enrich.mjs";
+import { isVillainous } from "../helpers/villainous.mjs";
+import { isBigFightEnabled, findGroup, groupAttackBonus } from "../helpers/big-fight.mjs";
 
 /**
  * Extend the basic actor sheet with some very simple modifications
@@ -85,6 +88,9 @@ export class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       // as well as any items
       this.actor.allApplicableEffects()
     );
+
+    context.isVillainous = game.settings.get("marvel-multiverse", "sinisterPlotPointsEnabled")
+      && isVillainous(this.actor.items);
 
     context.enableAlternateForms = game.settings.get("marvel-multiverse", "enableAlternateForms");
     if (context.enableAlternateForms) {
@@ -179,14 +185,10 @@ export class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
         const powersets = i.system.powerSet.split(",");
         powers[powersets[0].trim()].push(i);
       } else if (i.type === "iconicItem") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         const parts = [];
         const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
         for (const [key, label] of Object.entries(abilityLabels)) {
@@ -667,8 +669,19 @@ export class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
         }
       }
 
+      // bigFightFlag() itself is monolith-only glue (no module twin exists
+      // for it), so the flag is read inline here the same way it defines it:
+      // combat?.getFlag(...) ?? null.
+      const bigFight = game.combat?.getFlag("marvel-multiverse", "bigFight") ?? null;
+      const bigFightCombatant = game.combat?.combatants?.find((c) => c.actorId === this.actor.id);
+      const bigFightGroup = bigFightCombatant ? findGroup(bigFight?.groups, bigFightCombatant.id) : null;
+      const groupBonus =
+        game.settings.get("marvel-multiverse", "bigFightEnabled") && isBigFightEnabled(bigFight)
+          ? groupAttackBonus(bigFightGroup, {})
+          : 0;
+      const formula = groupBonus ? `${dataset.formula} + ${groupBonus}` : dataset.formula;
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        dataset.formula,
+        formula,
         this.actor.getRollData()
       );
 

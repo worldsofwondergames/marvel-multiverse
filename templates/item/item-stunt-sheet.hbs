@@ -1,0 +1,42 @@
+<form class="{{cssClass}}" autocomplete="off">
+  <header class="sheet-header">
+    <div class="mm-styled-field -lg -img">
+      <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+      <div class="mm-styled-input">
+        <input name="name" type="text" value="{{item.name}}" placeholder="Name"/>
+      </div>
+    </div>
+  </header>
+
+  {{!-- Sheet Body --}}
+  <section class="sheet-body">
+    <div class="flexcol -gap-sm">
+      {{> "systems/marvel-multiverse/templates/item/parts/item-source.hbs"}}
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Prerequisite</span></label>
+        <div class="mm-styled-input">
+          <input type="text" name="system.prerequisite" value="{{system.prerequisite}}" data-dtype="String" placeholder="e.g. Shield Bash"/>
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Duration</span></label>
+        <div class="mm-styled-input">
+          <input type="text" name="system.duration" value="{{system.duration}}" data-dtype="String" placeholder="e.g. Instant"/>
+        </div>
+      </div>
+      <div class="mm-styled-field -fill">
+        <label class="mm-styled-label -align-left"><span>Effect</span></label>
+        <div class="mm-styled-input">
+          <textarea name="system.effect" data-dtype="String">{{system.effect}}</textarea>
+        </div>
+      </div>
+      <div class="mm-styled-field">
+        <label class="mm-styled-label -align-left"><span>Learned</span></label>
+        <div class="mm-styled-input">
+          <input type="checkbox" name="system.learned" {{checked system.learned}} />
+        </div>
+      </div>
+    </div>
+  </section>
+
+</form>

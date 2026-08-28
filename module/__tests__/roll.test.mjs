@@ -9,7 +9,10 @@ function makeRoll({ edgeMode = 0, flavor = '', marvelResult = 3, evaluated = tru
     roll._evaluated = evaluated;
     roll.dice = [
         { faces: 6, results: [] },
-        { result: marvelResult, results: [{ result: marvelResult, active: true }], faces: 6 },
+        // DiceTerm has no top-level .result -- only .results, an array of
+        // individual roll results. Real shape only, so tests can't mask a
+        // getter that reads a property Foundry doesn't provide.
+        { results: [{ result: marvelResult, active: true }], faces: 6 },
         { faces: 6, results: [] },
     ];
     roll.terms = [new foundry.dice.terms.PoolTerm()];
@@ -384,9 +387,12 @@ describe('MarvelMultiverseRoll — fromRoll', () => {
     });
 });
 
-describe('MarvelMultiverseRoll — fromTerms (known bug)', () => {
-    test('throws ReferenceError due to undefined roll variable', () => {
-        expect(() => MarvelMultiverseRoll.fromTerms([])).toThrow(ReferenceError);
+describe('MarvelMultiverseRoll — fromTerms', () => {
+    test('returns a MarvelMultiverseRoll instance built from the given terms', () => {
+        const terms = new Roll('2d6', {}, { configured: true }).terms;
+        const roll = MarvelMultiverseRoll.fromTerms(terms);
+        expect(roll).toBeInstanceOf(MarvelMultiverseRoll);
+        expect(roll.terms).toBe(terms);
     });
 });
 

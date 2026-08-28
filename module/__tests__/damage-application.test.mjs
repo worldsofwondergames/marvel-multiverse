@@ -26,10 +26,15 @@ describe('hit classification', () => {
     expect(isTargetHit({ isFantastic: false, total: 13 }, 14)).toBe(false);
   });
 
-  // A Fantastic result hits whatever the number says, so the comparison must
-  // not be the only thing consulted.
-  test('a Fantastic roll under the defense still hits', () => {
-    expect(isTargetHit({ isFantastic: true, total: 3 }, 20)).toBe(true);
+  // A Fantastic result doubles damage on a hit, it does not bypass the
+  // defense check -- only an ultimate Fantastic (6 M 6) does that, and it is
+  // not what `isFantastic` reports.
+  test('a Fantastic roll under the defense still misses', () => {
+    expect(isTargetHit({ isFantastic: true, total: 3 }, 20)).toBe(false);
+  });
+
+  test('a Fantastic roll that reaches the defense hits', () => {
+    expect(isTargetHit({ isFantastic: true, total: 20 }, 20)).toBe(true);
   });
 });
 

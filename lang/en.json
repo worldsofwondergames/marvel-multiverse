@@ -1,6 +1,7 @@
 {
   "MARVEL_MULTIVERSE": {
     "fantasticRoll": "Fantastic Roll",
+    "Reaction": "Reaction",
     "edgeMode": {
       "trouble": "Trouble",
       "edge": "Edge",
@@ -181,6 +182,44 @@
         "Enable": "Enable Alternate Forms",
         "EnableHint": "Adds alternate form management to character sheets, allowing characters to link and switch between multiple forms."
       }
+    },
+    "Stunt": {
+      "Setting": {
+        "Enable": "Enable Stunts",
+        "EnableHint": "Enable the optional Stunts system. When active, powers on character sheets show a Stunts tab for learning and using their stunts."
+      }
+    },
+    "SinisterPlotPoints": {
+      "Setting": {
+        "Enable": "Enable Sinister Plot Points",
+        "EnableHint": "Enable the optional Sinister Plot Points system. When active, actors with the Villainous tag show an SPP tracker on their sheet."
+      }
+    },
+    "BattleMultiplier": {
+      "Setting": {
+        "Value": "Battle Multiplier",
+        "ValueHint": "The multiplier applied to Resilience and Vigilance when computing Health and Focus. Lower it for shorter, riskier fights; raise it for longer, more epic ones. Default is 30."
+      }
+    },
+    "BigFight": {
+      "Enable": "Enable Big Fight Mode",
+      "Disable": "Disable Big Fight Mode",
+      "RollSideInitiative": "Roll Side Initiative",
+      "RollGroupInitiative": "Roll Group Initiative",
+      "HeroesInitiative": "Heroes Initiative",
+      "FoesInitiative": "Foes Initiative",
+      "GroupSelected": "Group Selected",
+      "Ungroup": "Ungroup",
+      "GroupNameTitle": "Group Name",
+      "GroupNameLabel": "Group Name",
+      "GroupHealthValue": "Group's pooled Health -- editing this distributes the change across the group's members",
+      "GroupFocusValue": "Group's pooled Focus -- editing this distributes the change across the group's members",
+      "InRange": "In range",
+      "NotInRange": "Not in range",
+      "Setting": {
+        "Enable": "Enable Big Fight Mode",
+        "EnableHint": "Allow the Big Fight abstraction mode to be turned on for an encounter. Disabling this hides its controls and stops it from applying, without discarding any encounter's existing Big Fight setup."
+      }
     }
   },
   "InitiativeRoll": "Initiative Roll",
@@ -200,6 +239,7 @@
       "occupation": "Occupation",
       "power": "Power",
       "powerSet": "Power Set",
+      "stunt": "Stunt",
       "iconicItem": "Iconic Item",
       "restriction": "Restriction",
       "battleSuit": "Battlesuit",

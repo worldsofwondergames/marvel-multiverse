@@ -38,9 +38,7 @@ export class MarvelMultiverseRoll extends Roll {
    */
   static fromTerms(terms) {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
-    const newRoll = super.fromTerms(terms);
-    Object.assign(newRoll, roll);
-    return newRoll;
+    return super.fromTerms(terms);
   }
 
   /* -------------------------------------------- */
@@ -147,7 +145,11 @@ export class MarvelMultiverseRoll extends Roll {
    */
   get isFantastic() {
     if (!this._evaluated) return undefined;
-    return this.dice[1].result === 1;
+    // DiceTerm has no top-level `.result` -- only `.results`, an array of
+    // individual roll results. Read the raw face of the active one.
+    const results = this.dice[1].results ?? [];
+    const active = results.find((r) => r.active) ?? results[results.length - 1];
+    return active?.result === 1;
   }
 
   /* -------------------------------------------- */

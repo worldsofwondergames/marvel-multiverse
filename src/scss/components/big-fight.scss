@@ -1,0 +1,135 @@
+// These buttons carry the core combat-control/combat-control-lg classes so
+// their row layout (icon + label), padding, border-radius, and font-size
+// match Start Combat. That core class also carries flex: 1 1 auto, meant for
+// sitting beside siblings inside nav.combat-controls's row -- here each
+// button is instead its own row in #combat's column flex layout, so
+// flex-grow has to be zeroed or the button stretches to fill the tracker's
+// leftover vertical space instead of sizing to its content.
+.mm-big-fight-toggle,
+.mm-big-fight-roll-initiative,
+.mm-big-fight-group-btn {
+  flex: 0 0 auto;
+  width: calc(100% - 16px);
+  margin: 0 8px 8px;
+  font-weight: 700;
+}
+
+// Group Selected is prepended after Roll Side Initiative, so it always ends
+// up as the tracker's first child and needs its own top margin -- nothing
+// above it to inherit spacing from.
+.mm-big-fight-group-btn {
+  margin-top: 8px;
+}
+
+.mm-big-fight-toggle.-enabled {
+  background: #8b0502;
+  border-color: #8b0502;
+  color: #fff;
+}
+
+.mm-big-fight-select {
+  flex: 0 0 auto;
+  margin-right: 4px;
+}
+
+// A quarter-sized portrait grid standing in for a grouped row's own single
+// token-image. Reuses the token-image class for its overall footprint
+// (Foundry sizes that class via --sidebar-item-height, so this tracks
+// whatever size core actually renders instead of a hardcoded value) and
+// overrides its layout to a 2x2 grid, filled left to right then top to
+// bottom by DOM order.
+.mm-big-fight-group-icons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 1px;
+  padding: 0;
+}
+
+.mm-big-fight-group-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+// No explicit color: inherits the tracker's own (theme-dependent) text
+// color rather than hardcoding one that could go low-contrast under a
+// theme this system doesn't control.
+.mm-big-fight-group-hp {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.85;
+
+  .mm-big-fight-ungroup {
+    margin-left: 6px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}
+
+.mm-big-fight-group-hp-input {
+  width: 3em;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
+.mm-big-fight-group-focus {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.mm-big-fight-group-focus-input {
+  width: 3em;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
+// The roll button reuses the core .combatant-control.roll class for its
+// d20-icon look; only the value readout beside it (once the group has
+// rolled) needs its own styling, matched to core's own .initiative-input
+// font-size so it doesn't read as smaller than any other row's number.
+.mm-big-fight-group-initiative-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mm-damage-group-heading {
+  margin: 6px 0 2px;
+  padding-bottom: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8b0502;
+  border-bottom: 1px solid #8b0502;
+}
+
+.mm-big-fight-in-range {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  color: #888;
+
+  &.-active {
+    color: #8b0502;
+  }
+}

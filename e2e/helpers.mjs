@@ -356,7 +356,13 @@ export async function getLastChatMessage(page) {
  */
 export async function createCombat(page) {
   await page.evaluate(async () => {
-    await Combat.create({});
+    const combat = await Combat.create({});
+    // Combat.create() alone doesn't make the new encounter the active one --
+    // game.combat still resolves to whatever combat was already active (e.g.
+    // one left over from manual testing in the same world), so every helper
+    // and test that reads game.combat right after this would silently act on
+    // the wrong encounter.
+    await combat.activate();
   });
   await page.waitForTimeout(500);
 }

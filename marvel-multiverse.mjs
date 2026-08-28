@@ -1,14 +1,36 @@
 function _getAttackTargets(attackTargetAbility) {
   const targets = game.user.targets;
   if (!targets?.size || !attackTargetAbility) return [];
+  const combatants = game.combat?.combatants;
   return Array.from(targets).map(token => {
     const actor = token.actor;
     const ac = actor?.system?.abilities?.[attackTargetAbility]?.defense ?? null;
+    // Match by token, not actorId: an unlinked token's synthetic actor shares
+    // its base actor's id with every other unlinked copy of that actor (e.g.
+    // several identical enemy tokens placed from the same prototype actor in
+    // the same combat), so matching by actorId would always resolve to
+    // whichever combatant happens to be first, not the one this token
+    // actually is.
+    let combatant = combatants?.find(
+      (c) => c.tokenId === (token.document?.id ?? token.id)
+    );
+    // A Combatant added to combat without a token link (e.g. an actor added
+    // directly rather than dragged in as a token) has no tokenId to match
+    // above, so fall back to its actorId. Only token-less combatants are
+    // considered: one that names a different token of this same actor is a
+    // different combatant, and claiming it here would credit the hit to a
+    // token that was never targeted. Duplicates sharing an actorId are
+    // likewise skipped, since guessing among them lands on the wrong one.
+    if (!combatant && actor?.id) {
+      const byActor = combatants?.filter((c) => !c.tokenId && c.actorId === actor.id) ?? [];
+      if (byActor.length === 1) combatant = byActor[0];
+    }
     return {
       name: token.name,
       img: token.document?.texture?.src ?? actor?.img ?? "",
       ac,
-      uuid: actor?.uuid ?? ""
+      uuid: actor?.uuid ?? "",
+      combatantId: combatant?.id ?? null
     };
   }).filter(t => t.ac !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -1255,8 +1277,9 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       // Retrieve roll data.
       const rollData = this.getRollData();
       // Invoke the roll and submit it to chat.
+      const formula = applyAttackBonusToFormula(rollData.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        rollData.formula,
+        formula,
         rollData.actor
       );
 
@@ -2480,39 +2503,54 @@ class ChatMessageMarvel extends ChatMessage {
     /** Per-target amounts, recorded on the message so the button never has to read them back out of the rendered text. */
     const damageFlagTargets = [];
 
-    const damageContent = resolvedTargets.map((t) => {
-      const dmgTypeLabel = damageType ? ` ${damageType}` : "";
-      if (!t.hit) {
-        damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: 0, hit: false });
-        return `<div class="mm-damage-target -miss" data-target-uuid="${t.uuid}">
-          <p style="margin:4px 0;"><b>${t.name}</b> — <span style="color:#a00;font-weight:700;"><i class="fas fa-times"></i> Miss</span>, no damage</p>
+    // Purely cosmetic: groups the per-target lines below under a
+    // "<Group Name>: N hit, M missed" heading when Big Fight mode has 2+ of
+    // the declared targets grouped together. Does not change who gets a
+    // button or how much damage is computed.
+    const bigFight = bigFightFlag(game.combat);
+    const buckets = isBigFightEnabled(bigFight)
+      ? groupDamageTargetsByGroup(resolvedTargets, bigFight.groups ?? [])
+      : resolvedTargets.map((t) => ({ group: null, targets: [t] }));
+
+    const damageContent = buckets.flatMap(({ group, targets: bucketTargets }) => {
+      const lines = bucketTargets.map((t) => {
+        const dmgTypeLabel = damageType ? ` ${damageType}` : "";
+        if (!t.hit) {
+          damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: 0, hit: false });
+          return `<div class="mm-damage-target -miss" data-target-uuid="${t.uuid}">
+            <p style="margin:4px 0;"><b>${t.name}</b> — <span style="color:#a00;font-weight:700;"><i class="fas fa-times"></i> Miss</span>, no damage</p>
+          </div>`;
+        }
+        const damageReduction =
+          t.actor.system[damageReductionPath(damageType)] ?? 0;
+        const { amount: dmg, effectiveMultiplier } = computeDamage({
+          marvelDieTotal: marvelDie.total,
+          damageMultiplier,
+          damageReduction,
+          abilityValue,
+          fantastic: !!fantastic,
+          scale: damageScale,
+        });
+        damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
+        const fantasticLabel = fantastic ? " Fantastic" : "";
+        const drLine = damageReduction > 0
+          ? `<br/><span style="font-size:11px;color:#555;">Multiplier ${damageMultiplier} − DR ${damageReduction} = ${effectiveMultiplier}</span>`
+          : "";
+        const multiplierText = damageReduction > 0
+          ? `(Multiplier - DR) ${effectiveMultiplier}`
+          : `Multiplier ${damageMultiplier}`;
+        const fantasticMult = fantastic ? " × 2" : "";
+        const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
+        return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
+          <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
+          <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}</p>
+          <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
         </div>`;
-      }
-      const damageReduction =
-        t.actor.system[damageReductionPath(damageType)] ?? 0;
-      const { amount: dmg, effectiveMultiplier } = computeDamage({
-        marvelDieTotal: marvelDie.total,
-        damageMultiplier,
-        damageReduction,
-        abilityValue,
-        fantastic: !!fantastic,
-        scale: damageScale,
       });
-      damageFlagTargets.push({ uuid: t.uuid, name: t.name, amount: dmg, hit: true });
-      const fantasticLabel = fantastic ? " Fantastic" : "";
-      const drLine = damageReduction > 0
-        ? `<br/><span style="font-size:11px;color:#555;">Multiplier ${damageMultiplier} − DR ${damageReduction} = ${effectiveMultiplier}</span>`
-        : "";
-      const multiplierText = damageReduction > 0
-        ? `(Multiplier - DR) ${effectiveMultiplier}`
-        : `Multiplier ${damageMultiplier}`;
-      const fantasticMult = fantastic ? " × 2" : "";
-      const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
-      return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
-        <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}</p>
-        <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
-      </div>`;
+      if (!group || bucketTargets.length < 2) return lines;
+      const hitCount = bucketTargets.filter((t) => t.hit).length;
+      const heading = `<div class="mm-damage-group-heading"><b>${group.name}:</b> ${hitCount} hit, ${bucketTargets.length - hitCount} missed</div>`;
+      return [heading, ...lines];
     });
 
     if (damageContent.length === 0) {
@@ -3947,8 +3985,9 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
       else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
 
+      const formula = applyAttackBonusToFormula(dataset.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        dataset.formula,
+        formula,
         this.actor.getRollData(),
         { edgeMode }
       );
@@ -5116,8 +5155,9 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
       else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
 
+      const formula = applyAttackBonusToFormula(dataset.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
-        dataset.formula,
+        formula,
         this.actor.getRollData(),
         { edgeMode }
       );
@@ -7949,6 +7989,15 @@ Hooks.once("init", () => {
     default: true,
   });
 
+  game.settings.register("marvel-multiverse", "bigFightEnabled", {
+    name: "MARVEL_MULTIVERSE.BigFight.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.BigFight.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+  });
+
   // Active Effects are never copied to the Actor, but still apply to the Actor
   // from within the Item when the effect's transfer property is true. This is
   // core behavior as of v14 (the legacy transferral framework was removed).
@@ -8179,6 +8228,451 @@ function _getConditionDamage(actor) {
   return { active, totalDamage };
 }
 
+/**
+ * The pure arithmetic and lookups behind Big Fight mode (issue #75): side
+ * initiative, foe grouping, pooled Health/Focus, and the group attack bonus.
+ *
+ * Every function here is pure — no Foundry Document is touched. The glue that
+ * adapts a real Combat/Combatant into the plain shapes these take. That glue is mirrored in
+ * marvel-multiverse.mjs next to the other combat hooks, the same split
+ * damage-application.mjs uses for computeDamage/isTargetHit.
+ */
+
+/** @param {{enabled?: boolean}|null} bigFight */
+function isBigFightEnabled(bigFight) {
+  return bigFight?.enabled === true;
+}
+
+/**
+ * Foundry token disposition only distinguishes hostile from everything else
+ * for this feature's purposes — neutral and secret tokens act with the
+ * heroes' side rather than blocking on a third turn phase the rules don't
+ * define.
+ * @param {number} disposition
+ * @param {number} hostileValue  CONST.TOKEN_DISPOSITIONS.HOSTILE, passed in
+ *   so this file never needs a live Foundry CONST to be testable.
+ * @returns {"hero"|"foe"}
+ */
+function combatantSideFromDisposition(disposition, hostileValue) {
+  return disposition === hostileValue ? "foe" : "hero";
+}
+
+/**
+ * @param {Array<{id: string, memberCombatantIds: string[]}>|undefined} groups
+ * @param {string} combatantId
+ * @returns {object|null}
+ */
+function findGroup(groups, combatantId) {
+  return (groups ?? []).find((g) => g.memberCombatantIds.includes(combatantId)) ?? null;
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {health?: {destroyed?: boolean}}>} combatantsById
+ * @returns {object[]}
+ */
+function liveMembers(group, combatantsById) {
+  if (!group) return [];
+  return group.memberCombatantIds
+    .map((id) => combatantsById[id])
+    .filter((c) => c && c.health?.destroyed !== true);
+}
+
+/**
+ * @param {object|null} group
+ * @param {Record<string, object>} combatantsById
+ * @param {"health"|"focus"} resource
+ * @returns {{value: number, max: number}}
+ */
+function pooledResource(group, combatantsById, resource) {
+  return liveMembers(group, combatantsById).reduce(
+    (acc, c) => ({
+      value: acc.value + (c[resource]?.value ?? 0),
+      max: acc.max + (c[resource]?.max ?? 0),
+    }),
+    { value: 0, max: 0 }
+  );
+}
+
+/**
+ * Translates a GM-typed pooled resource total into per-member `value`
+ * updates, cascading the delta across live members in their existing order
+ * rather than spreading it evenly -- damage drains the first live member to
+ * 0 before spilling to the next, and healing tops the first live member back
+ * up to its own max before spilling onward. A typed value outside the pool's
+ * current bounds simply drains/fills every live member and discards the
+ * rest, since the sum of members' max is the pool's real ceiling.
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string}>} combatantsById
+ * @param {"health"|"focus"} resource
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+function distributePooledDelta(group, combatantsById, resource, newPooledValue) {
+  const members = liveMembers(group, combatantsById);
+  if (!members.length) return [];
+
+  let remaining = newPooledValue - members.reduce((sum, m) => sum + (m[resource]?.value ?? 0), 0);
+  if (remaining === 0) return [];
+
+  const updates = [];
+  for (const member of members) {
+    if (remaining === 0) break;
+    const value = member[resource]?.value ?? 0;
+    const max = member[resource]?.max ?? 0;
+    const room = remaining > 0 ? max - value : -value;
+    const applied = remaining > 0 ? Math.min(room, remaining) : Math.max(room, remaining);
+    if (applied === 0) continue;
+    updates.push({ id: member.id, value: value + applied });
+    remaining -= applied;
+  }
+  return updates;
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, health?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+function distributePooledHealthDelta(group, combatantsById, newPooledValue) {
+  return distributePooledDelta(group, combatantsById, "health", newPooledValue);
+}
+
+/**
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {id: string, focus?: {value?: number, max?: number, destroyed?: boolean}}>} combatantsById
+ * @param {number} newPooledValue
+ * @returns {Array<{id: string, value: number}>}
+ */
+function distributePooledFocusDelta(group, combatantsById, newPooledValue) {
+  return distributePooledDelta(group, combatantsById, "focus", newPooledValue);
+}
+
+/**
+ * "+1 per additional foe beyond the first" — a live group of `n` members
+ * grants `n - 1`. A destroyed member stops counting toward its own group's
+ * bonus the moment it drops, same round.
+ * @param {object|null} group
+ * @param {Record<string, object>} combatantsById
+ * @returns {number}
+ */
+function groupAttackBonus(group, combatantsById) {
+  if (!group) return 0;
+  return Math.max(0, liveMembers(group, combatantsById).length - 1);
+}
+
+/**
+ * @param {string} formula
+ * @param {number} bonus
+ * @returns {string}
+ */
+function applyAttackBonusToFormula(formula, bonus) {
+  return bonus ? `${formula} + ${bonus}` : formula;
+}
+
+/**
+ * @param {Array<{side: "hero"|"foe", vigilance: number}>} combatants
+ * @returns {{hero: number, foe: number}}
+ */
+function bestVigilanceBySide(combatants) {
+  const totals = { hero: 0, foe: 0 };
+  for (const c of combatants) {
+    if (c.vigilance > totals[c.side]) totals[c.side] = c.vigilance;
+  }
+  return totals;
+}
+
+/**
+ * Ties are re-rolled once rather than settled by house rule, since the book
+ * does not say who goes first on a tie.
+ * @param {number} heroTotal
+ * @param {number} foeTotal
+ * @returns {boolean}
+ */
+function needsInitiativeReroll(heroTotal, foeTotal) {
+  return heroTotal === foeTotal;
+}
+
+/**
+ * The highest Vigilance among a group's own members -- the same "best of the
+ * side" idea bestVigilanceBySide uses for side initiative, scoped down to
+ * just this group so re-rolling its initiative doesn't touch the rest of
+ * its side.
+ * @param {{memberCombatantIds: string[]}|null} group
+ * @param {Record<string, {vigilance?: number}>} combatantsById
+ * @returns {number}
+ */
+function groupBestVigilance(group, combatantsById) {
+  if (!group) return 0;
+  return group.memberCombatantIds.reduce(
+    (best, id) => Math.max(best, combatantsById[id]?.vigilance ?? 0),
+    0
+  );
+}
+
+/**
+ * @param {boolean|undefined} current
+ * @returns {boolean}
+ */
+function nextInRangeValue(current) {
+  return current !== true;
+}
+
+/**
+ * Buckets declared damage targets by the Big Fight group they belong to, so
+ * the damage card can print "Rival Gang: 2 hit, 1 missed" instead of three
+ * unassociated lines. Consecutive targets sharing a group merge into one
+ * bucket; a target with no group (or grouping disabled) gets a bucket of one,
+ * preserving today's per-target line for anyone not in Big Fight mode.
+ * @param {Array<{uuid: string, combatantId?: string}>} targets
+ * @param {Array<{id: string, memberCombatantIds: string[]}>} groups
+ * @returns {Array<{group: object|null, targets: object[]}>}
+ */
+function groupDamageTargetsByGroup(targets, groups) {
+  const buckets = [];
+  for (const target of targets) {
+    const group = target.combatantId ? findGroup(groups, target.combatantId) : null;
+    const last = buckets.at(-1);
+    if (group && last?.group?.id === group.id) {
+      last.targets.push(target);
+    } else {
+      buckets.push({ group, targets: [target] });
+    }
+  }
+  return buckets;
+}
+
+const BIG_FIGHT_DEFAULT = { enabled: false, sideInitiative: { hero: null, foe: null }, groups: [] };
+
+/** @param {Combat} combat */
+function bigFightFlag(combat) {
+  return combat?.getFlag("marvel-multiverse", "bigFight") ?? null;
+}
+
+/**
+ * @param {Combat} combat
+ * @param {object} patch  Shallow-merged onto the current flag (or the default
+ *   shape, the first time Big Fight is touched on this encounter).
+ */
+async function setBigFightFlag(combat, patch) {
+  const current = bigFightFlag(combat) ?? BIG_FIGHT_DEFAULT;
+  await combat.setFlag("marvel-multiverse", "bigFight", { ...current, ...patch });
+}
+
+/**
+ * Flips the encounter's Big Fight state. Turning it off leaves
+ * groups/sideInitiative in the flag untouched -- they're simply unread until
+ * it's turned back on, which is what lets the tracker resume normal combat
+ * immediately without losing the GM's group setup.
+ * @param {Combat} combat
+ */
+async function toggleBigFight(combat) {
+  const current = bigFightFlag(combat);
+  await setBigFightFlag(combat, { enabled: !isBigFightEnabled(current) });
+}
+
+/** @param {Combatant} combatant */
+function combatantSide(combatant) {
+  const disposition = combatant?.token?.disposition ?? combatant?.disposition ?? 0;
+  return combatantSideFromDisposition(disposition, CONST.TOKEN_DISPOSITIONS.HOSTILE);
+}
+
+/**
+ * Rolls one {1d6,1dm,1d6} + best-Vigilance check per side, re-rolling once on
+ * a tie, writes the totals to the encounter's Big Fight flag, and sets every
+ * member of a side to that side's total so Foundry's own turn-order sort
+ * groups the side together without needing a custom turn-advancement
+ * override.
+ * @param {Combat} combat
+ * @returns {Promise<{hero: number, foe: number}>}
+ */
+async function rollSideInitiative(combat) {
+  const bySide = { hero: [], foe: [] };
+  for (const c of combat.combatants) {
+    bySide[combatantSide(c)].push(c);
+  }
+  const vigilanceInput = [...bySide.hero, ...bySide.foe].map((c) => ({
+    side: combatantSide(c),
+    vigilance: c.actor?.system?.abilities?.vig?.value ?? 0,
+  }));
+  const bestVig = bestVigilanceBySide(vigilanceInput);
+
+  async function rollSide(side) {
+    if (bySide[side].length === 0) return null;
+    const roll = new CONFIG.Dice.MarvelMultiverseRoll(`{1d6,1dm,1d6} + ${bestVig[side]}`, {});
+    await roll.evaluate();
+    return roll;
+  }
+
+  // Kept as Roll objects, not just their totals, so the final (kept) rolls
+  // can each be posted with roll.toMessage() below -- a plain summary string
+  // has no per-die breakdown for a GM to expand, unlike every other roll in
+  // this system.
+  let rolls = { hero: await rollSide("hero"), foe: await rollSide("foe") };
+  if (rolls.hero && rolls.foe && needsInitiativeReroll(rolls.hero.total, rolls.foe.total)) {
+    rolls = { hero: await rollSide("hero"), foe: await rollSide("foe") };
+  }
+  const totals = { hero: rolls.hero?.total ?? null, foe: rolls.foe?.total ?? null };
+
+  await setBigFightFlag(combat, { sideInitiative: totals });
+
+  const updates = [];
+  for (const side of ["hero", "foe"]) {
+    if (totals[side] === null) continue;
+    for (const c of bySide[side]) updates.push({ _id: c.id, initiative: totals[side] });
+  }
+  if (updates.length) await combat.updateEmbeddedDocuments("Combatant", updates);
+
+  const speaker = { alias: "Big Fight" };
+  if (rolls.hero) {
+    await rolls.hero.toMessage({ speaker, flavor: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.HeroesInitiative") });
+  }
+  if (rolls.foe) {
+    await rolls.foe.toMessage({ speaker, flavor: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.FoesInitiative") });
+  }
+
+  return totals;
+}
+
+/**
+ * Rolls initiative for one group only, using the best Vigilance among its
+ * own members rather than the whole side's -- unlike rollSideInitiative,
+ * this deliberately does not touch any other combatant or group, since a
+ * GM re-rolling one group mid-encounter has no reason to reshuffle everyone
+ * else's turn.
+ * @param {Combat} combat
+ * @param {object} group
+ * @param {Record<string, object>} byId
+ * @returns {Promise<number>}
+ */
+async function rollGroupInitiative(combat, group, byId) {
+  const vigilance = groupBestVigilance(group, byId);
+  const roll = new CONFIG.Dice.MarvelMultiverseRoll(`{1d6,1dm,1d6} + ${vigilance}`, {});
+  await roll.evaluate();
+  const total = roll.total;
+
+  await combat.updateEmbeddedDocuments(
+    "Combatant",
+    group.memberCombatantIds.map((id) => ({ _id: id, initiative: total }))
+  );
+
+  // roll.toMessage() (not a hand-built summary string) so the chat card's
+  // total is expandable to the individual die results, same as every other
+  // roll in this system.
+  await roll.toMessage({ speaker: { alias: "Big Fight" }, flavor: group.name });
+
+  return total;
+}
+
+/**
+ * Adapts a real Combat's Combatants into the plain shapes the pure Big Fight
+ * helpers (liveMembers/pooledResource/groupAttackBonus) expect.
+ *
+ * The character/NPC actor data model has no computed "destroyed" field on
+ * Health or Focus (that field only exists on the Vehicle data model, with
+ * different semantics -- health at or below negative max). For Big Fight
+ * pooling purposes a combatant simply drops out once its Health reaches 0,
+ * so that is computed here rather than read off a field that does not exist
+ * for character/NPC actors.
+ * @param {Combat} combat
+ * @returns {Record<string, object>}
+ */
+function combatantsById(combat) {
+  const map = {};
+  for (const c of combat.combatants) {
+    const health = c.actor?.system?.health ?? {};
+    const focus = c.actor?.system?.focus ?? {};
+    const healthMax = health.max ?? 0;
+    const healthValue = health.value ?? 0;
+    const focusMax = focus.max ?? 0;
+    const focusValue = focus.value ?? 0;
+    map[c.id] = {
+      id: c.id,
+      side: combatantSide(c),
+      vigilance: c.actor?.system?.abilities?.vig?.value ?? 0,
+      health: {
+        value: healthValue,
+        max: healthMax,
+        destroyed: healthMax > 0 && healthValue <= 0,
+      },
+      focus: {
+        value: focusValue,
+        max: focusMax,
+        destroyed: focusMax > 0 && focusValue <= 0,
+      },
+    };
+  }
+  return map;
+}
+
+/**
+ * @param {Combat} combat
+ * @param {string[]} combatantIds  Must all share one side; mixing sides would
+ *   make "the group acts on its side's turn" meaningless.
+ * @param {string} name
+ */
+async function groupCombatants(combat, combatantIds, name) {
+  if (combatantIds.length < 2) {
+    ui.notifications.warn("Select at least two combatants to group.");
+    return;
+  }
+  const byId = combatantsById(combat);
+  const sides = new Set(combatantIds.map((id) => byId[id]?.side));
+  if (sides.size !== 1) {
+    ui.notifications.warn("A group can only contain combatants on the same side.");
+    return;
+  }
+  const current = bigFightFlag(combat) ?? BIG_FIGHT_DEFAULT;
+  const group = {
+    id: foundry.utils.randomID(),
+    name,
+    side: [...sides][0],
+    memberCombatantIds: combatantIds,
+  };
+  await setBigFightFlag(combat, { groups: [...(current.groups ?? []), group] });
+}
+
+/**
+ * @param {Combat} combat
+ * @param {string} groupId
+ */
+async function ungroupCombatants(combat, groupId) {
+  const current = bigFightFlag(combat);
+  if (!current) return;
+  await setBigFightFlag(combat, { groups: (current.groups ?? []).filter((g) => g.id !== groupId) });
+}
+
+/**
+ * The group attack bonus for whoever is about to roll, resolved against the
+ * currently viewed combat. Returns 0 outside Big Fight mode, for a combatant
+ * not in this combat, or for an ungrouped combatant — so every call site can
+ * add this unconditionally without its own Big-Fight check.
+ * @param {Actor} actor
+ * @returns {number}
+ */
+function groupAttackBonusForActor(actor) {
+  const combat = game.combat;
+  if (!combat) return 0;
+  if (!game.settings.get("marvel-multiverse", "bigFightEnabled")) return 0;
+  const bigFight = bigFightFlag(combat);
+  if (!isBigFightEnabled(bigFight)) return 0;
+  // An unlinked token's synthetic actor shares its base actor's id with every
+  // other unlinked copy of that actor (e.g. several identical enemy tokens
+  // placed from the same prototype actor in the same combat), so matching by
+  // actorId alone would always resolve to whichever combatant happens to be
+  // first in the collection -- not the one that's actually rolling. Prefer
+  // the actor's own token when it has one; a world-level (linked) actor has
+  // no `.token` and genuinely has at most one live combatant, so the actorId
+  // fallback is correct for it.
+  const combatant = actor?.token
+    ? combat.combatants.find((c) => c.tokenId === actor.token.id)
+    : combat.combatants.find((c) => c.actorId === actor?.id);
+  if (!combatant) return 0;
+  const group = findGroup(bigFight.groups, combatant.id);
+  return groupAttackBonus(group, combatantsById(combat));
+}
+
 function _getWhisperRecipients(actor) {
   const ids = new Set();
   for (const user of game.users) {
@@ -8370,6 +8864,434 @@ Hooks.on("updateCombat", (combat, changed, options, userId) => {
   if (prevCombatant) _processEndOfTurn(prevCombatant);
   const current = combat.combatant;
   if (current) _processStartOfTurn(current);
+});
+
+/**
+ * A grouped row's context menu still belongs to its first member's
+ * combatant id (that is the row left visible), so core's own "Reroll
+ * Initiative" entry would silently reroll just that one member instead of
+ * the group. Swap its handler to roll the whole group when the row is a
+ * group's stand-in, and leave it untouched for every ungrouped combatant.
+ *
+ * The combat tracker only builds this context menu once, the first time its
+ * sidebar tab renders -- typically at world load, well before any combat or
+ * grouping exists. So every check here must happen inside onClick itself,
+ * against live state at click time, rather than once when this hook fires.
+ */
+Hooks.on("getCombatTrackerContextOptions", (app, menuItems) => {
+  const rerollEntry = menuItems.find((entry) => entry.label === "COMBATANT.ACTIONS.Reroll");
+  if (!rerollEntry) return;
+
+  const originalOnClick = rerollEntry.onClick;
+  rerollEntry.onClick = (event, li) => {
+    const combat = app.viewed;
+    if (!combat || !game.settings.get("marvel-multiverse", "bigFightEnabled")) {
+      return originalOnClick?.(event, li);
+    }
+    const bigFight = bigFightFlag(combat);
+    if (!isBigFightEnabled(bigFight)) return originalOnClick?.(event, li);
+    const group = findGroup(bigFight?.groups, li.dataset.combatantId);
+    if (!group) return originalOnClick?.(event, li);
+    return rollGroupInitiative(combat, group, combatantsById(combat));
+  };
+});
+
+/**
+ * Injects the Big Fight toggle into the combat tracker header. Prepended to
+ * the tracker root rather than a specific internal class, so this does not
+ * depend on Foundry's internal tracker markup staying byte-identical across
+ * versions -- only on the hook firing with the tracker's root element.
+ */
+Hooks.on("renderCombatTracker", (app, html) => {
+  const root = html instanceof HTMLElement ? html : html?.[0];
+  if (!root) return;
+
+  root.querySelector(".mm-big-fight-toggle")?.remove();
+  root.querySelector(".mm-big-fight-roll-initiative")?.remove();
+  root.querySelector(".mm-big-fight-group-btn")?.remove();
+  root.querySelectorAll(".mm-big-fight-group-icons").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-group-hp").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-group-focus").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-select").forEach((el) => el.remove());
+  root.querySelectorAll(".mm-big-fight-in-range").forEach((el) => el.remove());
+  // Reset any rows a previous render altered to stand in for a group --
+  // otherwise a combatant that gets ungrouped (or Big Fight mode turned off)
+  // would stay hidden, keep the group's name, or stay missing its own
+  // portrait and Hide/Mark Defeated controls, even though nothing overrides
+  // them any more. The portrait and those two controls are hidden rather
+  // than removed when a row stands in for a group (below), specifically so
+  // this reset can bring them back without needing Foundry to have
+  // rebuilt the row from scratch in between.
+  root.querySelectorAll("li.combatant[data-combatant-id]").forEach((el) => {
+    el.style.display = "";
+    el.querySelector(".token-image")?.style.removeProperty("display");
+    el.querySelector('[data-action="toggleHidden"]')?.style.removeProperty("display");
+    el.querySelector('[data-action="toggleDefeated"]')?.style.removeProperty("display");
+    el.querySelector('[data-action="pingCombatant"]')?.style.removeProperty("display");
+    const tokenInitiative = el.querySelector(".token-initiative");
+    if (tokenInitiative?.dataset.mmOriginalHtml !== undefined) {
+      tokenInitiative.innerHTML = tokenInitiative.dataset.mmOriginalHtml;
+    }
+    const nameEl = el.querySelector(".name");
+    if (nameEl?.dataset.mmOriginalName) nameEl.textContent = nameEl.dataset.mmOriginalName;
+  });
+  if (!app.viewed) return;
+  // The world setting is a hard off switch: when a GM disables it, the whole
+  // feature disappears from the tracker for every client, the same way the
+  // cleanup above already removed it. An encounter's bigFight flag data is
+  // left untouched, so re-enabling the setting resumes exactly where the GM
+  // left off -- matching toggleBigFight's own "off doesn't discard" design.
+  if (!game.settings.get("marvel-multiverse", "bigFightEnabled")) return;
+
+  const enabled = isBigFightEnabled(bigFightFlag(app.viewed));
+
+  // The toggle button, roll-initiative button, grouping controls, and the
+  // pooled HP/Focus row all either mutate the combat document (denied to a
+  // non-GM by Foundry's permission system -- a player clicking one gets a
+  // permission error, not a graceful no-op) or reveal a hostile group's exact
+  // resource numbers, which stock Foundry already withholds from a player
+  // without at least Observer permission on that actor. All of it is
+  // GM-only. The cleanup above and the per-combatant in-range marker below
+  // still run for every client.
+  if (game.user.isGM) {
+    // Styled to match the tracker's own Start Combat button (same core
+    // combat-control-lg classes) and placed directly above it in the footer,
+    // rather than at the top with the rest of Big Fight's controls -- this is
+    // the encounter-level on/off switch, so it belongs with the other
+    // encounter-level control.
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "combat-control combat-control-lg mm-big-fight-toggle" + (enabled ? " -enabled" : "");
+
+    const icon = document.createElement("i");
+    icon.className = "fa-solid fa-people-group";
+    icon.inert = true;
+    button.appendChild(icon);
+
+    const label = document.createElement("span");
+    label.textContent = enabled
+      ? game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Disable")
+      : game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Enable");
+    button.appendChild(label);
+
+    button.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      await toggleBigFight(app.viewed);
+    });
+
+    const footer = root.querySelector('nav.combat-controls[data-application-part="footer"]');
+    if (footer) {
+      footer.before(button);
+    } else {
+      root.appendChild(button);
+    }
+  }
+
+  if (enabled) {
+    const bigFight = bigFightFlag(app.viewed);
+    const byId = combatantsById(app.viewed);
+    const groups = bigFight?.groups ?? [];
+    const groupedMemberIds = new Set(groups.flatMap((g) => g.memberCombatantIds));
+
+    if (game.user.isGM) {
+      const rollButton = document.createElement("button");
+      rollButton.type = "button";
+      rollButton.className = "combat-control combat-control-lg mm-big-fight-roll-initiative";
+      const rollIcon = document.createElement("i");
+      rollIcon.className = "fa-solid fa-dice-d20";
+      rollIcon.inert = true;
+      rollButton.appendChild(rollIcon);
+      const rollLabel = document.createElement("span");
+      rollLabel.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollSideInitiative");
+      rollButton.appendChild(rollLabel);
+      rollButton.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        await rollSideInitiative(app.viewed);
+      });
+      root.prepend(rollButton);
+
+      for (const group of groups) {
+        const health = pooledResource(group, byId, "health");
+        const focus = pooledResource(group, byId, "focus");
+        const liveCount = liveMembers(group, byId).length;
+
+        group.memberCombatantIds.forEach((memberId, index) => {
+          // The tracker's dock renders a `.combatant-portrait` div AND the
+          // sidebar list renders a `li.combatant` -- both carry
+          // data-combatant-id, so an unqualified attribute selector would
+          // match the portrait first. Only the sidebar list row is where a
+          // group's own name/icons/HP and a hidden duplicate member make
+          // sense.
+          const row = root.querySelector(`li.combatant[data-combatant-id="${memberId}"]`);
+          if (!row) return;
+          if (index > 0) {
+            row.style.display = "none";
+            return;
+          }
+
+          // A quarter-sized portrait grid for up to the first 4 members,
+          // filled left to right then top to bottom, so the row reads as a
+          // group at a glance instead of showing just its first member.
+          // Hidden rather than replaced (see the cleanup reset above).
+          const portrait = row.querySelector(".token-image");
+          portrait?.style.setProperty("display", "none");
+          const iconGrid = document.createElement("div");
+          iconGrid.className = "token-image mm-big-fight-group-icons";
+          for (const iconMemberId of group.memberCombatantIds.slice(0, 4)) {
+            const memberCombatant = app.viewed.combatants.get(iconMemberId);
+            if (!memberCombatant) continue;
+            const icon = document.createElement("img");
+            icon.className = "mm-big-fight-group-icon";
+            icon.src = memberCombatant.img;
+            icon.alt = memberCombatant.name;
+            iconGrid.appendChild(icon);
+          }
+          portrait?.insertAdjacentElement("afterend", iconGrid);
+
+          // The row's name is this group's, not just whichever member
+          // happens to sit in the first slot.
+          const nameEl = row.querySelector(".name");
+          if (nameEl) {
+            nameEl.dataset.mmOriginalName ??= nameEl.textContent;
+            nameEl.textContent = `${group.name} (${liveCount})`;
+          }
+
+          // Hiding, marking defeated, or pinging one member of a group
+          // individually stops making sense once the row represents the
+          // whole group -- damage already drops the pooled Health below,
+          // defeat is derived from that rather than toggled per row, and
+          // there's no single token left for "ping" to point at.
+          row.querySelector('[data-action="toggleHidden"]')?.style.setProperty("display", "none");
+          row.querySelector('[data-action="toggleDefeated"]')?.style.setProperty("display", "none");
+          row.querySelector('[data-action="pingCombatant"]')?.style.setProperty("display", "none");
+          // Foundry's own per-row initiative control only knows about this
+          // one combatant -- clicking it would roll and post a standard chat
+          // card for just the group's first member, and reading its value
+          // back would show only that member's own initiative. Replaced
+          // (not just hidden) with a control that rolls and displays the
+          // whole group's shared value instead.
+          const tokenInitiative = row.querySelector(".token-initiative");
+          if (tokenInitiative) {
+            tokenInitiative.dataset.mmOriginalHtml ??= tokenInitiative.innerHTML;
+            tokenInitiative.innerHTML = "";
+
+            const groupInitiative = app.viewed.combatants.get(memberId)?.initiative;
+            // Same either/or as Foundry's own token-initiative markup: once a
+            // value exists, show only the number, not the roll button too.
+            if (groupInitiative !== null && groupInitiative !== undefined) {
+              const value = document.createElement("span");
+              value.className = "mm-big-fight-group-initiative-value";
+              value.textContent = String(groupInitiative);
+              tokenInitiative.appendChild(value);
+            } else {
+              const rollBtn = document.createElement("button");
+              rollBtn.type = "button";
+              rollBtn.className = "combatant-control roll mm-big-fight-group-roll-initiative";
+              rollBtn.style.setProperty("--initiative-icon", "url('../icons/svg/d20.svg')");
+              rollBtn.style.setProperty("--initiative-icon-hover", "url('../icons/svg/d20-highlight.svg')");
+              rollBtn.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.RollGroupInitiative");
+              rollBtn.setAttribute("aria-label", rollBtn.title);
+              rollBtn.addEventListener("click", async (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                await rollGroupInitiative(app.viewed, group, byId);
+              });
+              tokenInitiative.appendChild(rollBtn);
+            }
+          }
+
+          const hp = document.createElement("div");
+          hp.className = "mm-big-fight-group-hp";
+
+          const hpLabel = document.createElement("span");
+          hpLabel.textContent = "HP ";
+          hp.appendChild(hpLabel);
+
+          // A typed pooled total, not a display of one member's own Health --
+          // clicking or typing here must not also select the row underneath,
+          // and Enter should commit the same as clicking away.
+          const hpInput = document.createElement("input");
+          hpInput.type = "number";
+          hpInput.className = "mm-big-fight-group-hp-input";
+          hpInput.value = health.value;
+          hpInput.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupHealthValue");
+          hpInput.addEventListener("click", (ev) => ev.stopPropagation());
+          hpInput.addEventListener("keydown", (ev) => {
+            ev.stopPropagation();
+            if (ev.key === "Enter") hpInput.blur();
+          });
+          hpInput.addEventListener("change", async (ev) => {
+            ev.stopPropagation();
+            const newValue = Number(hpInput.value);
+            if (!Number.isFinite(newValue)) {
+              hpInput.value = health.value;
+              return;
+            }
+            const updates = distributePooledHealthDelta(group, byId, newValue);
+            for (const update of updates) {
+              const memberCombatant = app.viewed.combatants.get(update.id);
+              await memberCombatant?.actor?.update({ "system.health.value": update.value });
+            }
+          });
+          hp.appendChild(hpInput);
+
+          const hpMax = document.createElement("span");
+          hpMax.className = "mm-big-fight-group-hp-max";
+          hpMax.textContent = ` / ${health.max}`;
+          hp.appendChild(hpMax);
+
+          const ungroupLink = document.createElement("a");
+          ungroupLink.className = "mm-big-fight-ungroup";
+          ungroupLink.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.Ungroup");
+          ungroupLink.addEventListener("click", async (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            await ungroupCombatants(app.viewed, group.id);
+          });
+          hp.appendChild(ungroupLink);
+
+          const focusRow = document.createElement("div");
+          focusRow.className = "mm-big-fight-group-focus";
+
+          const focusLabel = document.createElement("span");
+          focusLabel.textContent = "FP ";
+          focusRow.appendChild(focusLabel);
+
+          // Mirrors the HP input above: a typed pooled total that cascades
+          // across live members via distributePooledFocusDelta.
+          const focusInput = document.createElement("input");
+          focusInput.type = "number";
+          focusInput.className = "mm-big-fight-group-focus-input";
+          focusInput.value = focus.value;
+          focusInput.title = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupFocusValue");
+          focusInput.addEventListener("click", (ev) => ev.stopPropagation());
+          focusInput.addEventListener("keydown", (ev) => {
+            ev.stopPropagation();
+            if (ev.key === "Enter") focusInput.blur();
+          });
+          focusInput.addEventListener("change", async (ev) => {
+            ev.stopPropagation();
+            const newValue = Number(focusInput.value);
+            if (!Number.isFinite(newValue)) {
+              focusInput.value = focus.value;
+              return;
+            }
+            const updates = distributePooledFocusDelta(group, byId, newValue);
+            for (const update of updates) {
+              const memberCombatant = app.viewed.combatants.get(update.id);
+              await memberCombatant?.actor?.update({ "system.focus.value": update.value });
+            }
+          });
+          focusRow.appendChild(focusInput);
+
+          const focusMax = document.createElement("span");
+          focusMax.className = "mm-big-fight-group-focus-max";
+          focusMax.textContent = ` / ${focus.max}`;
+          focusRow.appendChild(focusMax);
+
+          nameEl?.insertAdjacentElement("afterend", hp);
+          hp.insertAdjacentElement("afterend", focusRow);
+        });
+      }
+    }
+
+    // A per-combatant marker for whether it is in range this round -- pure
+    // toggle logic, no interaction with grouping/initiative/attack bonus, and
+    // low-stakes enough to leave visible to every client rather than gating
+    // it to the GM. Every combatant gets one, grouped or not, so this loop
+    // reads straight off app.viewed.combatants rather than the grouping
+    // state above.
+    for (const c of app.viewed.combatants) {
+      const row = root.querySelector(`li.combatant[data-combatant-id="${c.id}"]`);
+      if (!row) continue;
+      const inRange = c.getFlag("marvel-multiverse", "inRange") === true;
+      const icon = document.createElement("button");
+      icon.type = "button";
+      icon.className = "mm-big-fight-in-range" + (inRange ? " -active" : "");
+      icon.title = inRange
+        ? game.i18n.localize("MARVEL_MULTIVERSE.BigFight.InRange")
+        : game.i18n.localize("MARVEL_MULTIVERSE.BigFight.NotInRange");
+      icon.textContent = inRange ? "●" : "○";
+      icon.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        await c.setFlag("marvel-multiverse", "inRange", nextInRangeValue(inRange));
+      });
+      row.appendChild(icon);
+    }
+
+    if (game.user.isGM) {
+      // Foundry's v14 tracker rows have no selection affordance of their own
+      // -- clicking a row pings/targets the token but toggles no class we
+      // can read back. A checkbox per row is the simplest mechanism that
+      // still lets a GM mark "these N combatants" before clicking Group
+      // Selected. Combatants already in a group are skipped: grouping is not
+      // designed to handle a combatant belonging to two groups at once.
+      for (const row of root.querySelectorAll("li.combatant[data-combatant-id]")) {
+        const combatantId = row.dataset.combatantId;
+        if (groupedMemberIds.has(combatantId)) continue;
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "mm-big-fight-select";
+        checkbox.dataset.combatantId = combatantId;
+        checkbox.addEventListener("click", (ev) => ev.stopPropagation());
+        row.prepend(checkbox);
+      }
+
+      const groupButton = document.createElement("button");
+      groupButton.type = "button";
+      groupButton.className = "combat-control combat-control-lg mm-big-fight-group-btn";
+      const groupIcon = document.createElement("i");
+      groupIcon.className = "fa-solid fa-layer-group";
+      groupIcon.inert = true;
+      groupButton.appendChild(groupIcon);
+      const groupLabel = document.createElement("span");
+      groupLabel.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupSelected");
+      groupButton.appendChild(groupLabel);
+      groupButton.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        const ids = Array.from(root.querySelectorAll(".mm-big-fight-select:checked")).map(
+          (el) => el.dataset.combatantId
+        );
+        if (ids.length < 2) {
+          ui.notifications.warn("Select at least two combatants to group.");
+          return;
+        }
+        const groupNameLabel = game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameLabel");
+        const name = await new Promise((resolve) => {
+          new Dialog(
+            {
+              title: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
+              content: `<form><div class="form-group">
+                <label>${groupNameLabel}</label>
+                <input type="text" name="groupName" placeholder="${groupNameLabel}">
+              </div></form>`,
+              buttons: {
+                // Keyed "ok" (rather than e.g. "confirm") to match the
+                // data-button="ok" the previous Dialog.prompt-based version
+                // rendered, which e2e/big-fight.spec.mjs's locators depend on.
+                ok: {
+                  icon: '<i class="fas fa-check"></i>',
+                  label: game.i18n.localize("MARVEL_MULTIVERSE.BigFight.GroupNameTitle"),
+                  callback: (html) => resolve(html.find('[name="groupName"]').val().trim() || "Group"),
+                },
+                cancel: {
+                  icon: '<i class="fas fa-times"></i>',
+                  label: "Cancel",
+                  callback: () => resolve(null),
+                },
+              },
+              default: "ok",
+              close: () => resolve(null),
+            },
+            { classes: ["dialog", "marvel-multiverse", "mm-dialog"] }
+          ).render(true);
+        });
+        if (name) await groupCombatants(app.viewed, ids, name);
+      });
+      root.prepend(groupButton);
+    }
+  }
 });
 
 /**
@@ -9443,7 +10365,8 @@ async function rollAbilityCheck(
     return null;
   }
 
-  const formula = `{1d6,1dm,1d6}+@abilities.${abilityKey}.${noncom ? "noncom" : "value"}`;
+  const baseFormula = `{1d6,1dm,1d6}+@abilities.${abilityKey}.${noncom ? "noncom" : "value"}`;
+  const formula = applyAttackBonusToFormula(baseFormula, groupAttackBonusForActor(actor));
   const abilityLabel =
     game.i18n.localize(CONFIG.MARVEL_MULTIVERSE.abilities[abilityKey]) ??
     abilityKey;
@@ -9573,5 +10496,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, collectHalfDamageUpdates, collectPowerSyncUpdates, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, distributePooledHealthDelta, distributePooledFocusDelta, findGroup, groupAttackBonus, groupBestVigilance, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

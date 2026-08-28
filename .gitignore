@@ -16,6 +16,9 @@ reports/
 
 docs/
 
+# Subagent-driven-development scratch workspace (ledgers, briefs, review packages)
+.superpowers/
+
 # Playwright
 test-results/
 playwright-report/

@@ -142,6 +142,50 @@ function collectHalfDamageUpdates(items) {
 }
 
 /**
+ * How many power slots a power occupies.
+ *
+ * Ranked powers are named with their rank as a trailing number -- "Mighty 3",
+ * "Elemental Protection 2". Taking rank N requires ranks 1 through N-1, so a
+ * rank-N power occupies N slots. 71 of the 407 powers in the compendium are
+ * named this way; everything else occupies one.
+ *
+ * @param {string} name  A power's name.
+ * @returns {number}     Slots occupied, at least 1.
+ */
+function powerSlotCost(name) {
+  const rank = String(name ?? "").match(/\s+(\d+)$/);
+  return rank ? Number(rank[1]) : 1;
+}
+
+/**
+ * Total slots occupied by a list of powers.
+ *
+ * @param {Array<{name: string}>} powers  Powers, or the name-bearing snapshots
+ *                                        an iconic item or battle suit stores.
+ * @returns {number}
+ */
+function sumPowerSlots(powers) {
+  return (powers ?? []).reduce((total, power) => total + powerSlotCost(power?.name), 0);
+}
+
+/**
+ * An iconic item's or battle suit's power value.
+ *
+ * Restrictions buy powers back, one slot each, and an item that carries
+ * anything at all is worth at least 1.
+ *
+ * @param {Array<{name: string}>} powers
+ * @param {Array<object>} restrictions
+ * @returns {number}
+ */
+function calculatePowerValue(powers, restrictions) {
+  const slots = sumPowerSlots(powers);
+  const restrictionsCount = restrictions?.length ?? 0;
+  if (slots === 0 && restrictionsCount === 0) return 0;
+  return Math.max(1, slots - restrictionsCount);
+}
+
+/**
  * Whether a power's own text names the check that rolls it.
  *
  * Nearly every attack power is written as an instruction to make a check, and
@@ -3279,14 +3323,10 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       if (i.type === "occupation") {
         occupations.push(i);
       } else if (i.type === "iconicItem") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         const parts = [];
         const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
         for (const [key, label] of Object.entries(abilityLabels)) {
@@ -3335,10 +3375,8 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       const sortedPowers = {};
       for (const key of Object.keys(powers).sort()) sortedPowers[key] = powers[key];
       context.powers = sortedPowers;
-      context.powerCount = Object.values(sortedPowers).reduce((sum, arr) => sum + arr.reduce((s, p) => {
-        const match = p.name.match(/\s+(\d+)$/);
-        return s + (match ? parseInt(match[1]) : 1);
-      }, 0), 0);
+      context.powerCount = Object.values(sortedPowers)
+        .reduce((total, set) => total + sumPowerSlots(set), 0);
       context.hasElementalPowers = (powers["Elemental Control"] ?? []).length > 0;
       context.hasMeleeWeaponPowers = (powers["Melee Weapons"] ?? []).length > 0;
       context.equipment = equipment;
@@ -4567,14 +4605,10 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
         if (!powers[firstSet]) powers[firstSet] = [];
         powers[firstSet].push(i);
       } else if (i.type === "iconicItem") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         const parts = [];
         const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
         for (const [key, label] of Object.entries(abilityLabels)) {
@@ -5326,9 +5360,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
     }
     if (itemData.type === "battleSuit") {
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
-      const powersCount = context.system.powers?.length ?? 0;
-      const restrictionsCount = context.system.restrictions?.length ?? 0;
-      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
+      context.powerValue = calculatePowerValue(context.system.powers, context.system.restrictions);
       context.sortedPowers = (context.system.powers ?? [])
         .map((p, idx) => ({ ...p, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
@@ -5353,9 +5385,7 @@ class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
         ])
       );
       context.restrictionKinds = CONFIG.MARVEL_MULTIVERSE.restrictionKinds;
-      const powersCount = context.system.powers?.length ?? 0;
-      const restrictionsCount = context.system.restrictions?.length ?? 0;
-      context.powerValue = (powersCount === 0 && restrictionsCount === 0) ? 0 : Math.max(1, powersCount - restrictionsCount);
+      context.powerValue = calculatePowerValue(context.system.powers, context.system.restrictions);
       context.sortedPowers = (context.system.powers ?? [])
         .map((p, idx) => ({ ...p, _origIndex: idx }))
         .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
@@ -6566,10 +6596,7 @@ class MarvelMultiverseIconicItem extends MarvelMultiverseItemBase {
   }
 
   get powerValue() {
-    const powersCount = this.powers?.length ?? 0;
-    const restrictionsCount = this.restrictions?.length ?? 0;
-    if (powersCount === 0 && restrictionsCount === 0) return 0;
-    return Math.max(1, powersCount - restrictionsCount);
+    return calculatePowerValue(this.powers, this.restrictions);
   }
 }
 
@@ -6784,10 +6811,7 @@ class MarvelMultiverseBattleSuit extends MarvelMultiverseItemBase {
   }
 
   get powerValue() {
-    const powersCount = this.powers?.length ?? 0;
-    const restrictionsCount = this.restrictions?.length ?? 0;
-    if (powersCount === 0 && restrictionsCount === 0) return 0;
-    return Math.max(1, powersCount - restrictionsCount);
+    return calculatePowerValue(this.powers, this.restrictions);
   }
 }
 

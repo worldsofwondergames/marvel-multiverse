@@ -1,3 +1,4 @@
+import { calculatePowerValue } from "../helpers/power-slots.mjs";
 import {
   onManageActiveEffect,
   prepareActiveEffectCategories,
@@ -184,14 +185,10 @@ export class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
         const powersets = i.system.powerSet.split(",");
         powers[powersets[0].trim()].push(i);
       } else if (i.type === "iconicItem") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
-        const pc = i.system.powers?.length ?? 0;
-        const rc = i.system.restrictions?.length ?? 0;
-        i.powerValue = (pc === 0 && rc === 0) ? 0 : Math.max(1, pc - rc);
+        i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
         const parts = [];
         const abilityLabels = { melee: "Mel", agility: "Agl", resilience: "Res", vigilance: "Vig", ego: "Ego", logic: "Log" };
         for (const [key, label] of Object.entries(abilityLabels)) {

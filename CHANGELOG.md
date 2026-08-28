@@ -4,6 +4,7 @@
 
 ### Fixes
 
+- **Ranked powers on iconic items and battle suits.** A ranked power counted as a single power toward the item's power value. It now counts as its rank, since taking rank N includes ranks 1 through N-1 — an item holding Mighty 3 and one unranked power is worth 4, not 2. The Powers heading on the character sheet already counted this way; the two now share one definition.
 - **Biography fields on a new character.** History, Personality and Features rendered with no height at all while they were empty, so a new character showed three headings and nothing to type into. They now keep a minimum height whether or not they hold text.
 
 ### Big Fight Abstraction Mode

@@ -83,4 +83,25 @@ describe('MarvelMultiverseIconicItem — powerValue', () => {
     );
     expect(item.powerValue).toBe(1);
   });
+
+  test('a ranked power counts as its rank', () => {
+    const item = makeIconicItem([{ id: '1', name: 'Mighty 3', img: '' }], []);
+    expect(item.powerValue).toBe(3);
+  });
+
+  test('ranked and unranked powers are summed', () => {
+    const item = makeIconicItem(
+      [{ id: '1', name: 'Mighty 3', img: '' }, { id: '2', name: 'Unranked Power', img: '' }],
+      []
+    );
+    expect(item.powerValue).toBe(4);
+  });
+
+  test('a restriction comes off the summed ranks', () => {
+    const item = makeIconicItem(
+      [{ id: '1', name: 'Mighty 3', img: '' }, { id: '2', name: 'Unranked Power', img: '' }],
+      [{ kind: 'access', name: 'R1', description: '' }]
+    );
+    expect(item.powerValue).toBe(3);
+  });
 });

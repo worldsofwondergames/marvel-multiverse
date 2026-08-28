@@ -1,3 +1,4 @@
+import { calculatePowerValue } from "../helpers/power-slots.mjs";
 import MarvelMultiverseItemBase from "./item-base.mjs";
 
 export default class MarvelMultiverseIconicItem extends MarvelMultiverseItemBase {
@@ -53,9 +54,6 @@ export default class MarvelMultiverseIconicItem extends MarvelMultiverseItemBase
   }
 
   get powerValue() {
-    const powersCount = this.powers?.length ?? 0;
-    const restrictionsCount = this.restrictions?.length ?? 0;
-    if (powersCount === 0 && restrictionsCount === 0) return 0;
-    return Math.max(1, powersCount - restrictionsCount);
+    return calculatePowerValue(this.powers, this.restrictions);
   }
 }

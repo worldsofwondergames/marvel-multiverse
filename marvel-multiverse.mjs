@@ -6143,7 +6143,7 @@ class MarvelMultiverseActorBase extends foundry.abstract
 
     const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
     this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * battleMultiplier) + this.focus.bonus;
+    this.focus.max = Math.max(10, (this.abilities.vig.value * battleMultiplier) + this.focus.bonus);
 
     const baseRunSpeed = this.movement.run.value;
 
@@ -6289,7 +6289,7 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
 
     const battleMultiplier = game.settings.get("marvel-multiverse", "battleMultiplier") ?? 30;
     this.health.max = Math.max(10, (this.abilities.res.value * battleMultiplier) + this.health.bonus);
-    this.focus.max = (this.abilities.vig.value * battleMultiplier) + this.focus.bonus;
+    this.focus.max = Math.max(10, (this.abilities.vig.value * battleMultiplier) + this.focus.bonus);
 
     const baseRunSpeed = this.movement.run.value;
 

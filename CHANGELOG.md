@@ -5,6 +5,7 @@
 ### Fixes
 
 - **Biography fields on a new character.** History, Personality and Features rendered with no height at all while they were empty, so a new character showed three headings and nothing to type into. They now keep a minimum height whether or not they hold text.
+- **Focus minimum.** A character or NPC with no points in Vigilance had a Focus maximum of 0. It now floors at 10, matching what Health has always done for Resilience 0.
 
 ### Big Fight Abstraction Mode
 

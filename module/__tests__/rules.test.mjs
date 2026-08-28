@@ -494,14 +494,24 @@ describe('Rulebook: Focus Max Derived Calculation', () => {
         expect(actor.focus.max).toBe(240);
     });
 
-    test('focus max is 0 when vigilance is 0', () => {
+    test('focus max minimum is 10 when vigilance is 0', () => {
         const actor = makeActor({ abilities: { vig: 0 } });
-        expect(actor.focus.max).toBe(0);
+        expect(actor.focus.max).toBe(10);
     });
 
     test('focus bonus adds to focus max', () => {
         const actor = makeActor({ abilities: { vig: 3 }, focusBonus: 10 });
         expect(actor.focus.max).toBe(100);
+    });
+
+    test('focus max minimum 10 still applies with bonus', () => {
+        const actor = makeActor({ abilities: { vig: 0 }, focusBonus: 0 });
+        expect(actor.focus.max).toBe(10);
+    });
+
+    test('a bonus that clears the floor is not raised to it', () => {
+        const actor = makeActor({ abilities: { vig: 0 }, focusBonus: 25 });
+        expect(actor.focus.max).toBe(25);
     });
 });
 

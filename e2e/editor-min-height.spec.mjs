@@ -42,7 +42,25 @@ async function editorBodies(page, name, selector) {
   }, { name, selector });
 }
 
+/** Activate one of the Biography tab's sub-tabs and let layout settle. */
+async function openBiographySubtab(page, name, subtab) {
+  await evaluateWhenReady(page, ({ name, subtab }) => {
+    const app = Object.values(ui.windows).find(w => w.actor?.name === name);
+    app._tabs[1].activate(subtab);
+  }, { name, subtab });
+  await page.waitForTimeout(400);
+}
+
+/** The DOM id of the named actor's open sheet window. */
+async function sheetElementId(page, name) {
+  return evaluateWhenReady(page, (name) => {
+    const app = Object.values(ui.windows).find(w => w.actor?.name === name);
+    return (app?.element?.[0] ?? app?.element).id;
+  }, name);
+}
+
 const STYLED = '.mm-styled-input > .editor > .editor-content';
+const PLAIN = '.mm-input > .editor > .editor-content';
 
 test.describe('Rich text field minimum height', () => {
   test.beforeEach(async ({ foundryPage }) => {
@@ -96,16 +114,36 @@ test.describe('Rich text field minimum height', () => {
     expect(tallest).toBeGreaterThan(MIN_HEIGHT);
   });
 
-  test('the floor does not reach .mm-input editors on the character sheet', async ({ foundryPage }) => {
+  test('the empty biography fields on the character sheet are at least the minimum tall', async ({ foundryPage }) => {
     await openOnTab(foundryPage, HERO, 'biography');
+    await openBiographySubtab(foundryPage, HERO, 'background');
 
     const styled = await editorBodies(foundryPage, HERO, STYLED);
     expect(styled).toHaveLength(0);
 
-    const plain = await editorBodies(foundryPage, HERO, '.mm-input > .editor > .editor-content');
+    const plain = await editorBodies(foundryPage, HERO, PLAIN);
     expect(plain.length).toBeGreaterThan(0);
     for (const body of plain) {
-      expect(body.minHeight).not.toBe(`${MIN_HEIGHT}px`);
+      expect(body.minHeight).toBe(`${MIN_HEIGHT}px`);
+      expect(Math.round(body.height)).toBeGreaterThanOrEqual(MIN_HEIGHT);
     }
+  });
+
+  test('an empty biography field opens into a ProseMirror editor', async ({ foundryPage }) => {
+    await openOnTab(foundryPage, HERO, 'biography');
+    await openBiographySubtab(foundryPage, HERO, 'background');
+
+    // Core reveals the pencil on hover, so a collapsed field is not merely
+    // hard to see -- there is no box to hover in the first place. Driving the
+    // real pointer is what proves the field can still be opened.
+    const sheetId = await sheetElementId(foundryPage, HERO);
+    const editor = foundryPage.locator(`#${sheetId} .mm-input > .editor`).first();
+    await editor.hover();
+
+    const pencil = editor.locator('a.editor-edit');
+    await expect(pencil).toBeVisible();
+    await pencil.click();
+
+    await expect(editor.locator('.editor-container .ProseMirror')).toBeVisible();
   });
 });

@@ -2,6 +2,10 @@
 
 ## 3.1.1
 
+### Fixes
+
+- **Focus minimum.** A character or NPC with no points in Vigilance had a Focus maximum of 0. It now floors at 10, matching what Health has always done for Resilience 0.
+
 ### Big Fight Abstraction Mode
 
 - A **Big Fight** toggle on the combat tracker simplifies large battles: side-based initiative, foe grouping, and a group attack bonus.

@@ -39,17 +39,18 @@ function _getAttackTargets(attackTargetAbility) {
 /**
  * Whether an attack roll beat a target's defense.
  *
- * A Fantastic result hits regardless of the number, so it is checked before the
- * comparison rather than folded into it. `_enrichAttackTargets` draws the
- * Hit/Miss list from this and the damage card decides who gets a button from
- * the same call, so the two can never disagree about what a hit is.
+ * A Fantastic roll doubles damage on a hit; it does not bypass the defense
+ * check. Only an ultimate Fantastic (6 M 6) auto-succeeds regardless of the
+ * target number, and that is a narrower case than `isFantastic` reports.
+ * `_enrichAttackTargets` draws the Hit/Miss list from this and the damage
+ * card decides who gets a button from the same call, so the two can never
+ * disagree about what a hit is.
  *
- * @param {{isFantastic?: boolean, total?: number}} attackRoll
+ * @param {{total?: number}} attackRoll
  * @param {number} ac  The target's defense against the attacking ability.
  * @returns {boolean}
  */
 function isTargetHit(attackRoll, ac) {
-  if (attackRoll?.isFantastic) return true;
   return Number(attackRoll?.total) >= Number(ac);
 }
 

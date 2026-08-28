@@ -17,7 +17,6 @@
 - **Battle Multiplier.** The x30 Health/Focus scaling is now a world setting, x10–x100 (default x30).
 - **Ultimate Fantastic Initiative.** An M on the initiative roll posts a chat note for the bonus round.
 - **Fixed:** Fantastic detection on the Marvel die and initiative-roll registration, both pre-existing.
-- Disarming, from the same source material, remains a manual GM action — not automated.
 
 ### Stunts
 

@@ -1,11 +1,13 @@
-<div class="mm-styled-container -no-header">
+{{!-- Pass heading=true where the block is not already under an Effects tab. --}}
+<div class="mm-styled-container mm-effects-block{{#unless heading}} -no-header{{/unless}}">
+  {{#if heading}}<h3>{{localize "MARVEL_MULTIVERSE.Effect.Tab"}}</h3>{{/if}}
   <div class="mm-styled-container-body">
     <ol class="items-list mm-item-list -effects">
       {{#each effects as |section sid|}}
         <li class="items-header mm-item-header" data-effect-type="{{section.type}}" data-parent-id="{{@root.actor.id}}" >
-          <div><span class="item-name effect-name">{{localize section.label}}</span></div>
-          <div><span>{{localize "MARVEL_MULTIVERSE.Effect.Source"}}</span></div>
-          <div><span>{{localize "EFFECT.TabDuration"}}</span></div>
+          <div class="effect-name"><span class="item-name">{{localize section.label}}</span></div>
+          <div class="effect-source"><span>{{localize "MARVEL_MULTIVERSE.Effect.Source"}}</span></div>
+          <div class="effect-duration"><span>{{localize "EFFECT.DURATION.Label"}}</span></div>
           <div class="item-controls effect-controls">
             <a class="effect-control item-control" data-action="create" title="{{localize 'DOCUMENT.Create' type="Effect"}}">
               <i class="fas fa-plus"></i>
@@ -20,18 +22,21 @@
               <img class="item-image" src="{{effect.img}}"/>
               <span>{{effect.name}}</span>
             </div>
-            <div class="effect-source">{{effect.sourceName}}</div>
+            <div class="effect-source">{{#if (eq effect.parent.id @root.actor.id)}}{{effect.sourceName}}{{else}}{{effect.parent.name}}{{/if}}</div>
             <div class="effect-duration">{{effect.duration.label}}</div>
-            <div class="item-controls effect-controls flexrow">
+            <div class="item-controls effect-controls">
               <a class="effect-control item-control" data-action="toggle" title="{{localize 'MARVEL_MULTIVERSE.Effect.Toggle'}}">
-                <i class="fas {{#if effect.disabled}}fa-check{{else}}fa-times{{/if}}"></i>
+                <i class="fas {{#if effect.disabled}}fa-toggle-off{{else}}fa-toggle-on mm-equipped-icon{{/if}}"></i>
               </a>
               <a class="effect-control item-control" data-action="edit" title="{{localize 'DOCUMENT.Update' type="Effect"}}">
                 <i class="fas fa-edit"></i>
               </a>
+              {{!-- Deleting an item's effect here would delete it from the item, so only the actor's own effects can be deleted. --}}
+              {{#if (eq effect.parent.id @root.actor.id)}}
               <a class="effect-control item-control" data-action="delete" title="{{localize 'DOCUMENT.Delete' type="Effect"}}">
                 <i class="fas fa-trash"></i>
               </a>
+              {{/if}}
             </div>
           </li>
         {{/each}}
@@ -40,4 +45,3 @@
     </ol>
   </div>
 </div>
-</ol>

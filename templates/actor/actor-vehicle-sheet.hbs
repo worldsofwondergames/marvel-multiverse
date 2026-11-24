@@ -63,12 +63,13 @@
   </header>
 
   {{!-- Sheet Tab Navigation --}}
-  <nav class="sheet-tabs tabs mm-tabs -four" data-group="primary">
+  <nav class="sheet-tabs tabs mm-tabs -five -square-end" data-group="primary">
     <div class="sheet-tabs-wrapper">
       <a class="item" data-tab="stats">Details</a>
       <a class="item" data-tab="occupants">Crew</a>
       <a class="item" data-tab="combat">Powers &amp; Weapons</a>
       <a class="item" data-tab="profile">{{localize "MARVEL_MULTIVERSE.Vehicle.Profile"}}</a>
+      <a class="item" data-tab="effects">{{localize "MARVEL_MULTIVERSE.Effect.Tab"}}</a>
     </div>
   </nav>
 
@@ -167,6 +168,13 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    {{!-- Active Effects Tab --}}
+    <div class="tab flexcol" data-group="primary" data-tab="effects">
+      <div class="mm-vehicle-tab-scroll -flush">
+        {{> "systems/marvel-multiverse/templates/actor/parts/actor-effects.hbs"}}
       </div>
     </div>
 

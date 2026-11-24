@@ -250,12 +250,13 @@
   </header>
 
   {{!-- Sheet Tab Navigation --}}
-  <nav class="sheet-tabs tabs mm-tabs -three" data-group="primary">
+  <nav class="sheet-tabs tabs mm-tabs -four -square-end" data-group="primary">
     {{!-- Default tab is specified in actor-sheet.mjs --}}
     <div class="sheet-tabs-wrapper">
       <a class="item active" data-tab="abilities">Abilities</a>
       <a class="item" data-tab="biography">Biography</a>
       <a class="item" data-tab="gear">Gear & Weapons</a>
+      <a class="item" data-tab="effects">{{localize "MARVEL_MULTIVERSE.Effect.Tab"}}</a>
     </div>
   </nav>
 
@@ -348,6 +349,11 @@
         </div>
       </div>
 
+    </div>
+
+    {{!-- Active Effects --}}
+    <div class="tab effects" data-group="primary" data-tab="effects">
+      {{> "systems/marvel-multiverse/templates/actor/parts/actor-effects.hbs"}}
     </div>
   </section>
 </form>

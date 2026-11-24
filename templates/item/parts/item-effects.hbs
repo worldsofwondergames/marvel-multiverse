@@ -3,9 +3,9 @@
     <ol class="items-list mm-item-list -effects">
       {{#each effects as |section sid|}}
         <li class="items-header mm-item-header" data-effect-type="{{section.type}}">
-          <div><span class="item-name effect-name">{{localize section.label}}</span></div>
-          <div><span>{{localize "MARVEL_MULTIVERSE.Effect.Source"}}</span></div>
-          <div><span>{{localize "EFFECT.TabDuration"}}</span></div>
+          <div class="effect-name"><span class="item-name">{{localize section.label}}</span></div>
+          <div class="effect-source"><span>{{localize "MARVEL_MULTIVERSE.Effect.Source"}}</span></div>
+          <div class="effect-duration"><span>{{localize "EFFECT.DURATION.Label"}}</span></div>
           <div class="item-controls effect-controls">
             <a class="effect-control item-control" data-action="create" title="{{localize 'DOCUMENT.Create' type="Effect"}}">
               <i class="fas fa-plus"></i>
@@ -24,7 +24,7 @@
             <div class="effect-duration">{{effect.duration.label}}</div>
             <div class="item-controls effect-controls">
               <a class="effect-control item-control" data-action="toggle" title="{{localize 'MARVEL_MULTIVERSE.Effect.Toggle'}}">
-                <i class="fas {{#if effect.disabled}}fa-check{{else}}fa-times{{/if}}"></i>
+                <i class="fas {{#if effect.disabled}}fa-toggle-off{{else}}fa-toggle-on mm-equipped-icon{{/if}}"></i>
               </a>
               <a class="effect-control item-control" data-action="edit" title="{{localize 'DOCUMENT.Update' type="Effect"}}">
                 <i class="fas fa-edit"></i>

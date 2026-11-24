@@ -68,6 +68,7 @@
       }
     },
     "Effect": {
+      "Tab": "Effects",
       "Source": "Source",
       "Toggle": "Toggle Effect",
       "Temporary": "Temporary Effects",

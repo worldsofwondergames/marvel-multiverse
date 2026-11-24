@@ -3,14 +3,45 @@
 
 .mm-item-list {
   &.-effects {
+    // The header and the rows share these widths so the columns line up.
     .mm-item,
     .mm-item-header {
-      > * {
-        flex: 1 1 auto;
+      align-items: center;
+      gap: $mm-spacing-md;
+
+      .effect-name {
+        flex: 1 1 0;
+        min-width: 0;
       }
 
+      .effect-source {
+        flex: 0 0 28%;
+      }
+
+      .effect-duration {
+        flex: 0 0 18%;
+      }
+
+      // Wide enough for three controls, so toggle and edit stay in the same
+      // place on rows that have no delete control.
       .item-controls {
-        flex: 0 0 auto;
+        flex: 0 0 calc(54px + #{$mm-spacing-xs * 2} + #{$mm-spacing-lg});
+        padding-block: 0;
+        padding-inline: 0 $mm-spacing-lg;
+      }
+    }
+
+    .mm-item-header .item-controls {
+      justify-content: flex-end;
+    }
+
+    // Without a z-index these cells are painted over by the row's ::before.
+    .mm-item {
+      .effect-source,
+      .effect-duration {
+        color: $mm-text-color;
+        position: relative;
+        z-index: 1;
       }
     }
 
@@ -36,9 +67,24 @@
       img {
         background: $mm-primary-red;
         border: none;
+        flex: 0 0 18px;
         height: 18px;
         width: 18px;
       }
     }
   }
+}
+
+// The NPC sheet shows effects in a narrow column, with room for the name and
+// the controls only.
+.marvel-multiverse.sheet.actor form.npc .mm-item-list.-effects {
+  .effect-source,
+  .effect-duration {
+    display: none;
+  }
+}
+
+// The effects table sits directly under the tab nav, without the form's gap.
+.marvel-multiverse.sheet.actor .sheet-body:has(> .tab.active[data-tab="effects"]) {
+  margin-block-start: -$mm-spacing-md;
 }

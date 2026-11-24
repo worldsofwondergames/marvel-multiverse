@@ -141,3 +141,24 @@
     }
   }
 }
+
+// Movement Speeds dialog: name, show checkbox, calculation, spaces.
+.mm-movement-dialog {
+  .mm-movement-row {
+    align-items: center;
+    display: grid;
+    gap: $mm-spacing-sm;
+    grid-template-columns: 1fr 24px 130px 60px;
+    margin-block-end: $mm-spacing-sm;
+  }
+
+  input[readonly],
+  select:disabled {
+    opacity: 0.6;
+  }
+
+  .mm-movement-hint {
+    font-size: 12px;
+    margin-block: $mm-spacing-sm;
+  }
+}

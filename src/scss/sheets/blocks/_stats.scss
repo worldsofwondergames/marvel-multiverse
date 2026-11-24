@@ -183,3 +183,12 @@
     background: $mm-primary-blue;
   }
 }
+
+// Cog beside the Speed label that opens the Movement Speeds dialog.
+.mm-speed-config {
+  cursor: pointer;
+  font-size: 11px;
+  margin-inline-start: 2px;
+  position: relative;
+  z-index: 2;
+}

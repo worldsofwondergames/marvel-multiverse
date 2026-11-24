@@ -1,0 +1,14 @@
+<form class="mm-movement-form">
+  {{#each rows as |row|}}
+  <div class="mm-movement-row" data-key="{{row.key}}" data-locked="{{row.locked}}" data-active-locked="{{row.activeLocked}}">
+    <span class="mm-movement-name">{{row.label}}</span>
+    <input type="checkbox" name="active" aria-label="{{localize 'MARVEL_MULTIVERSE.Movement.Show'}}" title="{{localize 'MARVEL_MULTIVERSE.Movement.Show'}}" {{#if row.active}}checked{{/if}} {{#if row.activeLocked}}disabled{{/if}} />
+    <select name="calc" aria-label="{{localize 'MARVEL_MULTIVERSE.Movement.Calculation'}}" {{#if row.locked}}disabled{{/if}}>
+      {{#if row.canHalf}}<option value="half" {{#if row.half}}selected{{/if}}>{{localize "MARVEL_MULTIVERSE.Movement.HalfRun"}}</option>{{/if}}
+      <option value="custom" {{#unless row.half}}selected{{/unless}}>{{localize "MARVEL_MULTIVERSE.Movement.Custom"}}</option>
+    </select>
+    <input type="number" name="spaces" min="0" step="1" value="{{row.spaces}}" aria-label="{{localize 'MARVEL_MULTIVERSE.Movement.Spaces'}}" {{#if row.locked}}readonly{{else}}{{#if row.half}}readonly{{/if}}{{/if}} />
+  </div>
+  {{/each}}
+  <p class="mm-movement-hint">{{localize "MARVEL_MULTIVERSE.Movement.Hint"}}</p>
+</form>

@@ -89,7 +89,17 @@
       "Flight": "Flight",
       "Glide": "Glide",
       "Swingline": "Swingline",
-      "Levitation": "Levitation"
+      "Levitation": "Levitation",
+      "Configure": "Edit movement speeds",
+      "DialogTitle": "Movement Speeds",
+      "Show": "Show on the sheet",
+      "Calculation": "Calculation",
+      "Spaces": "Spaces",
+      "HalfRun": "Half Run",
+      "Custom": "Custom",
+      "Hint": "The checkbox shows the speed on the sheet, which has room for five. A speed set by a power is read-only here.",
+      "Save": "Save",
+      "Cancel": "Cancel"
     },
     "Element": {
       "Air": "Air",

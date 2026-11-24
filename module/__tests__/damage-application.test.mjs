@@ -225,6 +225,26 @@ describe('recording that damage was taken', () => {
 });
 
 /**
+ * Issue #176. A power such as Attack Stance doubles the ability score added
+ * to damage without changing the ability itself.
+ */
+describe('a multiplier on the ability score added to damage', () => {
+  const BASE = { marvelDieTotal: 4, damageMultiplier: 3, abilityValue: 5 };
+
+  test('the ability score is added once by default', () => {
+    expect(computeDamage(BASE).amount).toBe(17);
+  });
+
+  test('a multiplier of 2 adds the ability score twice', () => {
+    expect(computeDamage({ ...BASE, abilityBonusMultiplier: 2 }).amount).toBe(22);
+  });
+
+  test('damage reduction that zeroes the die multiplier still deals nothing', () => {
+    expect(computeDamage({ ...BASE, damageReduction: 3, abilityBonusMultiplier: 2 }).amount).toBe(0);
+  });
+});
+
+/**
  * Issue #177. Core Rulebook, Combat: a weapon's bonus to the damage multiplier
  * "does not stack with any other damage multiplier bonus", and the greater of
  * the two is used.
@@ -283,6 +303,7 @@ describe('the twin agrees with the shipping monolith', () => {
     { marvelDieTotal: 6, damageMultiplier: 2, damageReduction: 9, abilityValue: 5, fantastic: false },
     { marvelDieTotal: 3, damageMultiplier: 3, damageReduction: 0, abilityValue: 2, fantastic: false, scale: 0.5 },
     { marvelDieTotal: 3, damageMultiplier: 3, damageReduction: 0, abilityValue: 2, fantastic: true, scale: 0.5 },
+    { marvelDieTotal: 4, damageMultiplier: 3, abilityValue: 5, abilityBonusMultiplier: 2 },
   ];
 
   test.each(DAMAGE_CASES)('computeDamage matches for %o', (args) => {

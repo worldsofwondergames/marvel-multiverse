@@ -580,3 +580,37 @@ describe('Rulebook: Brawling Defense Promotion', () => {
         expect(actor.abilities.agl.defense).toBe(14);
     });
 });
+
+describe('Rules: multiplier on the ability score added to damage (#176)', () => {
+    const KEY = 'system.abilities.mle.damageBonusMultiplier';
+    const makeEffect = (key, value, mode) => ({ disabled: false, changes: [{ key, value: String(value), mode }] });
+
+    test('with no effect the damage bonus is the ability score', () => {
+        const actor = makeActor({ abilities: { mle: 5 } });
+        expect(actor.abilities.mle.damageBonus).toBe(5);
+    });
+
+    test('an effect of 2 doubles the damage bonus and leaves the ability alone', () => {
+        const actor = makeActor({ abilities: { mle: 5 }, effects: [makeEffect(KEY, 2, 5)] });
+        expect(actor.abilities.mle.damageBonusMultiplier).toBe(2);
+        expect(actor.abilities.mle.damageBonus).toBe(10);
+        expect(actor.abilities.mle.value).toBe(5);
+        expect(actor.abilities.mle.defense).toBe(15);
+    });
+
+    test('two effects on one ability use the higher value', () => {
+        const actor = makeActor({ abilities: { mle: 5 }, effects: [makeEffect(KEY, 2, 5), makeEffect(KEY, 3, 5)] });
+        expect(actor.abilities.mle.damageBonusMultiplier).toBe(3);
+        expect(actor.abilities.mle.damageBonus).toBe(15);
+    });
+
+    test('a disabled effect is ignored', () => {
+        const actor = makeActor({ abilities: { mle: 5 }, effects: [{ ...makeEffect(KEY, 2, 5), disabled: true }] });
+        expect(actor.abilities.mle.damageBonus).toBe(5);
+    });
+
+    test('an effect on one ability leaves the others alone', () => {
+        const actor = makeActor({ abilities: { mle: 5, agl: 4 }, effects: [makeEffect(KEY, 2, 5)] });
+        expect(actor.abilities.agl.damageBonus).toBe(4);
+    });
+});

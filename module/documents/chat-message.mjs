@@ -292,6 +292,8 @@ export class ChatMessageMarvel extends ChatMessage {
     });
 
     const abilityValue = actor.system.abilities[abilityAbr].value;
+    // A power can multiply the ability score added to damage.
+    const abilityBonusMultiplier = actor.system.abilities[abilityAbr].damageBonusMultiplier ?? 1;
 
     // Who was targeted when the attack was rolled, not who happens to be
     // targeted now. Reading live canvas targeting here meant retargeting
@@ -328,6 +330,7 @@ export class ChatMessageMarvel extends ChatMessage {
         damageMultiplier,
         damageReduction,
         abilityValue,
+        abilityBonusMultiplier,
         fantastic: !!fantastic,
         scale: damageScale,
       });
@@ -349,6 +352,7 @@ export class ChatMessageMarvel extends ChatMessage {
         marvelDieTotal: marvelDie.total,
         damageMultiplier,
         abilityValue,
+        abilityBonusMultiplier,
         fantastic: !!fantastic,
         scale: damageScale,
       });

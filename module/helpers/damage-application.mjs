@@ -51,6 +51,7 @@ export function isTargetHit(attackRoll, ac) {
  * @param {number} args.damageMultiplier   The attacker's multiplier for the ability used.
  * @param {number} [args.damageReduction]  The target's DR for this damage type.
  * @param {number} args.abilityValue       The attacker's score in the ability used.
+ * @param {number} [args.abilityBonusMultiplier]  Multiplies the ability score added, 2 for a power that doubles it.
  * @param {boolean} [args.fantastic]
  * @param {number} [args.scale]            Fraction of regular damage the power deals.
  * @returns {{amount: number, effectiveMultiplier: number}}
@@ -60,6 +61,7 @@ export function computeDamage({
   damageMultiplier,
   damageReduction = 0,
   abilityValue,
+  abilityBonusMultiplier = 1,
   fantastic = false,
   scale = 1,
 }) {
@@ -67,7 +69,7 @@ export function computeDamage({
   const regular =
     effectiveMultiplier === 0
       ? 0
-      : marvelDieTotal * effectiveMultiplier + abilityValue;
+      : marvelDieTotal * effectiveMultiplier + abilityValue * abilityBonusMultiplier;
   const amount = Math.ceil(regular * scale * (fantastic ? 2 : 1));
   return { amount, effectiveMultiplier };
 }

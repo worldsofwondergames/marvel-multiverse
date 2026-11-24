@@ -79,6 +79,7 @@ function isTargetHit(attackRoll, ac) {
  * @param {number} args.damageMultiplier   The attacker's multiplier for the ability used.
  * @param {number} [args.damageReduction]  The target's DR for this damage type.
  * @param {number} args.abilityValue       The attacker's score in the ability used.
+ * @param {number} [args.abilityBonusMultiplier]  Multiplies the ability score added, 2 for a power that doubles it.
  * @param {boolean} [args.fantastic]
  * @param {number} [args.scale]            Fraction of regular damage the power deals.
  * @returns {{amount: number, effectiveMultiplier: number}}
@@ -88,6 +89,7 @@ function computeDamage({
   damageMultiplier,
   damageReduction = 0,
   abilityValue,
+  abilityBonusMultiplier = 1,
   fantastic = false,
   scale = 1,
 }) {
@@ -95,7 +97,7 @@ function computeDamage({
   const regular =
     effectiveMultiplier === 0
       ? 0
-      : marvelDieTotal * effectiveMultiplier + abilityValue;
+      : marvelDieTotal * effectiveMultiplier + abilityValue * abilityBonusMultiplier;
   const amount = Math.ceil(regular * scale * (fantastic ? 2 : 1));
   return { amount, effectiveMultiplier };
 }
@@ -274,6 +276,31 @@ function damageScaleOf(item) {
   const scale = Number(item?.system?.damageScale);
   if (!Number.isFinite(scale) || scale === 1) return null;
   return scale;
+}
+
+/**
+ * The line on a damage card that names what multiplied the ability score added
+ * to damage, or an empty string when nothing did.
+ *
+ * @param {Actor} actor
+ * @param {string} abilityKey   "mle", "agl", "ego" or "log".
+ * @param {string} abilityName  The ability as the card prints it.
+ * @param {number} multiplier   The multiplier in use.
+ * @returns {string}
+ */
+function abilityBonusMultiplierLine(actor, abilityKey, abilityName, multiplier) {
+  if (multiplier === 1) return "";
+  const key = `system.abilities.${abilityKey}.damageBonusMultiplier`;
+  let source = "";
+  for (const effect of actor.allApplicableEffects?.() ?? []) {
+    if (effect.disabled) continue;
+    if (!effect.changes.some((c) => c.key === key && Number(c.value) === multiplier)) continue;
+    // An effect on a power is named for the power, which is what the player switched on.
+    source = effect.parent?.documentName === "Item" ? effect.parent.name : effect.name;
+    break;
+  }
+  const from = source ? ` from ${foundry.utils.escapeHTML(source)}` : "";
+  return `<br/><span class="mm-ability-bonus-multiplier">${abilityName} damage bonus × ${multiplier}${from}</span>`;
 }
 
 /**
@@ -2603,6 +2630,12 @@ class ChatMessageMarvel extends ChatMessage {
     const weaponLine = weaponMultiplierLine(weapon, multiplier, effectBonus);
 
     const abilityValue = actor.system.abilities[abilityAbr].value;
+    // A power can multiply the ability score added to damage.
+    const abilityBonusMultiplier = actor.system.abilities[abilityAbr].damageBonusMultiplier ?? 1;
+    const abilityText = abilityBonusMultiplier === 1
+      ? `${ability} ${abilityValue}`
+      : `${ability} ${abilityValue} × ${abilityBonusMultiplier}`;
+    const abilityBonusLine = abilityBonusMultiplierLine(actor, abilityAbr, ability, abilityBonusMultiplier);
 
     // Who was targeted when the attack was rolled, not who happens to be
     // targeted now. Reading live canvas targeting here meant retargeting
@@ -2652,6 +2685,7 @@ class ChatMessageMarvel extends ChatMessage {
           damageMultiplier,
           damageReduction,
           abilityValue,
+          abilityBonusMultiplier,
           fantastic: !!fantastic,
           scale: damageScale,
         });
@@ -2667,7 +2701,7 @@ class ChatMessageMarvel extends ChatMessage {
         const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
         return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
           <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-          <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}${weaponLine}</p>
+          <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${abilityText})${scaleMult}${fantasticMult}${drLine}${weaponLine}${abilityBonusLine}</p>
           <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
         </div>`;
       });
@@ -2684,6 +2718,7 @@ class ChatMessageMarvel extends ChatMessage {
         marvelDieTotal: marvelDie.total,
         damageMultiplier,
         abilityValue,
+        abilityBonusMultiplier,
         fantastic: !!fantastic,
         scale: damageScale,
       });
@@ -2693,7 +2728,7 @@ class ChatMessageMarvel extends ChatMessage {
       const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
       damageContent.push(
         `<p style="margin:4px 0;">Deals <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${weaponLine}</p>`
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${abilityText})${scaleMult}${fantasticMult}${weaponLine}${abilityBonusLine}</p>`
       );
     }
     // const content = `<p>Delivers <b>${dmg}</b> points re: MarvelDie: ${marvelDie.total} &#42; damage multiplier: &#40; ${actor.system.abilities[abilityAbr].damageMultiplier} - damageReduction: ${damageReduction} &#61; ${damageMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
@@ -3232,6 +3267,11 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
 
     // Add the actor's data to context.data for easier access, as well as flags.
     context.system = actorData.system;
+    // The ability score added to damage is derived, so it is not part of the
+    // plain copy above and is carried over for the Damage block.
+    for (const [key, ability] of Object.entries(context.system.abilities ?? {})) {
+      ability.damageBonus = this.actor.system.abilities[key].damageBonus;
+    }
     context.flags = actorData.flags;
 
     // Prepare character data and items.
@@ -4188,6 +4228,11 @@ class MarvelMultiverseVehicleSheet extends foundry.appv1.sheets.ActorSheet {
     const actorData = context.data;
 
     context.system = actorData.system;
+    // The ability score added to damage is derived, so it is not part of the
+    // plain copy above and is carried over for the Damage block.
+    for (const [key, ability] of Object.entries(context.system.abilities ?? {})) {
+      ability.damageBonus = this.actor.system.abilities[key].damageBonus;
+    }
     context.flags = actorData.flags;
 
     this._prepareItems(context);
@@ -4537,6 +4582,11 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
 
     // Add the actor's data to context.data for easier access, as well as flags.
     context.system = actorData.system;
+    // The ability score added to damage is derived, so it is not part of the
+    // plain copy above and is carried over for the Damage block.
+    for (const [key, ability] of Object.entries(context.system.abilities ?? {})) {
+      ability.damageBonus = this.actor.system.abilities[key].damageBonus;
+    }
     context.flags = actorData.flags;
 
     // Prepare character data and items.
@@ -5999,6 +6049,14 @@ class MarvelMultiverseActorBase extends foundry.abstract
             initial: 0,
             min: 0,
           }),
+          // Multiplies the ability score added to damage, for a power that
+          // doubles the ability bonus to damage without raising the ability.
+          damageBonusMultiplier: new fields.NumberField({
+            required: true,
+            nullable: false,
+            initial: 1,
+            min: 0,
+          }),
           label: new fields.StringField({ required: true, blank: true }),
         });
         return obj;
@@ -6198,12 +6256,20 @@ class MarvelMultiverseActorBase extends foundry.abstract
     if (this.parent?.allApplicableEffects) {
       const maxDmgBonus = {};
       for (const key in this.abilities) maxDmgBonus[key] = 0;
+      // Like the bonuses above, two multipliers on one ability do not stack:
+      // the highest is used, whatever mode the effect applies it with.
+      const maxBonusMult = {};
       let maxHealthDR = 0;
       let maxFocusDR = 0;
 
       for (const effect of this.parent.allApplicableEffects()) {
         if (effect.disabled) continue;
         for (const change of effect.changes) {
+          const bonusMultMatch = change.key.match(/^system\.abilities\.(\w+)\.damageBonusMultiplier$/);
+          if (bonusMultMatch && bonusMultMatch[1] in maxDmgBonus) {
+            const mult = Number(change.value) || 0;
+            maxBonusMult[bonusMultMatch[1]] = Math.max(maxBonusMult[bonusMultMatch[1]] ?? 0, mult);
+          }
           if (Number(change.mode) !== 2) continue;
           const val = Number(change.value) || 0;
           const dmgMatch = change.key.match(/^system\.abilities\.(\w+)\.damageMultiplier$/);
@@ -6221,6 +6287,7 @@ class MarvelMultiverseActorBase extends foundry.abstract
 
       for (const key in this.abilities) {
         this.abilities[key].damageMultiplier = maxDmgBonus[key];
+        if (key in maxBonusMult) this.abilities[key].damageBonusMultiplier = maxBonusMult[key];
       }
       this.healthDamageReduction = maxHealthDR;
       this.focusDamageReduction = maxFocusDR;
@@ -6238,6 +6305,9 @@ class MarvelMultiverseActorBase extends foundry.abstract
       this.abilities[key].damageMultiplierBonus = this.abilities[key].damageMultiplier;
       // Damage Multiplier rank to apply effect changes.
       this.abilities[key].damageMultiplier += this.attributes.rank.value;
+      // The ability score added to damage, after any multiplier on it.
+      this.abilities[key].damageBonus =
+        this.abilities[key].value * (this.abilities[key].damageBonusMultiplier ?? 1);
       // Non-combat checks base to apply effect changes.
       this.abilities[key].noncom += this.abilities[key].value;
       // Handle ability label localization.
@@ -6347,12 +6417,20 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
     if (this.parent?.allApplicableEffects) {
       const maxDmgBonus = {};
       for (const key in this.abilities) maxDmgBonus[key] = 0;
+      // Like the bonuses above, two multipliers on one ability do not stack:
+      // the highest is used, whatever mode the effect applies it with.
+      const maxBonusMult = {};
       let maxHealthDR = 0;
       let maxFocusDR = 0;
 
       for (const effect of this.parent.allApplicableEffects()) {
         if (effect.disabled) continue;
         for (const change of effect.changes) {
+          const bonusMultMatch = change.key.match(/^system\.abilities\.(\w+)\.damageBonusMultiplier$/);
+          if (bonusMultMatch && bonusMultMatch[1] in maxDmgBonus) {
+            const mult = Number(change.value) || 0;
+            maxBonusMult[bonusMultMatch[1]] = Math.max(maxBonusMult[bonusMultMatch[1]] ?? 0, mult);
+          }
           if (Number(change.mode) !== 2) continue;
           const val = Number(change.value) || 0;
           const dmgMatch = change.key.match(/^system\.abilities\.(\w+)\.damageMultiplier$/);
@@ -6370,6 +6448,7 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
 
       for (const key in this.abilities) {
         this.abilities[key].damageMultiplier = maxDmgBonus[key];
+        if (key in maxBonusMult) this.abilities[key].damageBonusMultiplier = maxBonusMult[key];
       }
       this.healthDamageReduction = maxHealthDR;
       this.focusDamageReduction = maxFocusDR;
@@ -6387,6 +6466,9 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       this.abilities[key].damageMultiplierBonus = this.abilities[key].damageMultiplier;
       // Damage Multiplier rank to apply effect changes.
       this.abilities[key].damageMultiplier += this.attributes.rank.value;
+      // The ability score added to damage, after any multiplier on it.
+      this.abilities[key].damageBonus =
+        this.abilities[key].value * (this.abilities[key].damageBonusMultiplier ?? 1);
       // Non-combat checks base to apply effect changes.
       this.abilities[key].noncom += this.abilities[key].value;
       // Handle ability label localization.

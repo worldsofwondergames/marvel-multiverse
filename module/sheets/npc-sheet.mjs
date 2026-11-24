@@ -51,6 +51,11 @@ export class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
 
     // Add the actor's data to context.data for easier access, as well as flags.
     context.system = actorData.system;
+    // The ability score added to damage is derived, so it is not part of the
+    // plain copy above and is carried over for the Damage block.
+    for (const [key, ability] of Object.entries(context.system.abilities ?? {})) {
+      ability.damageBonus = this.actor.system.abilities[key].damageBonus;
+    }
     context.flags = actorData.flags;
 
     // Prepare character data and items.

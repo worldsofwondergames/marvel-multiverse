@@ -48,6 +48,14 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
             initial: 0,
             min: 0,
           }),
+          // Multiplies the ability score added to damage, for a power that
+          // doubles the ability bonus to damage without raising the ability.
+          damageBonusMultiplier: new fields.NumberField({
+            required: true,
+            nullable: false,
+            initial: 1,
+            min: 0,
+          }),
           label: new fields.StringField({ required: true, blank: true }),
         });
         return obj;
@@ -248,12 +256,20 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
     if (this.parent?.allApplicableEffects) {
       const maxDmgBonus = {};
       for (const key in this.abilities) maxDmgBonus[key] = 0;
+      // Like the bonuses above, two multipliers on one ability do not stack:
+      // the highest is used, whatever mode the effect applies it with.
+      const maxBonusMult = {};
       let maxHealthDR = 0;
       let maxFocusDR = 0;
 
       for (const effect of this.parent.allApplicableEffects()) {
         if (effect.disabled) continue;
         for (const change of effect.changes) {
+          const bonusMultMatch = change.key.match(/^system\.abilities\.(\w+)\.damageBonusMultiplier$/);
+          if (bonusMultMatch && bonusMultMatch[1] in maxDmgBonus) {
+            const mult = Number(change.value) || 0;
+            maxBonusMult[bonusMultMatch[1]] = Math.max(maxBonusMult[bonusMultMatch[1]] ?? 0, mult);
+          }
           if (Number(change.mode) !== 2) continue;
           const val = Number(change.value) || 0;
           const dmgMatch = change.key.match(/^system\.abilities\.(\w+)\.damageMultiplier$/);
@@ -271,6 +287,7 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
 
       for (const key in this.abilities) {
         this.abilities[key].damageMultiplier = maxDmgBonus[key];
+        if (key in maxBonusMult) this.abilities[key].damageBonusMultiplier = maxBonusMult[key];
       }
       this.healthDamageReduction = maxHealthDR;
       this.focusDamageReduction = maxFocusDR;
@@ -287,6 +304,9 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       this.abilities[key].damageMultiplierBonus = this.abilities[key].damageMultiplier;
       // Damage Multiplier rank to apply effect changes.
       this.abilities[key].damageMultiplier += this.attributes.rank.value;
+      // The ability score added to damage, after any multiplier on it.
+      this.abilities[key].damageBonus =
+        this.abilities[key].value * (this.abilities[key].damageBonusMultiplier ?? 1);
       // Non-combat checks base to apply effect changes.
       this.abilities[key].noncom += this.abilities[key].value;
       // Handle ability label localization.

@@ -1,3 +1,5 @@
+import { applyMovementOverrides } from "../helpers/movement.mjs";
+
 export default class MarvelMultiverseActorBase extends foundry.abstract
   .TypeDataModel {
   static defineSchema() {
@@ -179,6 +181,14 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
             }),
             rankMode: new fields.StringField({ required: true, blank: true }),
             calc: new fields.StringField({ blank: true }),
+            // A speed entered on the sheet. Null means the speed is derived.
+            override: new fields.NumberField({
+              required: true,
+              nullable: true,
+              integer: true,
+              initial: null,
+              min: 0,
+            }),
             noncomMultiplier: new fields.NumberField({
               ...requiredInteger,
               initial: 1,
@@ -369,9 +379,7 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       }
     }
 
-    if (!this.movement.climb.calc) this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
-    if (!this.movement.jump.calc) this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
-    if (!this.movement.swim.calc) this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
+    applyMovementOverrides(this.movement);
 
     for (const key in this.movement) {
       const mult = this.movement[key].noncomMultiplier ?? 1;

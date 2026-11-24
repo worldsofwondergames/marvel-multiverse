@@ -6,6 +6,7 @@ import {
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
 import { enrichSheetFields } from "../helpers/enrich.mjs";
 import { toggleItemSummary, restoreItemSummaries } from "../helpers/item-summary.mjs";
+import { openMovementDialog } from "../helpers/movement.mjs";
 import { parseWeaponBonus } from "../helpers/damage-application.mjs";
 import { isVillainous } from "../helpers/villainous.mjs";
 import { isBigFightEnabled, findGroup, groupAttackBonus } from "../helpers/big-fight.mjs";
@@ -299,6 +300,12 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
       toggleItemSummary(this, ev.currentTarget.closest(".item"));
     });
     restoreItemSummaries(this, html[0]);
+
+    // Open the Movement Speeds dialog from the cog in the Speed block.
+    html.on("click", ".mm-speed-config", (ev) => {
+      ev.preventDefault();
+      openMovementDialog(this.actor);
+    });
 
     // Render the item sheet for viewing/editing prior to the editable check.
     html.on("click", ".item-edit", (ev) => {

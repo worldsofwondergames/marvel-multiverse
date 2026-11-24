@@ -1,4 +1,5 @@
 import MarvelMultiverseActorBase from "./actor-base.mjs";
+import { applyMovementOverrides } from "../helpers/movement.mjs";
 
 export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
   prepareDerivedData() {
@@ -118,9 +119,7 @@ export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       }
     }
 
-    if (!this.movement.climb.calc) this.movement.climb.value = Math.ceil(this.movement.run.value * 0.5);
-    if (!this.movement.jump.calc) this.movement.jump.value = Math.ceil(this.movement.run.value * 0.5);
-    if (!this.movement.swim.calc) this.movement.swim.value = Math.ceil(this.movement.run.value * 0.5);
+    applyMovementOverrides(this.movement);
 
     for (const key in this.movement) {
       const mult = this.movement[key].noncomMultiplier ?? 1;

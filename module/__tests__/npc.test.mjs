@@ -117,6 +117,14 @@ describe('MarvelMultiverseNPC — Climb/Jump/Swim Movement', () => {
     });
 });
 
+describe('MarvelMultiverseNPC — Movement speeds entered on the sheet', () => {
+    test('an entered Jump speed replaces half of Run', () => {
+        const npc = makeNPC({ run: 5, movementOverrides: { jump: { value: 0, noncom: 0, active: true, noncomMultiplier: 1, calc: '', label: '', override: 8 } } });
+        expect(npc.movement.jump.value).toBe(8);
+        expect(npc.movement.climb.value).toBe(3);
+    });
+});
+
 describe('MarvelMultiverseNPC — Movement Calc Modes', () => {
     test('"half" halves flight value', () => {
         const npc = makeNPC({ movementOverrides: { flight: { value: 8, noncom: 0, active: true, noncomMultiplier: 1, calc: 'half', label: '' } } });

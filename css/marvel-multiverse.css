@@ -1541,6 +1541,22 @@
   color: white;
 }
 
+.mm-movement-dialog .mm-movement-row {
+  align-items: center;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr 24px 130px 60px;
+  margin-block-end: 4px;
+}
+.mm-movement-dialog input[readonly],
+.mm-movement-dialog select:disabled {
+  opacity: 0.6;
+}
+.mm-movement-dialog .mm-movement-hint {
+  font-size: 12px;
+  margin-block: 4px;
+}
+
 .mm-schooling-block {
   color: white;
 }
@@ -2186,6 +2202,14 @@
 
 .marvel-multiverse.sheet.actor .mm-stat-block.-focus ~ .mm-stat-reset-slot .mm-stat-reset:hover {
   background: #0088cd;
+}
+
+.marvel-multiverse.sheet.actor .mm-speed-config {
+  cursor: pointer;
+  font-size: 11px;
+  margin-inline-start: 2px;
+  position: relative;
+  z-index: 2;
 }
 
 .marvel-multiverse.sheet.actor .mm-abilities-block .mm-ability-rows::before {

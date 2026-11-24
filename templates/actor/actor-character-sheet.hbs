@@ -185,11 +185,11 @@
             {{!-- Speed & Initative --}}
             <div class="flexrow -relative">
               <div class="mm-stat-block">
-                <label class="mm-label" for="system.speed">Speed</label>
+                <label class="mm-label" for="system.speed">Speed{{#if editable}} <a class="mm-speed-config" title="{{localize 'MARVEL_MULTIVERSE.Movement.Configure'}}"><i class="fas fa-cog"></i></a>{{/if}}</label>
                 <div class="mm-speed-fields">
-                  {{#each system.movement as |mvmnt|}}
+                  {{#each system.movement as |mvmnt key|}}
                     {{#if mvmnt.active }}
-                      <div class="flexrow -gap-sm">
+                      <div class="flexrow -gap-sm" data-movement="{{key}}">
                         <span>{{mvmnt.label}}:</span><span>{{mvmnt.value}}{{#if (gt mvmnt.noncom mvmnt.value)}} ({{mvmnt.noncom}}){{/if}}</span>
                       </div>
                     {{/if}}

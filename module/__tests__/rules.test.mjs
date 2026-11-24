@@ -219,6 +219,37 @@ describe('Rules: Climb/Jump/Swim Movement', () => {
     });
 });
 
+describe('Rules: Movement speeds entered on the sheet', () => {
+    const mode = (extra) => ({ value: 0, noncom: 0, active: true, noncomMultiplier: 1, calc: '', label: '', ...extra });
+
+    test('a Climb speed entered on the sheet replaces half of Run', () => {
+        const actor = makeActor({ run: 5, movementOverrides: { climb: mode({ override: 5 }) } });
+        expect(actor.movement.climb.value).toBe(5);
+        expect(actor.movement.swim.value).toBe(3);
+    });
+
+    test('an entered speed of 0 is kept', () => {
+        const actor = makeActor({ run: 5, movementOverrides: { swim: mode({ override: 0 }) } });
+        expect(actor.movement.swim.value).toBe(0);
+    });
+
+    test('a null entry leaves Climb at half of Run', () => {
+        const actor = makeActor({ run: 5, movementOverrides: { climb: mode({ override: null }) } });
+        expect(actor.movement.climb.value).toBe(3);
+    });
+
+    test('a calc from a power beats an entered speed', () => {
+        const actor = makeActor({ run: 5, movementOverrides: { climb: mode({ override: 9, calc: 'runspeed' }) } });
+        expect(actor.movement.climb.value).toBe(5);
+    });
+
+    test('an entered Flight speed is used, with its non-combat speed', () => {
+        const actor = makeActor({ movementOverrides: { flight: mode({ override: 10, noncomMultiplier: 2 }) } });
+        expect(actor.movement.flight.value).toBe(10);
+        expect(actor.movement.flight.noncom).toBe(20);
+    });
+});
+
 describe('Rules: Movement Calc Modes', () => {
     test('"half" halves movement value (ceil)', () => {
         const actor = makeActor({

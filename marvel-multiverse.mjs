@@ -3102,7 +3102,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     // biome-ignore lint/complexity/noThisInStatic: <explanation>
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["marvel-multiverse", "sheet", "actor"],
-      width: 690,
+      width: 760,
       height: 980,
       tabs: [
         {

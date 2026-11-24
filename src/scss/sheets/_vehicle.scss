@@ -204,6 +204,11 @@
   height: 100%;
   overflow-y: auto;
   padding: $mm-spacing-sm;
+
+  // For a tab whose content meets the tab nav and the sheet edges.
+  &.-flush {
+    padding: 0;
+  }
 }
 
 .mm-vehicle-crash-input {

@@ -519,13 +519,38 @@
   font-family: var(--font-h2);
 }
 
-.mm-item-list.-effects .mm-item > *,
-.mm-item-list.-effects .mm-item-header > * {
-  flex: 1 1 auto;
+.mm-item-list.-effects .mm-item,
+.mm-item-list.-effects .mm-item-header {
+  align-items: center;
+  gap: 8px;
+}
+.mm-item-list.-effects .mm-item .effect-name,
+.mm-item-list.-effects .mm-item-header .effect-name {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.mm-item-list.-effects .mm-item .effect-source,
+.mm-item-list.-effects .mm-item-header .effect-source {
+  flex: 0 0 28%;
+}
+.mm-item-list.-effects .mm-item .effect-duration,
+.mm-item-list.-effects .mm-item-header .effect-duration {
+  flex: 0 0 18%;
 }
 .mm-item-list.-effects .mm-item .item-controls,
 .mm-item-list.-effects .mm-item-header .item-controls {
-  flex: 0 0 auto;
+  flex: 0 0 calc(54px + 4px + 16px);
+  padding-block: 0;
+  padding-inline: 0 16px;
+}
+.mm-item-list.-effects .mm-item-header .item-controls {
+  justify-content: flex-end;
+}
+.mm-item-list.-effects .mm-item .effect-source,
+.mm-item-list.-effects .mm-item .effect-duration {
+  color: #000101;
+  position: relative;
+  z-index: 1;
 }
 .mm-item-list.-effects .mm-item-header > div > span {
   background: #e41d18;
@@ -546,8 +571,18 @@
 .mm-item-list.-effects .mm-item-name img {
   background: #e41d18;
   border: none;
+  flex: 0 0 18px;
   height: 18px;
   width: 18px;
+}
+
+.marvel-multiverse.sheet.actor form.npc .mm-item-list.-effects .effect-source,
+.marvel-multiverse.sheet.actor form.npc .mm-item-list.-effects .effect-duration {
+  display: none;
+}
+
+.marvel-multiverse.sheet.actor .sheet-body:has(> .tab.active[data-tab=effects]) {
+  margin-block-start: -8px;
 }
 
 .mm-styled-field {
@@ -988,6 +1023,29 @@
   margin-inline-start: -10px;
   padding-inline-start: 16px;
   clip-path: polygon(0% 100%, 16px 0%, 100% 0%, 100% calc(100% - 20px), calc(100% - 20px) 100%);
+}
+.sheet nav.mm-tabs.-four .item, .sheet nav.mm-tabs.-five .item {
+  clip-path: polygon(16px 0%, 100% 0%, calc(100% - 16px) 100%, 0% 100%);
+  flex: 1 1 0;
+  margin-inline-start: -10px;
+  padding-inline: 16px;
+}
+.sheet nav.mm-tabs.-four .item:first-of-type, .sheet nav.mm-tabs.-five .item:first-of-type {
+  clip-path: polygon(0% 20px, 20px 0%, 100% 0%, calc(100% - 16px) 100%, 0% 100%);
+  margin-inline-start: 0;
+}
+.sheet nav.mm-tabs.-four .item:last-of-type, .sheet nav.mm-tabs.-five .item:last-of-type {
+  clip-path: polygon(0% 100%, 16px 0%, 100% 0%, 100% calc(100% - 20px), calc(100% - 20px) 100%);
+}
+.sheet nav.mm-tabs.-five .item {
+  font-size: 13px;
+  text-align: center;
+}
+.sheet nav.mm-tabs.-square-end {
+  clip-path: polygon(0% 20px, 20px 0%, 100% 0%, 100% 100%, 0% 100%);
+}
+.sheet nav.mm-tabs.-square-end .item:last-of-type {
+  clip-path: polygon(0% 100%, 16px 0%, 100% 0%, 100% 100%);
 }
 .sheet nav.mm-tabs .sheet-tabs-wrapper {
   display: flex;
@@ -2593,6 +2651,10 @@
   height: 100%;
   overflow-y: auto;
   padding: 4px;
+}
+
+.mm-vehicle-tab-scroll.-flush {
+  padding: 0;
 }
 
 .mm-vehicle-crash-input {

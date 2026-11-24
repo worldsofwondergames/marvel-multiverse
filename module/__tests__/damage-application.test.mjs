@@ -12,6 +12,8 @@ import {
   damageReductionPath,
   damageValuePath,
   isTargetHit,
+  parseWeaponBonus,
+  resolveDamageMultiplier,
   withApplied,
 } from '../../marvel-multiverse.mjs';
 
@@ -223,6 +225,53 @@ describe('recording that damage was taken', () => {
 });
 
 /**
+ * Issue #177. Core Rulebook, Combat: a weapon's bonus to the damage multiplier
+ * "does not stack with any other damage multiplier bonus", and the greater of
+ * the two is used.
+ */
+describe('a weapon bonus to the damage multiplier', () => {
+  test.each([
+    ['+2', 2],
+    ['2', 2],
+    [2, 2],
+    [' +3 ', 3],
+    ['', 0],
+    ['0', 0],
+    ['sharp', 0],
+    [undefined, 0],
+    [null, 0],
+    ['-1', 0],
+  ])('the stored value %p is a bonus of %i', (stored, bonus) => {
+    expect(parseWeaponBonus(stored)).toBe(bonus);
+  });
+
+  test('a weapon with no effect bonus to compare adds to rank', () => {
+    expect(resolveDamageMultiplier({ damageMultiplier: 2, effectBonus: 0, weaponBonus: 2 }))
+      .toEqual({ damageMultiplier: 4, rank: 2, applied: 'weapon' });
+  });
+
+  test('a higher effect bonus is used and the weapon is not added', () => {
+    expect(resolveDamageMultiplier({ damageMultiplier: 5, effectBonus: 3, weaponBonus: 2 }))
+      .toEqual({ damageMultiplier: 5, rank: 2, applied: 'effect' });
+  });
+
+  test('a higher weapon bonus replaces the effect bonus', () => {
+    expect(resolveDamageMultiplier({ damageMultiplier: 3, effectBonus: 1, weaponBonus: 2 }))
+      .toEqual({ damageMultiplier: 4, rank: 2, applied: 'weapon' });
+  });
+
+  test('equal bonuses are counted once', () => {
+    expect(resolveDamageMultiplier({ damageMultiplier: 4, effectBonus: 2, weaponBonus: 2 }).damageMultiplier)
+      .toBe(4);
+  });
+
+  test('an attack with no weapon and no effect is rank alone', () => {
+    expect(resolveDamageMultiplier({ damageMultiplier: 2 }))
+      .toEqual({ damageMultiplier: 2, rank: 2, applied: null });
+  });
+});
+
+/**
  * `module/documents/chat-message.mjs` imports the twin, the monolith carries
  * its own copy, and only the monolith runs. Compare what the two produce so a
  * change to one alone shows up here rather than in play.
@@ -246,6 +295,19 @@ describe('the twin agrees with the shipping monolith', () => {
     [{ isFantastic: true, total: 3 }, 20],
   ])('isTargetHit matches for %o against %i', (roll, ac) => {
     expect(twin.isTargetHit(roll, ac)).toBe(isTargetHit(roll, ac));
+  });
+
+  test.each(['+2', '2', 2, '', 'sharp', undefined, '-1'])('parseWeaponBonus matches for %p', (stored) => {
+    expect(twin.parseWeaponBonus(stored)).toBe(parseWeaponBonus(stored));
+  });
+
+  test.each([
+    { damageMultiplier: 2, effectBonus: 0, weaponBonus: 2 },
+    { damageMultiplier: 5, effectBonus: 3, weaponBonus: 2 },
+    { damageMultiplier: 3, effectBonus: 1, weaponBonus: 2 },
+    { damageMultiplier: 2 },
+  ])('resolveDamageMultiplier matches for %o', (args) => {
+    expect(twin.resolveDamageMultiplier(args)).toEqual(resolveDamageMultiplier(args));
   });
 
   test.each(['focus', 'health', undefined])('damage paths match for %s', (type) => {

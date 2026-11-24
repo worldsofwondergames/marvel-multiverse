@@ -73,6 +73,43 @@ export function computeDamage({
 }
 
 /**
+ * A weapon's stored Damage Multiplier Bonus as a number.
+ *
+ * The field is free text on the weapon sheet and the compendium writes it with
+ * a sign ("+2"), so it is parsed here. Anything that is not a positive whole
+ * number is no bonus.
+ *
+ * @param {string|number} value
+ * @returns {number}
+ */
+export function parseWeaponBonus(value) {
+  const bonus = Number.parseInt(String(value ?? "").trim().replace(/^\+/, ""), 10);
+  return Number.isInteger(bonus) && bonus > 0 ? bonus : 0;
+}
+
+/**
+ * The damage multiplier for an attack made with a weapon.
+ *
+ * Core Rulebook, Combat: a weapon's bonus "does not stack with any other
+ * damage multiplier bonus", and the greater of the two is used. The actor's
+ * multiplier already holds rank plus its highest effect bonus, so the effect
+ * bonus is taken back off before the two are compared.
+ *
+ * @param {object} args
+ * @param {number} args.damageMultiplier  The actor's multiplier: rank plus effectBonus.
+ * @param {number} [args.effectBonus]     The highest bonus from the actor's effects.
+ * @param {number} [args.weaponBonus]     The bonus of the weapon the attack was made with.
+ * @returns {{damageMultiplier: number, rank: number, applied: "weapon"|"effect"|null}}
+ */
+export function resolveDamageMultiplier({ damageMultiplier, effectBonus = 0, weaponBonus = 0 }) {
+  const rank = damageMultiplier - effectBonus;
+  if (weaponBonus > effectBonus) {
+    return { damageMultiplier: rank + weaponBonus, rank, applied: "weapon" };
+  }
+  return { damageMultiplier, rank, applied: effectBonus > 0 ? "effect" : null };
+}
+
+/**
  * The actor field a damage type comes out of. Only `focus` diverts; everything
  * else, including an attack that named no damage type, comes off Health.
  * @param {string} damageType

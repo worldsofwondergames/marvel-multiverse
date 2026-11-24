@@ -67,6 +67,9 @@
         "AddPWR": "Power"
       }
     },
+    "Weapon": {
+      "Multiplier": "Multiplier"
+    },
     "Effect": {
       "Tab": "Effects",
       "Source": "Source",

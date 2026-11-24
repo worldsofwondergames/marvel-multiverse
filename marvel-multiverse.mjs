@@ -277,6 +277,28 @@ function damageScaleOf(item) {
 }
 
 /**
+ * The line on a damage card that says where a weapon attack's multiplier came
+ * from, or an empty string for an attack made without a weapon.
+ *
+ * @param {{name: string, bonus: number}|null} weapon
+ * @param {{damageMultiplier: number, rank: number, applied: string|null}} multiplier
+ * @param {number} effectBonus
+ * @returns {string}
+ */
+function weaponMultiplierLine(weapon, multiplier, effectBonus) {
+  if (!weapon?.bonus) return "";
+  const name = foundry.utils.escapeHTML(weapon.name ?? "");
+  let text;
+  if (multiplier.applied === "weapon") {
+    text = `Multiplier ${multiplier.damageMultiplier} = Rank ${multiplier.rank} + ${weapon.bonus} from ${name}.`;
+    if (effectBonus > 0) text += ` The +${effectBonus} from effects is lower and is not added.`;
+  } else {
+    text = `Multiplier ${multiplier.damageMultiplier} = Rank ${multiplier.rank} + ${effectBonus} from effects. ${name} (+${weapon.bonus}) is not higher and is not added.`;
+  }
+  return `<br/><span class="mm-weapon-multiplier">${text}</span>`;
+}
+
+/**
  * The actor field a damage type comes out of. Only `focus` diverts; everything
  * else, including an attack that named no damage type, comes off Health.
  * @param {string} damageType
@@ -284,6 +306,43 @@ function damageScaleOf(item) {
  */
 function damageValuePath(damageType) {
   return damageType === "focus" ? "system.focus.value" : "system.health.value";
+}
+
+/**
+ * A weapon's stored Damage Multiplier Bonus as a number.
+ *
+ * The field is free text on the weapon sheet and the compendium writes it with
+ * a sign ("+2"), so it is parsed here. Anything that is not a positive whole
+ * number is no bonus.
+ *
+ * @param {string|number} value
+ * @returns {number}
+ */
+function parseWeaponBonus(value) {
+  const bonus = Number.parseInt(String(value ?? "").trim().replace(/^\+/, ""), 10);
+  return Number.isInteger(bonus) && bonus > 0 ? bonus : 0;
+}
+
+/**
+ * The damage multiplier for an attack made with a weapon.
+ *
+ * Core Rulebook, Combat: a weapon's bonus "does not stack with any other
+ * damage multiplier bonus", and the greater of the two is used. The actor's
+ * multiplier already holds rank plus its highest effect bonus, so the effect
+ * bonus is taken back off before the two are compared.
+ *
+ * @param {object} args
+ * @param {number} args.damageMultiplier  The actor's multiplier: rank plus effectBonus.
+ * @param {number} [args.effectBonus]     The highest bonus from the actor's effects.
+ * @param {number} [args.weaponBonus]     The bonus of the weapon the attack was made with.
+ * @returns {{damageMultiplier: number, rank: number, applied: "weapon"|"effect"|null}}
+ */
+function resolveDamageMultiplier({ damageMultiplier, effectBonus = 0, weaponBonus = 0 }) {
+  const rank = damageMultiplier - effectBonus;
+  if (weaponBonus > effectBonus) {
+    return { damageMultiplier: rank + weaponBonus, rank, applied: "weapon" };
+  }
+  return { damageMultiplier, rank, applied: effectBonus > 0 ? "effect" : null };
 }
 
 /**
@@ -1348,6 +1407,17 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
           messageData,
           "flags.marvel-multiverse.damageScale",
           damageScale
+        );
+      }
+      // A weapon's bonus belongs to attacks made with that weapon, so it is
+      // recorded on the attack. Storing the number now means editing or
+      // deleting the weapon later does not change this card's damage.
+      const weaponBonus = this.type === "weapon" ? parseWeaponBonus(this.system.damageMultiplierBonus) : 0;
+      if (weaponBonus > 0) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.weapon",
+          { name: this.name, bonus: weaponBonus }
         );
       }
       roll.toMessage(messageData, { rollMode: rollMode, itemId: this._id });
@@ -2520,8 +2590,17 @@ class ChatMessageMarvel extends ChatMessage {
     );
 
     const [marvelDie] = marvelRoll.dice;
-    const damageMultiplier =
-      actor.system.abilities[abilityAbr].damageMultiplier;
+    // An attack made with a weapon recorded the weapon's bonus when it was
+    // rolled. It does not stack with a bonus from effects: the higher is used.
+    const weapon = chatMessage.getFlag("marvel-multiverse", "weapon") ?? null;
+    const effectBonus = actor.system.abilities[abilityAbr].damageMultiplierBonus ?? 0;
+    const multiplier = resolveDamageMultiplier({
+      damageMultiplier: actor.system.abilities[abilityAbr].damageMultiplier,
+      effectBonus,
+      weaponBonus: weapon?.bonus ?? 0,
+    });
+    const damageMultiplier = multiplier.damageMultiplier;
+    const weaponLine = weaponMultiplierLine(weapon, multiplier, effectBonus);
 
     const abilityValue = actor.system.abilities[abilityAbr].value;
 
@@ -2588,7 +2667,7 @@ class ChatMessageMarvel extends ChatMessage {
         const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
         return `<div class="mm-damage-target" data-target-uuid="${t.uuid}">
           <p style="margin:4px 0;"><b>${t.name}</b> takes <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-          <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}</p>
+          <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × ${multiplierText}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${drLine}${weaponLine}</p>
           <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button>
         </div>`;
       });
@@ -2614,7 +2693,7 @@ class ChatMessageMarvel extends ChatMessage {
       const scaleMult = damageScale !== 1 ? ` × ${damageScale}` : "";
       damageContent.push(
         `<p style="margin:4px 0;">Deals <b style="color:#8b0502;">${dmg}${fantasticLabel}${dmgTypeLabel} damage</b></p>
-        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}</p>`
+        <p style="font-size:11px;color:#555;margin:2px 0;">((Marvel Die ${marvelDie.total} × Multiplier ${damageMultiplier}) + ${ability} ${abilityValue})${scaleMult}${fantasticMult}${weaponLine}</p>`
       );
     }
     // const content = `<p>Delivers <b>${dmg}</b> points re: MarvelDie: ${marvelDie.total} &#42; damage multiplier: &#40; ${actor.system.abilities[abilityAbr].damageMultiplier} - damageReduction: ${damageReduction} &#61; ${damageMultiplier} &#41; + ${ability} score ${abilityValue} of damage.</p>`;
@@ -3340,6 +3419,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       } else if (i.type === "item") {
         gear.push(i);
       } else if (i.type === "weapon") {
+        i.weaponBonus = parseWeaponBonus(i.system.damageMultiplierBonus);
         weapons.push(i);
       } else if (i.type === "trait") {
         traits.push(i);
@@ -4622,6 +4702,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       } else if (i.type === "item") {
         gear.push(i);
       } else if (i.type === "weapon") {
+        i.weaponBonus = parseWeaponBonus(i.system.damageMultiplierBonus);
         weapons.push(i);
       } else if (i.type === "equipment") {
         i.equipmentTypeLabel = game.i18n.localize(
@@ -6152,6 +6233,9 @@ class MarvelMultiverseActorBase extends foundry.abstract
     for (const key in this.abilities) {
       // Caclulate the defense score using mmrpg rules.
       this.abilities[key].defense += this.abilities[key].value + 10;
+      // The bonus from effects alone, kept so a weapon's bonus can be compared
+      // with it: the two do not stack.
+      this.abilities[key].damageMultiplierBonus = this.abilities[key].damageMultiplier;
       // Damage Multiplier rank to apply effect changes.
       this.abilities[key].damageMultiplier += this.attributes.rank.value;
       // Non-combat checks base to apply effect changes.
@@ -6298,6 +6382,9 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
     for (const key in this.abilities) {
       // Caclulate the defense score using mmrpg rules.
       this.abilities[key].defense += this.abilities[key].value + 10;
+      // The bonus from effects alone, kept so a weapon's bonus can be compared
+      // with it: the two do not stack.
+      this.abilities[key].damageMultiplierBonus = this.abilities[key].damageMultiplier;
       // Damage Multiplier rank to apply effect changes.
       this.abilities[key].damageMultiplier += this.attributes.rank.value;
       // Non-combat checks base to apply effect changes.
@@ -10521,5 +10608,5 @@ function rollItemMacro(itemUuid) {
   });
 }
 
-export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, distributePooledHealthDelta, distributePooledFocusDelta, findGroup, groupAttackBonus, groupBestVigilance, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
+export { ChatMessageMarvel, applyAttackBonusToFormula, bestVigilanceBySide, collectHalfDamageUpdates, collectPowerSyncUpdates, combatantSideFromDisposition, distributePooledHealthDelta, distributePooledFocusDelta, findGroup, groupAttackBonus, groupBestVigilance, groupDamageTargetsByGroup, isBigFightEnabled, liveMembers, needsInitiativeReroll, nextInRangeValue, powerRollsFromItsText, needsHalfDamageScale, resolveDamageMultiplier, MARVEL_MULTIVERSE, MarvelMultiverseActor, MarvelMultiverseCharacterSheet, MarvelMultiverseItem$1 as MarvelMultiverseItem, MarvelMultiverseItemSheet, MarvelMultiverseNPCSheet, canApplyDamage, computeDamage, damageReductionPath, damageValuePath, dice, isTargetHit, models, parseWeaponBonus, pooledResource, rollAbilityCheck, rollCheckMacro, rollItemMacro, withApplied };
 //# sourceMappingURL=marvel-multiverse-compiled.mjs.map

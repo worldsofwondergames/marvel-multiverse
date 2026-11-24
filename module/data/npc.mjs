@@ -39,6 +39,9 @@ export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
     for (const key in this.abilities) {
       // Caclulate the defense score using mmrpg rules.
       this.abilities[key].defense += this.abilities[key].value + 10;
+      // The bonus from effects alone, kept so a weapon's bonus can be compared
+      // with it: the two do not stack.
+      this.abilities[key].damageMultiplierBonus = this.abilities[key].damageMultiplier;
       // Damage Multiplier rank to apply effect changes.
       this.abilities[key].damageMultiplier += this.attributes.rank.value;
       // Non-combat checks base to apply effect changes.

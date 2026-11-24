@@ -1,4 +1,5 @@
 import { findRollLinks } from "../helpers/roll-links.mjs";
+import { parseWeaponBonus } from "../helpers/damage-application.mjs";
 import { isBigFightEnabled, findGroup, groupAttackBonus } from "../helpers/big-fight.mjs";
 
 /**
@@ -275,15 +276,24 @@ export class MarvelMultiverseItem extends Item {
       // const result = await roll.evaluate();
       const modLabel = `${label}, [ability] ${this.system.ability}`;
 
-      roll.toMessage(
-        {
-          title: this.name,
-          speaker: speaker,
-          rollMode: rollMode,
-          flavor: modLabel,
-        },
-        { rollMode: rollMode, itemId: this._id }
-      );
+      const messageData = {
+        title: this.name,
+        speaker: speaker,
+        rollMode: rollMode,
+        flavor: modLabel,
+      };
+      // A weapon's bonus belongs to attacks made with that weapon, so it is
+      // recorded on the attack. Storing the number now means editing or
+      // deleting the weapon later does not change this card's damage.
+      const weaponBonus = this.type === "weapon" ? parseWeaponBonus(this.system.damageMultiplierBonus) : 0;
+      if (weaponBonus > 0) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.weapon",
+          { name: this.name, bonus: weaponBonus }
+        );
+      }
+      roll.toMessage(messageData, { rollMode: rollMode, itemId: this._id });
 
       if (this.system.attack) {
         Hooks.callAll("marvel-multiverse.rollAttack", this, roll);

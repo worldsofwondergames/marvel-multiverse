@@ -15,7 +15,7 @@
   {{#each weapons as |item id|}}
     <li class="flexrow item mm-item" data-item-id='{{item._id}}' data-damagetype='{{item.system.damageType}}'>
       <div class="item-name mm-item-name">
-        <a class="rollable" data-roll-type="item" data-damagetype="{{item.system.damageType}}">{{item.name}} </a>
+        <a class="rollable" data-roll-type="item" data-damagetype="{{item.system.damageType}}">{{item.name}}{{#if item.weaponBonus}}: <span class="mm-weapon-bonus" style="text-transform:none;">{{localize "MARVEL_MULTIVERSE.Weapon.Multiplier"}} +{{item.weaponBonus}}</span>{{/if}}</a>
       </div>
       <div class="item-controls">
         <a

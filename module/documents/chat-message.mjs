@@ -4,6 +4,7 @@ import {
   computeDamage,
   damageReductionPath,
   isTargetHit,
+  resolveDamageMultiplier,
 } from "../helpers/damage-application.mjs";
 
 export class ChatMessageMarvel extends ChatMessage {
@@ -281,8 +282,14 @@ export class ChatMessageMarvel extends ChatMessage {
     );
 
     const [marvelDie] = marvelRoll.dice;
-    const damageMultiplier =
-      actor.system.abilities[abilityAbr].damageMultiplier;
+    // An attack made with a weapon recorded the weapon's bonus when it was
+    // rolled. It does not stack with a bonus from effects: the higher is used.
+    const weapon = chatMessage.getFlag("marvel-multiverse", "weapon") ?? null;
+    const { damageMultiplier } = resolveDamageMultiplier({
+      damageMultiplier: actor.system.abilities[abilityAbr].damageMultiplier,
+      effectBonus: actor.system.abilities[abilityAbr].damageMultiplierBonus ?? 0,
+      weaponBonus: weapon?.bonus ?? 0,
+    });
 
     const abilityValue = actor.system.abilities[abilityAbr].value;
 
@@ -330,7 +337,7 @@ export class ChatMessageMarvel extends ChatMessage {
       } </b> ${damageType} damage.<br/> re: MarvelDie: ${
         marvelDie.total
       } &#42; damage multiplier: &#40; ${
-        actor.system.abilities[abilityAbr].damageMultiplier
+        damageMultiplier
       } - damageReduction: ${damageReduction} &#61; ${dmgMultiplier} &#41; + ${ability} score ${abilityValue}${damageScale !== 1 ? ` &#42; ${damageScale}` : ""} of damage.</p>
       <button type="button" class="mm-take-damage" data-target-uuid="${t.uuid}"><i class="fa-solid fa-heart-crack"></i> Take Damage</button></div>`;
     });

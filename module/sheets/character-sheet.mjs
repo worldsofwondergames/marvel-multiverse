@@ -5,6 +5,7 @@ import {
 } from "../helpers/effects.mjs";
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
 import { enrichSheetFields } from "../helpers/enrich.mjs";
+import { parseWeaponBonus } from "../helpers/damage-application.mjs";
 import { isVillainous } from "../helpers/villainous.mjs";
 import { isBigFightEnabled, findGroup, groupAttackBonus } from "../helpers/big-fight.mjs";
 
@@ -231,6 +232,7 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
       } else if (i.type === "item") {
         gear.push(i);
       } else if (i.type === "weapon") {
+        i.weaponBonus = parseWeaponBonus(i.system.damageMultiplierBonus);
         weapons.push(i);
       } else if (i.type === "trait") {
         traits.push(i);

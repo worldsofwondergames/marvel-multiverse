@@ -6,6 +6,7 @@ import {
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
 import { enrichSheetFields } from "../helpers/enrich.mjs";
 import { toggleItemSummary, restoreItemSummaries } from "../helpers/item-summary.mjs";
+import { canAddItem, confirmItemDrop } from "../helpers/item-drop.mjs";
 import { openMovementDialog } from "../helpers/movement.mjs";
 import { parseWeaponBonus } from "../helpers/damage-application.mjs";
 import { isVillainous } from "../helpers/villainous.mjs";
@@ -560,28 +561,20 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
     return await Item.create(itemData, { parent: this.actor });
   }
 
+  // An origin or occupation adds its traits and tags with no prompt, and
+  // skips one the actor may not have another copy of.
   async _createTrait(traitData) {
-    if (
-      !this.actor.items.map((item) => item.name).includes(traitData.name) &&
-      !traitData.multiple
-    ) {
-      super._onDropItemCreate(traitData);
-    }
+    if (canAddItem(this.actor, traitData).ok) super._onDropItemCreate(traitData);
   }
 
   async _createTag(tagData) {
-    if (
-      !this.actor.items.map((item) => item.name).includes(tagData.name) &&
-      !tagData.multiple
-    ) {
-      super._onDropItemCreate(tagData);
-    }
+    if (canAddItem(this.actor, tagData).ok) super._onDropItemCreate(tagData);
   }
 
   /** Fired whenever an embedded document is created.
    */
-  _onDropItemCreate(itemData) {
-    if (!this.actor.items.map((item) => item.name).includes(itemData.name)) {
+  async _onDropItemCreate(itemData) {
+    if (await confirmItemDrop(this.actor, itemData)) {
       if (
         itemData.type === "power" &&
         itemData.system.powerSet === "Elemental Control"

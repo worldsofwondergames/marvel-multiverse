@@ -68,7 +68,14 @@
       },
       "ShowDetails": "Show or hide details",
       "SendToChat": "Send to chat",
-      "NoDescription": "No description."
+      "NoDescription": "No description.",
+      "AlreadyOwned": "{actor} already has {item}.",
+      "AlreadyOwnedDetail": "{actor} already has {item}: {detail}.",
+      "RepeatPrompt": "{actor} already has {item}. This {type} can be taken more than once.",
+      "AddTitle": "Add {item}",
+      "Detail": "Detail",
+      "Add": "Add",
+      "Cancel": "Cancel"
     },
     "Weapon": {
       "Multiplier": "Multiplier"

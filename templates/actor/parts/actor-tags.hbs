@@ -15,9 +15,16 @@
   {{#each tags as |item id|}}
     <li class="flexrow item mm-item" data-item-id='{{item._id}}'>
       <div class="item-name mm-item-name">
-        <a class="rollable" data-roll-type="item"><span>{{item.name}}{{#if item.system.detail}}: <span style="text-transform:none;">{{item.system.detail}}</span>{{/if}}</span></a>
+        <a class="item-expand" title="{{localize 'MARVEL_MULTIVERSE.Item.ShowDetails'}}"><i class="fas fa-caret-right mm-expand-caret"></i><span>{{item.name}}{{#if item.system.detail}}: <span style="text-transform:none;">{{item.system.detail}}</span>{{/if}}</span></a>
       </div>
       <div class="item-controls">
+        <a
+          class="item-control item-chat rollable"
+          title="{{localize 'MARVEL_MULTIVERSE.Item.SendToChat'}}"
+          data-roll-type="item"
+        >
+          <i class="fas fa-comment"></i>
+        </a>
         <a
           class="item-control item-edit"
           title="{{localize 'DOCUMENT.Edit' type="tag"}}"

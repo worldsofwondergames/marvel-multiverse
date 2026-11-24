@@ -18,13 +18,7 @@
       {{#each powers as |item id|}}
         <li class="flexrow item mm-item" data-item-id="{{item._id}}" >
           <div class="item-name mm-item-name">
-            <a class="rollable"
-              {{#if item.system.ability }}
-                data-formula="{1d6,1dm,1d6}+@abilities.{{item.system.ability}}.value" data-label="{{item.system.ability}}" data-ability-key="{{item.system.ability}}" data-damagetype="{{item.system.damageType}}" data-item-id="{{item._id}}" | {{ item.name }}"
-              {{else}}
-                data-roll-type="item" data-item-id="{{item._id}}"
-              {{/if}}
-              >
+            <a class="item-expand" title="{{localize 'MARVEL_MULTIVERSE.Item.ShowDetails'}}"><i class="fas fa-caret-right mm-expand-caret"></i>
               <span>{{item.name}}{{#if (mmIsReaction item.system.action)}} <img class="mm-reaction-icon" src="systems/marvel-multiverse/icons/reaction.svg" title="{{localize 'MARVEL_MULTIVERSE.Reaction'}}" alt="R">{{/if}}{{#if item.system.detail}}: <span style="text-transform:none;">{{item.system.detail}}</span>{{/if}}</span>
             </a>
           </div>
@@ -49,6 +43,18 @@
             </a>
             {{/if}}
             {{/if}}
+            {{!-- Posts the card, and rolls the attack for a power that has an ability. --}}
+            <a
+              class="item-control item-chat rollable"
+              title="{{localize 'MARVEL_MULTIVERSE.Item.SendToChat'}}"
+              {{#if item.system.ability }}
+                data-formula="{1d6,1dm,1d6}+@abilities.{{item.system.ability}}.value" data-label="{{item.system.ability}}" data-ability-key="{{item.system.ability}}" data-damagetype="{{item.system.damageType}}" data-item-id="{{item._id}}"
+              {{else}}
+                data-roll-type="item" data-item-id="{{item._id}}"
+              {{/if}}
+            >
+              <i class="fas fa-comment"></i>
+            </a>
             <a
               class="item-control item-edit"
               title="{{localize 'DOCUMENT.Edit' type="power"}}"

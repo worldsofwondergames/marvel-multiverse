@@ -5,6 +5,7 @@ import {
 } from "../helpers/effects.mjs";
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
 import { enrichSheetFields } from "../helpers/enrich.mjs";
+import { toggleItemSummary, restoreItemSummaries } from "../helpers/item-summary.mjs";
 import { parseWeaponBonus } from "../helpers/damage-application.mjs";
 import { isVillainous } from "../helpers/villainous.mjs";
 import { isBigFightEnabled, findGroup, groupAttackBonus } from "../helpers/big-fight.mjs";
@@ -290,6 +291,14 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
   /** @override */
   activateListeners(html) {
     super.activateListeners(html);
+
+    // Clicking an item's name expands it in place. The chat control beside
+    // edit and delete posts the card, which the name used to do.
+    html.on("click", ".item-expand", (ev) => {
+      ev.preventDefault();
+      toggleItemSummary(this, ev.currentTarget.closest(".item"));
+    });
+    restoreItemSummaries(this, html[0]);
 
     // Render the item sheet for viewing/editing prior to the editable check.
     html.on("click", ".item-edit", (ev) => {

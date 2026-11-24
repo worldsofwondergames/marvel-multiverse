@@ -3564,6 +3564,14 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       const item = this.actor.items.get(itemId);
       if (item) await _activatePower(this.actor, item);
     });
+    // Clicking an item's name expands it in place. The chat control beside
+    // edit and delete posts the card, which the name used to do.
+    html.on("click", ".item-expand", (ev) => {
+      ev.preventDefault();
+      toggleItemSummary(this, ev.currentTarget.closest(".item"));
+    });
+    restoreItemSummaries(this, html[0]);
+
     // Render the item sheet for viewing/editing prior to the editable check.
     html.on("click", ".item-edit", (ev) => {
       const li = $(ev.currentTarget).parents(".item");
@@ -4846,6 +4854,14 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       const item = this.actor.items.get(itemId);
       if (item) await _activatePower(this.actor, item);
     });
+    // Clicking an item's name expands it in place. The chat control beside
+    // edit and delete posts the card, which the name used to do.
+    html.on("click", ".item-expand", (ev) => {
+      ev.preventDefault();
+      toggleItemSummary(this, ev.currentTarget.closest(".item"));
+    });
+    restoreItemSummaries(this, html[0]);
+
     // Render the item sheet for viewing/editing prior to the editable check.
     html.on("click", ".item-edit", (ev) => {
       const li = $(ev.currentTarget).parents(".item");
@@ -10264,6 +10280,88 @@ function getTextEditor() {
 }
 
 /**
+ * The text shown under an item row when its name is clicked on an actor sheet:
+ * the description and effect the chat card prints, and for a power its Action,
+ * Trigger, Duration, and Cost lines.
+ * @param {Item} item
+ * @returns {Promise<string>}
+ */
+async function buildItemSummaryHTML(item) {
+  const TE = getTextEditor();
+  const enrich = (text) =>
+    TE.enrichHTML(String(text), {
+      rollData: item.getRollData(),
+      relativeTo: item,
+      secrets: item.isOwner ?? false,
+    });
+  const hasEffect = _hasContent(item.system.effect);
+  const parts = [];
+  if (item.type === "power") parts.push(_buildItemMeta(item.system));
+  if (_hasContent(item.system.description)) {
+    parts.push(
+      `<div class="mm-chat-description${hasEffect ? " -flavor" : ""}">${await enrich(item.system.description)}</div>`
+    );
+  }
+  if (hasEffect) parts.push(`<div class="mm-chat-effect">${await enrich(item.system.effect)}</div>`);
+  const body = parts.join("");
+  return body || `<div class="mm-item-summary-empty">${game.i18n.localize("MARVEL_MULTIVERSE.Item.NoDescription")}</div>`;
+}
+
+/**
+ * Put an item's summary directly after its row.
+ * @param {HTMLElement} row  The element carrying data-item-id.
+ * @param {Item} item
+ */
+async function showItemSummary(row, item) {
+  const html = await buildItemSummaryHTML(item);
+  // A second click can arrive while the text above is being enriched.
+  if (row.nextElementSibling?.dataset?.summaryItemId === item.id) return;
+  const summary = document.createElement(row.tagName === "LI" ? "li" : "div");
+  summary.className = "mm-item-summary";
+  summary.dataset.summaryItemId = item.id;
+  summary.innerHTML = html;
+  row.after(summary);
+  row.classList.add("-expanded");
+}
+
+/**
+ * Expand or collapse the item whose name was clicked. The expanded ids are kept
+ * on the sheet and not on the actor, so each viewer has their own.
+ * @param {object} sheet  The actor sheet.
+ * @param {HTMLElement} row
+ */
+async function toggleItemSummary(sheet, row) {
+  const item = sheet.actor.items.get(row?.dataset?.itemId);
+  if (!item) return;
+  sheet._expandedItems ??= new Set();
+  if (sheet._expandedItems.has(item.id)) {
+    sheet._expandedItems.delete(item.id);
+    if (row.nextElementSibling?.dataset?.summaryItemId === item.id) row.nextElementSibling.remove();
+    row.classList.remove("-expanded");
+    return;
+  }
+  sheet._expandedItems.add(item.id);
+  await showItemSummary(row, item);
+}
+
+/**
+ * Expand again every item that was expanded before the sheet re-rendered.
+ * @param {object} sheet  The actor sheet.
+ * @param {HTMLElement} root  The sheet's rendered element.
+ */
+async function restoreItemSummaries(sheet, root) {
+  for (const id of sheet._expandedItems ?? []) {
+    const item = sheet.actor.items.get(id);
+    const row = root.querySelector(`.item[data-item-id="${id}"]`);
+    if (!item || !row) {
+      sheet._expandedItems.delete(id);
+      continue;
+    }
+    await showItemSummary(row, item);
+  }
+}
+
+/**
  * Build enriched copies of whichever rich-text fields the document actually
  * has. Fields the document does not define are skipped rather than emitted as
  * empty strings, so a template asking for a field that does not belong to its
@@ -10500,6 +10598,10 @@ function resolveRollLinkItem(anchor) {
     const app = ui.windows?.[appEl.dataset.appid];
     const doc = app?.document ?? app?.object;
     if (doc?.documentName === "Item") return doc;
+    // A link in an item expanded on an actor sheet belongs to that item.
+    const summaryEl = anchor.closest("[data-summary-item-id]");
+    const owned = summaryEl ? doc?.items?.get(summaryEl.dataset.summaryItemId) : null;
+    if (owned) return owned;
   }
 
   return null;

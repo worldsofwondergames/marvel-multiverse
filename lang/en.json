@@ -65,7 +65,10 @@
       "Power": {
         "PowerSET": "{set}",
         "AddPWR": "Power"
-      }
+      },
+      "ShowDetails": "Show or hide details",
+      "SendToChat": "Send to chat",
+      "NoDescription": "No description."
     },
     "Weapon": {
       "Multiplier": "Multiplier"

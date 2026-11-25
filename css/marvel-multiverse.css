@@ -1858,6 +1858,15 @@
   right: 0;
 }
 
+.marvel-multiverse.sheet.actor .mm-karma-block.-bad::before {
+  background: #8b0502;
+}
+
+.marvel-multiverse.sheet.actor .mm-karma-block.-bad .mm-label,
+.marvel-multiverse.sheet.actor .mm-karma-block.-bad input {
+  color: #fff;
+}
+
 .marvel-multiverse.sheet.actor .mm-sinister-block {
   background: #5a2d8c;
   right: 0;

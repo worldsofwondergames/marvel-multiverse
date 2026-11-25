@@ -1,10 +1,17 @@
 import { MarvelMultiverseRoll } from "../dice/roll.mjs";
+import { limitKarmaUpdate } from "../helpers/bad-karma.mjs";
 
 /**
  * Extend the base Actor document by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
  */
 export class MarvelMultiverseActor extends Actor {
+  /** @override */
+  async _preUpdate(changed, options, user) {
+    limitKarmaUpdate(this, changed);
+    return super._preUpdate(changed, options, user);
+  }
+
   /** @override */
   prepareData() {
     // Prepare data for the actor. Calling the super version of this executes

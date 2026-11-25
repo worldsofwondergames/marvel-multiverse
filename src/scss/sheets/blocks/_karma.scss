@@ -35,6 +35,18 @@
 .mm-karma-block {
   background: $mm-primary-red;
   right: 0;
+
+  // A Karma total below 0.
+  &.-bad {
+    &::before {
+      background: $mm-secondary-red;
+    }
+
+    .mm-label,
+    input {
+      color: #fff;
+    }
+  }
 }
 
 .mm-sinister-block {

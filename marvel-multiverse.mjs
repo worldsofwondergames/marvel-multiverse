@@ -1171,6 +1171,12 @@ const ACTOR_DEFAULT_ICONS = {
 };
 
 class MarvelMultiverseActor extends Actor {
+  /** @override */
+  async _preUpdate(changed, options, user) {
+    limitKarmaUpdate(this, changed);
+    return super._preUpdate(changed, options, user);
+  }
+
   async _preCreate(data, options, user) {
     await super._preCreate(data, options, user);
     const defaultIcon = ACTOR_DEFAULT_ICONS[data.type];
@@ -3326,6 +3332,30 @@ function sourceFilterOptions(items, selected) {
   const used = [...items].map(item => item.system?.source).filter(Boolean).sort((a, b) => a.localeCompare(b));
   const all = new Set([...Object.keys(CONFIG.MARVEL_MULTIVERSE.sources), ...used]);
   return Object.fromEntries([...all].map(key => [key, { label: sourceLabel(key), checked: selected.includes(key) }]));
+}
+
+/**
+ * Whether an actor may hold a Karma total below 0. The Bad Karma setting must
+ * be on and the actor must own the Weird trait.
+ *
+ * @param {Actor} actor
+ * @returns {boolean}
+ */
+function allowsBadKarma(actor) {
+  return Boolean(game.settings.get("marvel-multiverse", "badKarmaEnabled"))
+    && actor.items.some((i) => i.type === "trait" && i.name === "Weird");
+}
+
+/**
+ * Raise a Karma total below 0 in an actor update to 0, unless the actor may
+ * hold Bad Karma.
+ *
+ * @param {Actor} actor
+ * @param {object} changed  The update, as passed to `_preUpdate`.
+ */
+function limitKarmaUpdate(actor, changed) {
+  const karma = changed.system?.karma;
+  if (karma?.value < 0 && !allowsBadKarma(actor)) karma.value = 0;
 }
 
 /** Gear an actor can own any number of, such as two of the same weapon. */
@@ -6471,8 +6501,10 @@ class MarvelMultiverseActorBase extends foundry.abstract
       initial: 0,
     });
 
+    // No minimum here. A character with the Weird trait can go below 0, and
+    // the actor document holds everyone else at 0.
     schema.karma = new fields.SchemaField({
-      value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
+      value: new fields.NumberField({ ...requiredInteger, initial: 0 }),
       max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
     });
 
@@ -8508,6 +8540,15 @@ Hooks.once("init", () => {
     type: Number,
     range: { min: 10, max: 100, step: 10 },
     default: 30,
+  });
+
+  game.settings.register("marvel-multiverse", "badKarmaEnabled", {
+    name: "MARVEL_MULTIVERSE.BadKarma.Setting.Enable",
+    hint: "MARVEL_MULTIVERSE.BadKarma.Setting.EnableHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
   });
 
   game.settings.register("marvel-multiverse", "mutantReputationEnabled", {

@@ -113,8 +113,10 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
       initial: 0,
     });
 
+    // No minimum here. A character with the Weird trait can go below 0, and
+    // the actor document holds everyone else at 0.
     schema.karma = new fields.SchemaField({
-      value: new fields.NumberField({ ...requiredInteger, initial: 0, min: 0 }),
+      value: new fields.NumberField({ ...requiredInteger, initial: 0 }),
       max: new fields.NumberField({ ...requiredInteger, initial: 0 }),
     });
 

@@ -229,6 +229,12 @@
         "EnableHint": "Enable the optional Sinister Plot Points system. When active, actors with the Villainous tag show an SPP tracker on their sheet."
       }
     },
+    "BadKarma": {
+      "Setting": {
+        "Enable": "Enable Bad Karma",
+        "EnableHint": "Enable the optional Bad Karma rule. When active, a character with the Weird trait can have a Karma total below 0."
+      }
+    },
     "BattleMultiplier": {
       "Setting": {
         "Value": "Battle Multiplier",

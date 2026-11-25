@@ -77,9 +77,10 @@
     <div class="mm-styled-field -flex-relative -sm">
       <label class="mm-styled-label -align-left"><span>Source</span></label>
       <div class="mm-styled-input">
-        <select name="system.source">
-          {{selectOptions sources selected=system.source labelAttr="label" blank=""}}
-        </select>
+        <input type="text" name="system.source" value="{{mmSourceLabel system.source}}" list="mm-sources-{{actor._id}}" autocomplete="off" data-dtype="String"/>
+        <datalist id="mm-sources-{{actor._id}}">
+          {{#each sources}}<option value="{{this.label}}"></option>{{/each}}
+        </datalist>
       </div>
     </div>
   </div>

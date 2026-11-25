@@ -1,4 +1,5 @@
 import { enrichSheetFields } from "../helpers/enrich.mjs";
+import { sourceValue } from "../helpers/sources.mjs";
 
 /**
  * Extend the basic actor sheet to handle Headquarters actors.
@@ -19,6 +20,12 @@ export class MarvelMultiverseHeadquartersSheet extends foundry.appv1.sheets.Acto
   /** @override */
   get template() {
     return "systems/marvel-multiverse/templates/actor/actor-headquarters-sheet.hbs";
+  }
+
+  /** @override */
+  async _updateObject(event, formData) {
+    if ("system.source" in formData) formData["system.source"] = sourceValue(formData["system.source"]);
+    return super._updateObject(event, formData);
   }
 
   /** @override */

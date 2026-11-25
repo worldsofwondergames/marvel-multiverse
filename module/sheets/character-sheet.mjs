@@ -7,6 +7,7 @@ import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/a
 import { enrichSheetFields } from "../helpers/enrich.mjs";
 import { toggleItemSummary, restoreItemSummaries } from "../helpers/item-summary.mjs";
 import { canAddItem, confirmItemDrop } from "../helpers/item-drop.mjs";
+import { iconicWeaponAttacks } from "../helpers/iconic-gear.mjs";
 import { openMovementDialog } from "../helpers/movement.mjs";
 import { parseWeaponBonus } from "../helpers/damage-application.mjs";
 import { isVillainous } from "../helpers/villainous.mjs";
@@ -225,6 +226,7 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
         occupations.push(i);
       } else if (i.type === "iconicItem") {
         i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
+        i.weaponAttacks = iconicWeaponAttacks(i.system);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
         i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
@@ -641,16 +643,14 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
     const item = this.actor.items.get(itemId);
     if (!item) return;
 
+    // The item keeps the actor's effect in step with it whenever it changes.
     if (item.system.equipped) {
-      await this._removeBattleSuitEffects(itemId);
       await item.update({ "system.equipped": false });
     } else {
       for (const other of this.actor.items.filter(i => i.type === "battleSuit" && i.system.equipped)) {
-        await this._removeBattleSuitEffects(other.id);
         await other.update({ "system.equipped": false });
       }
       await item.update({ "system.equipped": true });
-      await this._applyBattleSuitEffects(item);
     }
   }
 
@@ -658,28 +658,6 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
     const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.battleSuitId === itemId);
     if (effects.length) {
       await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
-    }
-  }
-
-  async _applyBattleSuitEffects(item) {
-    const abilityMap = { melee: "mle", agility: "agl", resilience: "res", vigilance: "vig", ego: "ego", logic: "log" };
-    const changes = [];
-    for (const [suitKey, actorKey] of Object.entries(abilityMap)) {
-      const mod = item.system.abilityModifiers[suitKey];
-      if (mod !== 0) {
-        changes.push({ key: `system.abilities.${actorKey}.value`, mode: 2, value: mod.toString() });
-      }
-    }
-    if (item.system.rankIncrease > 0) {
-      changes.push({ key: "system.attributes.rank.value", mode: 2, value: item.system.rankIncrease.toString() });
-    }
-    if (changes.length) {
-      await ActiveEffect.create({
-        name: `Battle Suit: ${item.name}`,
-        img: item.img,
-        changes: changes,
-        flags: { "marvel-multiverse": { battleSuitId: item.id } }
-      }, { parent: this.actor });
     }
   }
 
@@ -777,15 +755,18 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
         this.actor.getRollData()
       );
 
-      roll.toMessage(
-        {
-          speaker: speaker,
-          flavor: label,
-          rollMode: rollMode,
-          title: title,
-        },
-        { rollMode: rollMode, itemId: itemId }
-      );
+      // An attack made with an iconic weapon records that attack's bonus, the
+      // same way a weapon item does.
+      const messageData = { speaker: speaker, flavor: label, rollMode: rollMode, title: title };
+      const iconicAttack = iconicWeaponAttacks(item?.system).find(a => a.mode === dataset.weaponMode);
+      if (iconicAttack?.bonus > 0) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.weapon",
+          { name: item.name, bonus: iconicAttack.bonus }
+        );
+      }
+      roll.toMessage(messageData, { rollMode: rollMode, itemId: itemId });
       return roll;
     }
   }

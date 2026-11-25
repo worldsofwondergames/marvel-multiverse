@@ -151,6 +151,23 @@
   }
 }
 
+// Badges and controls between an item's name and its edit controls. The row
+// paints its background over anything that is not raised above it.
+.mm-item-detail {
+  align-items: center;
+  align-self: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: $mm-spacing-xs;
+  position: relative;
+  z-index: 1;
+}
+
+.mm-item-name > a .mm-item-subtext {
+  color: $mm-subtext-color;
+  font-size: 10px;
+}
+
 .mm-input-item {
   position: relative;
   z-index: 1;

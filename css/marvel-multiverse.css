@@ -956,6 +956,21 @@
   font-size: 10px;
 }
 
+.mm-item-detail {
+  align-items: center;
+  align-self: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  position: relative;
+  z-index: 1;
+}
+
+.mm-item-name > a .mm-item-subtext {
+  color: #575757;
+  font-size: 10px;
+}
+
 .mm-input-item {
   position: relative;
   z-index: 1;

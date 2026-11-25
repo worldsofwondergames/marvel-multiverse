@@ -1,3 +1,5 @@
+import { sourceFilterOptions } from "../helpers/sources.mjs";
+
 const ITEM_TYPE_LABELS = {
   item: "Item",
   iconicItem: "Iconic Item",
@@ -77,12 +79,7 @@ export const ItemDirectoryFilter = {
       Object.entries(itemTypesUnsorted).sort(([, a], [, b]) => a.label.localeCompare(b.label))
     );
 
-    const sources = Object.fromEntries(
-      Object.entries(CONFIG.MARVEL_MULTIVERSE.sources).map(([key, data]) => [key, {
-        label: data.label,
-        checked: s.source.includes(key),
-      }])
-    );
+    const sources = sourceFilterOptions(game.items, s.source);
 
     const powerSets = dynamicOpts.powerSets.map(name => ({
       name,

@@ -88,11 +88,11 @@ test.describe('Biography sub-tabs', () => {
     // move must hold, so the presence check and the absence check are paired.
     const sheet = await openSheet(page);
     await goToBiographyTab(sheet);
-    await expect(panel(sheet, 'details').locator('select[name="system.source"]')).toBeVisible();
+    await expect(panel(sheet, 'details').locator('input[name="system.source"]')).toBeVisible();
 
     await goToSubtab(sheet, 'background');
     await expect(panel(sheet, 'background')).toBeVisible();
-    await expect(panel(sheet, 'background').locator('select[name="system.source"]')).toHaveCount(0);
+    await expect(panel(sheet, 'background').locator('input[name="system.source"]')).toHaveCount(0);
   });
 
   test('every sub-tab label renders white on the red strip, active or not', async ({ foundryPage: page }) => {

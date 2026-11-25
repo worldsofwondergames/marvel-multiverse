@@ -5,6 +5,7 @@ import {
 } from "../helpers/effects.mjs";
 import { linkForm, unlinkForm, switchForm, validateFormLink } from "../helpers/alternate-forms.mjs";
 import { enrichSheetFields } from "../helpers/enrich.mjs";
+import { sourceValue } from "../helpers/sources.mjs";
 import { toggleItemSummary, restoreItemSummaries } from "../helpers/item-summary.mjs";
 import { canAddItem, confirmItemDrop } from "../helpers/item-drop.mjs";
 import { iconicWeaponAttacks } from "../helpers/iconic-gear.mjs";
@@ -662,6 +663,7 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
   }
 
   async _updateObject(event, formData) {
+    if ("system.source" in formData) formData["system.source"] = sourceValue(formData["system.source"]);
     const selection = formData["system.teamManeuver._selection"];
     if (selection !== undefined) {
       delete formData["system.teamManeuver._selection"];

@@ -1,8 +1,9 @@
       <div class="mm-styled-field -fill">
         <label class="mm-styled-label -align-left"><span>Source</span></label>
         <div class="mm-styled-input">
-          <select name="system.source">
-            {{selectOptions sources selected=system.source labelAttr="label" blank=""}}
-          </select>
+          <input type="text" name="system.source" value="{{mmSourceLabel system.source}}" list="mm-sources-{{item._id}}" autocomplete="off" data-dtype="String"/>
+          <datalist id="mm-sources-{{item._id}}">
+            {{#each sources}}<option value="{{this.label}}"></option>{{/each}}
+          </datalist>
         </div>
       </div>

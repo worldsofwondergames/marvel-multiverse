@@ -4,6 +4,7 @@ import {
   prepareActiveEffectCategories,
 } from "../helpers/effects.mjs";
 import { enrichSheetFields } from "../helpers/enrich.mjs";
+import { sourceValue } from "../helpers/sources.mjs";
 
 /**
  * Extend the basic item sheet with some very simple modifications
@@ -40,6 +41,12 @@ export class MarvelMultiverseItemSheet extends foundry.appv1.sheets.ItemSheet {
       `Loading item sheet template: ${itemSheet} for type ${this.item.type}`
     );
     return itemSheet;
+  }
+
+  /** @override */
+  async _updateObject(event, formData) {
+    if ("system.source" in formData) formData["system.source"] = sourceValue(formData["system.source"]);
+    return super._updateObject(event, formData);
   }
 
   /* -------------------------------------------- */

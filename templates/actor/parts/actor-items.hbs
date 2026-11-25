@@ -20,8 +20,22 @@
           {{#if item.system.powers.length}}
             <span class="mm-item-subtext">Powers: {{#each item.system.powers}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}</span>
           {{/if}}
+          {{#each item.weaponAttacks as |attack|}}
+            <span class="mm-item-subtext mm-iconic-attack-info" data-weapon-mode="{{attack.mode}}">{{localize (concat "MARVEL_MULTIVERSE.Iconic.Attack." attack.mode)}}{{#if attack.range}} {{attack.range}}{{/if}}{{#if attack.bonus}}, {{localize "MARVEL_MULTIVERSE.Weapon.Multiplier"}} +{{attack.bonus}}{{/if}}</span>
+          {{/each}}
         </a>
       </div>
+      {{#if item.weaponAttacks.length}}
+        <div class="mm-item-detail">
+          {{#each item.weaponAttacks as |attack|}}
+            <a class="item-control rollable mm-iconic-attack" data-weapon-mode="{{attack.mode}}"
+              data-formula="{1d6,1dm,1d6}+@abilities.{{attack.ability}}.value" data-label="{{attack.ability}}" data-ability-key="{{attack.ability}}" data-damagetype="health"
+              title="{{localize (concat 'MARVEL_MULTIVERSE.Iconic.Roll.' attack.mode)}}">
+              <i class="fas {{#if (eq attack.mode 'melee')}}fa-hand-fist{{else}}fa-bullseye{{/if}}"></i>
+            </a>
+          {{/each}}
+        </div>
+      {{/if}}
       <div class="mm-item-detail">
         <span class="mm-pv-badge" title="Power Value">PV {{item.powerValue}}</span>
       </div>

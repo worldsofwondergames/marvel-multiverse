@@ -1305,6 +1305,12 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
     if (defaultIcon && (!data.img || data.img === Item.DEFAULT_ICON)) {
       this.updateSource({ img: defaultIcon });
     }
+    // One suit is worn at a time, so a suit added as equipped comes off when
+    // the actor is already wearing one.
+    if (this.type === "battleSuit" && this.system.equipped
+      && this.actor?.items.some(i => i.type === "battleSuit" && i.system.equipped)) {
+      this.updateSource({ "system.equipped": false });
+    }
   }
 
   /**
@@ -1323,6 +1329,25 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       this.system.ability && this.formula
         ? `${this.formula} + @${this.system.ability}.value`
         : "";
+  }
+
+  /**
+   * A battle suit's modifiers reach its wearer through an Active Effect. The
+   * effect is rebuilt whenever the suit is added or changed, so it cannot fall
+   * behind the suit. Only the client that made the change writes it.
+   */
+  _onCreate(data, options, userId) {
+    super._onCreate(data, options, userId);
+    if (game.user.id === userId) this._syncBattleSuit();
+  }
+
+  _onUpdate(changed, options, userId) {
+    super._onUpdate(changed, options, userId);
+    if (game.user.id === userId) this._syncBattleSuit();
+  }
+
+  _syncBattleSuit() {
+    if (this.type === "battleSuit" && this.actor) return syncBattleSuitEffect(this.actor, this);
   }
 
   /**
@@ -3206,6 +3231,62 @@ async function handleInvoluntaryTrigger(actor, targetActorId, trigger) {
   }
 }
 
+const BATTLE_SUIT_ABILITIES = { melee: "mle", agility: "agl", resilience: "res", vigilance: "vig", ego: "ego", logic: "log" };
+
+/**
+ * The Active Effect changes a worn battle suit makes to its wearer.
+ *
+ * @param {object} system  A battle suit's system data.
+ * @returns {{key: string, mode: number, value: string}[]}
+ */
+function battleSuitChanges(system) {
+  const changes = [];
+  for (const [suitKey, actorKey] of Object.entries(BATTLE_SUIT_ABILITIES)) {
+    const mod = Number(system?.abilityModifiers?.[suitKey]) || 0;
+    if (mod !== 0) changes.push({ key: `system.abilities.${actorKey}.value`, mode: 2, value: String(mod) });
+  }
+  const rank = Number(system?.rankIncrease) || 0;
+  if (rank > 0) changes.push({ key: "system.attributes.rank.value", mode: 2, value: String(rank) });
+  return changes;
+}
+
+/**
+ * Make the actor's effect for a battle suit match the suit as it is now. An
+ * equipped suit with modifiers has one effect, and any other suit has none.
+ *
+ * @param {Actor} actor
+ * @param {Item} item  A battle suit the actor owns.
+ */
+async function syncBattleSuitEffect(actor, item) {
+  const [effect, ...extra] = actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.battleSuitId === item.id);
+  const changes = item.system.equipped ? battleSuitChanges(item.system) : [];
+  const remove = (changes.length ? extra : [effect, ...extra]).filter(Boolean);
+  if (remove.length) await actor.deleteEmbeddedDocuments("ActiveEffect", remove.map(e => e.id));
+  if (!changes.length) return;
+
+  const data = { name: `Battle Suit: ${item.name}`, img: item.img, changes };
+  if (effect) await effect.update(data);
+  else await ActiveEffect.create({ ...data, flags: { "marvel-multiverse": { battleSuitId: item.id } } }, { parent: actor });
+}
+
+/**
+ * The attacks an iconic item can make as a weapon. An attack is listed when
+ * the item has a range or a damage multiplier bonus for it.
+ *
+ * @param {object} system  An item's system data.
+ * @returns {{mode: string, ability: string, range: string, bonus: number}[]}
+ */
+function iconicWeaponAttacks(system) {
+  const weapon = system?.weaponData;
+  if (!weapon?.isWeapon) return [];
+  return [
+    { mode: "melee", ability: "mle", range: weapon.meleeRange, bonus: weapon.meleeDamageMultiplierBonus },
+    { mode: "ranged", ability: "agl", range: weapon.rangedRange, bonus: weapon.rangedDamageMultiplierBonus },
+  ]
+    .map(a => ({ ...a, range: String(a.range ?? "").trim(), bonus: Math.max(0, Number(a.bonus) || 0) }))
+    .filter(a => a.range || a.bonus > 0);
+}
+
 /** Gear an actor can own any number of, such as two of the same weapon. */
 const STACKABLE_ITEM_TYPES = ["weapon", "item", "equipment"];
 
@@ -3698,6 +3779,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
         occupations.push(i);
       } else if (i.type === "iconicItem") {
         i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
+        i.weaponAttacks = iconicWeaponAttacks(i.system);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
         i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
@@ -4239,16 +4321,14 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     const item = this.actor.items.get(itemId);
     if (!item) return;
 
+    // The item keeps the actor's effect in step with it whenever it changes.
     if (item.system.equipped) {
-      await this._removeBattleSuitEffects(itemId);
       await item.update({ "system.equipped": false });
     } else {
       for (const other of this.actor.items.filter(i => i.type === "battleSuit" && i.system.equipped)) {
-        await this._removeBattleSuitEffects(other.id);
         await other.update({ "system.equipped": false });
       }
       await item.update({ "system.equipped": true });
-      await this._applyBattleSuitEffects(item);
     }
   }
 
@@ -4256,28 +4336,6 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.battleSuitId === itemId);
     if (effects.length) {
       await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
-    }
-  }
-
-  async _applyBattleSuitEffects(item) {
-    const abilityMap = { melee: "mle", agility: "agl", resilience: "res", vigilance: "vig", ego: "ego", logic: "log" };
-    const changes = [];
-    for (const [suitKey, actorKey] of Object.entries(abilityMap)) {
-      const mod = item.system.abilityModifiers[suitKey];
-      if (mod !== 0) {
-        changes.push({ key: `system.abilities.${actorKey}.value`, mode: 2, value: mod.toString() });
-      }
-    }
-    if (item.system.rankIncrease > 0) {
-      changes.push({ key: "system.attributes.rank.value", mode: 2, value: item.system.rankIncrease.toString() });
-    }
-    if (changes.length) {
-      await ActiveEffect.create({
-        name: `Battle Suit: ${item.name}`,
-        img: item.img,
-        changes: changes,
-        flags: { "marvel-multiverse": { battleSuitId: item.id } }
-      }, { parent: this.actor });
     }
   }
 
@@ -4442,6 +4500,16 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
           messageData,
           "flags.marvel-multiverse.damageScale",
           damageScale
+        );
+      }
+      // An attack made with an iconic weapon records that attack's bonus, the
+      // same way a weapon item does.
+      const iconicAttack = iconicWeaponAttacks(item?.system).find(a => a.mode === dataset.weaponMode);
+      if (iconicAttack?.bonus > 0) {
+        foundry.utils.setProperty(
+          messageData,
+          "flags.marvel-multiverse.weapon",
+          { name: item.name, bonus: iconicAttack.bonus }
         );
       }
       roll.toMessage(messageData, { rollMode: rollMode, itemId: itemId });
@@ -4997,6 +5065,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
         powers[firstSet].push(i);
       } else if (i.type === "iconicItem") {
         i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
+        i.weaponAttacks = iconicWeaponAttacks(i.system);
         iconicItems.push(i);
       } else if (i.type === "battleSuit") {
         i.powerValue = calculatePowerValue(i.system.powers, i.system.restrictions);
@@ -5452,16 +5521,14 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
     const item = this.actor.items.get(itemId);
     if (!item) return;
 
+    // The item keeps the actor's effect in step with it whenever it changes.
     if (item.system.equipped) {
-      await this._removeBattleSuitEffects(itemId);
       await item.update({ "system.equipped": false });
     } else {
       for (const other of this.actor.items.filter(i => i.type === "battleSuit" && i.system.equipped)) {
-        await this._removeBattleSuitEffects(other.id);
         await other.update({ "system.equipped": false });
       }
       await item.update({ "system.equipped": true });
-      await this._applyBattleSuitEffects(item);
     }
   }
 
@@ -5469,28 +5536,6 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
     const effects = this.actor.effects.filter(e => e.flags?.["marvel-multiverse"]?.battleSuitId === itemId);
     if (effects.length) {
       await this.actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
-    }
-  }
-
-  async _applyBattleSuitEffects(item) {
-    const abilityMap = { melee: "mle", agility: "agl", resilience: "res", vigilance: "vig", ego: "ego", logic: "log" };
-    const changes = [];
-    for (const [suitKey, actorKey] of Object.entries(abilityMap)) {
-      const mod = item.system.abilityModifiers[suitKey];
-      if (mod !== 0) {
-        changes.push({ key: `system.abilities.${actorKey}.value`, mode: 2, value: mod.toString() });
-      }
-    }
-    if (item.system.rankIncrease > 0) {
-      changes.push({ key: "system.attributes.rank.value", mode: 2, value: item.system.rankIncrease.toString() });
-    }
-    if (changes.length) {
-      await ActiveEffect.create({
-        name: `Battle Suit: ${item.name}`,
-        img: item.img,
-        changes: changes,
-        flags: { "marvel-multiverse": { battleSuitId: item.id } }
-      }, { parent: this.actor });
     }
   }
 

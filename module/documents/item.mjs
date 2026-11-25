@@ -1,5 +1,6 @@
 import { findRollLinks } from "../helpers/roll-links.mjs";
 import { parseWeaponBonus } from "../helpers/damage-application.mjs";
+import { syncBattleSuitEffect } from "../helpers/iconic-gear.mjs";
 import { isBigFightEnabled, findGroup, groupAttackBonus } from "../helpers/big-fight.mjs";
 
 /**
@@ -171,6 +172,25 @@ export class MarvelMultiverseItem extends Item {
       this.system.ability && this.formula
         ? `${this.formula} + @${this.system.ability}.value`
         : "";
+  }
+
+  /**
+   * A battle suit's modifiers reach its wearer through an Active Effect. The
+   * effect is rebuilt whenever the suit is added or changed, so it cannot fall
+   * behind the suit. Only the client that made the change writes it.
+   */
+  _onCreate(data, options, userId) {
+    super._onCreate(data, options, userId);
+    if (game.user.id === userId) this._syncBattleSuit();
+  }
+
+  _onUpdate(changed, options, userId) {
+    super._onUpdate(changed, options, userId);
+    if (game.user.id === userId) this._syncBattleSuit();
+  }
+
+  _syncBattleSuit() {
+    if (this.type === "battleSuit" && this.actor) return syncBattleSuitEffect(this.actor, this);
   }
 
   /**

@@ -80,6 +80,16 @@
     "Weapon": {
       "Multiplier": "Multiplier"
     },
+    "Iconic": {
+      "Attack": {
+        "melee": "Melee",
+        "ranged": "Ranged"
+      },
+      "Roll": {
+        "melee": "Melee attack",
+        "ranged": "Ranged attack"
+      }
+    },
     "Effect": {
       "Tab": "Effects",
       "Source": "Source",

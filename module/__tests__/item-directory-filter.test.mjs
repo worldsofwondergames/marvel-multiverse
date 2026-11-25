@@ -29,8 +29,8 @@ function item(name, type, system = {}) {
   return { name, type, system };
 }
 
-const WEB_SHOOTERS = item('Web Shooters', 'weapon', { source: 'core' });
-const SPIDER_SENSE = item('Spider-Sense', 'power', {
+const WRIST_BLASTERS = item('Wrist Blasters', 'weapon', { source: 'core' });
+const DANGER_SENSE = item('Danger Sense', 'power', {
   source: 'core',
   powerSet: 'Spider-Powers, Agility',
   duration: 'Passive',
@@ -40,9 +40,9 @@ const ICE_BLAST = item('Ice Blast', 'power', {
   powerSet: 'Ice',
   duration: 'Instant',
 });
-const WALL_CRAWLING = item('Wall-Crawling', 'trait', { source: 'core' });
-const WEBBED_UP = item('Webbed Up', 'tag', { source: 'homebrew' });
-const IRON_ARMOR = item('Iron Man Armor', 'battleSuit', {
+const SURFACE_CLING = item('Surface Cling', 'trait', { source: 'core' });
+const STUCK_FAST = item('Stuck Fast', 'tag', { source: 'homebrew' });
+const BATTLE_SUIT = item('Powered Battle Suit', 'battleSuit', {
   source: 'coreModified',
   additionalTraits: ['Powered Armor'],
 });
@@ -50,7 +50,7 @@ const GRAPPLING_GUN = item('Grappling Gun', 'equipment', { source: 'core', equip
 const FIRST_AID_KIT = item('First Aid Kit', 'equipment', { source: 'homebrew', equipmentType: 'device' });
 
 const POPULATION = [
-  WEB_SHOOTERS, SPIDER_SENSE, ICE_BLAST, WALL_CRAWLING, WEBBED_UP, IRON_ARMOR, GRAPPLING_GUN, FIRST_AID_KIT,
+  WRIST_BLASTERS, DANGER_SENSE, ICE_BLAST, SURFACE_CLING, STUCK_FAST, BATTLE_SUIT, GRAPPLING_GUN, FIRST_AID_KIT,
 ];
 
 /** Apply `state` on top of the defaults and return the matching item names. */
@@ -65,8 +65,8 @@ beforeEach(() => ItemDirectoryFilter.init());
 describe('no active filters', () => {
   test('matches every item', () => {
     expect(matching({})).toEqual([
-      'Web Shooters', 'Spider-Sense', 'Ice Blast', 'Wall-Crawling', 'Webbed Up',
-      'Iron Man Armor', 'Grappling Gun', 'First Aid Kit',
+      'Wrist Blasters', 'Danger Sense', 'Ice Blast', 'Surface Cling', 'Stuck Fast',
+      'Powered Battle Suit', 'Grappling Gun', 'First Aid Kit',
     ]);
   });
 
@@ -75,14 +75,14 @@ describe('no active filters', () => {
   });
 
   test('_hasActiveFilters is true once a filter is engaged', () => {
-    ItemDirectoryFilter._filterState.tags = ['Webbed Up'];
+    ItemDirectoryFilter._filterState.tags = ['Stuck Fast'];
     expect(ItemDirectoryFilter._hasActiveFilters()).toBe(true);
   });
 });
 
 describe('single filters select the right subset', () => {
   test('item type is a single value, not a list', () => {
-    expect(matching({ itemType: 'weapon' })).toEqual(['Web Shooters']);
+    expect(matching({ itemType: 'weapon' })).toEqual(['Wrist Blasters']);
   });
 
   test('an empty item type applies no type filter', () => {
@@ -90,21 +90,21 @@ describe('single filters select the right subset', () => {
   });
 
   test('source', () => {
-    expect(matching({ source: ['homebrew'] })).toEqual(['Webbed Up', 'First Aid Kit']);
+    expect(matching({ source: ['homebrew'] })).toEqual(['Stuck Fast', 'First Aid Kit']);
   });
 });
 
 describe('power set filtering only matches power items', () => {
   test('matches a set listed second in the comma-separated field', () => {
-    expect(matching({ powerSets: ['Agility'] })).toEqual(['Spider-Sense']);
+    expect(matching({ powerSets: ['Agility'] })).toEqual(['Danger Sense']);
   });
 
   test('matches a set listed first', () => {
-    expect(matching({ powerSets: ['Spider-Powers'] })).toEqual(['Spider-Sense']);
+    expect(matching({ powerSets: ['Spider-Powers'] })).toEqual(['Danger Sense']);
   });
 
   test('several selected sets match any of them', () => {
-    expect(matching({ powerSets: ['Ice', 'Spider-Powers'] })).toEqual(['Spider-Sense', 'Ice Blast']);
+    expect(matching({ powerSets: ['Ice', 'Spider-Powers'] })).toEqual(['Danger Sense', 'Ice Blast']);
   });
 
   test('an unmatched power set matches nothing', () => {
@@ -125,7 +125,7 @@ describe('duration filtering only matches power items', () => {
   });
 
   test('several selected durations match any of them', () => {
-    expect(matching({ duration: ['Instant', 'Passive'] })).toEqual(['Spider-Sense', 'Ice Blast']);
+    expect(matching({ duration: ['Instant', 'Passive'] })).toEqual(['Danger Sense', 'Ice Blast']);
   });
 
   test('a non-power item never matches a duration filter, even by coincidental text', () => {
@@ -159,27 +159,27 @@ describe('equipment type filtering only matches equipment items', () => {
 
 describe('tags filtering only matches tag items', () => {
   test('matches the tag item by name', () => {
-    expect(matching({ tags: ['Webbed Up'] })).toEqual(['Webbed Up']);
+    expect(matching({ tags: ['Stuck Fast'] })).toEqual(['Stuck Fast']);
   });
 
   test('does not match a same-named power or trait', () => {
-    expect(matching({ tags: ['Wall-Crawling'] })).toEqual([]);
+    expect(matching({ tags: ['Surface Cling'] })).toEqual([]);
   });
 });
 
 describe('traits filtering also reads battleSuit additionalTraits', () => {
   test('matches the trait item itself', () => {
-    expect(matching({ traits: ['Wall-Crawling'] })).toEqual(['Wall-Crawling']);
+    expect(matching({ traits: ['Surface Cling'] })).toEqual(['Surface Cling']);
   });
 
   test('matches a battleSuit carrying the trait as free text', () => {
-    expect(matching({ traits: ['Powered Armor'] })).toEqual(['Iron Man Armor']);
+    expect(matching({ traits: ['Powered Armor'] })).toEqual(['Powered Battle Suit']);
   });
 });
 
 describe('AND vs OR across filter groups', () => {
   test('AND requires every group to hold', () => {
-    expect(matching({ itemType: 'battleSuit', source: ['coreModified'] })).toEqual(['Iron Man Armor']);
+    expect(matching({ itemType: 'battleSuit', source: ['coreModified'] })).toEqual(['Powered Battle Suit']);
   });
 
   test('AND on criteria that do not overlap excludes everything', () => {
@@ -188,7 +188,7 @@ describe('AND vs OR across filter groups', () => {
 
   test('OR admits an item matching only one group', () => {
     expect(matching({ logic: 'or', itemType: 'tag', source: ['core'] }))
-      .toEqual(['Web Shooters', 'Spider-Sense', 'Ice Blast', 'Wall-Crawling', 'Webbed Up', 'Grappling Gun']);
+      .toEqual(['Wrist Blasters', 'Danger Sense', 'Ice Blast', 'Surface Cling', 'Stuck Fast', 'Grappling Gun']);
   });
 });
 
@@ -198,7 +198,7 @@ describe('active filter counting drives the badge and the early-out', () => {
     Object.assign(ItemDirectoryFilter._filterState, {
       itemType: 'weapon',
       source: ['core'],
-      tags: ['Webbed Up'],
+      tags: ['Stuck Fast'],
     });
     expect(ItemDirectoryFilter._countActiveFilters()).toBe(3);
   });
@@ -211,7 +211,7 @@ describe('active filter counting drives the badge and the early-out', () => {
 
   test('a traits filter counts on its own', () => {
     ItemDirectoryFilter.init();
-    ItemDirectoryFilter._filterState.traits = ['Wall-Crawling'];
+    ItemDirectoryFilter._filterState.traits = ['Surface Cling'];
     expect(ItemDirectoryFilter._countActiveFilters()).toBe(1);
   });
 

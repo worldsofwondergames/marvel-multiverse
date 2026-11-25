@@ -33,7 +33,7 @@ const IP_TERMS = [
   'Daredevil', 'Deadpool', 'Thanos', 'Loki', 'Venom', 'Jean Grey', 'Professor X',
   'Doctor Doom', 'Ultron', 'Galactus', 'Kang', 'Hydra', 'S.H.I.E.L.D',
   'Wakanda', 'Asgard', 'Latveria', 'Oscorp', 'Daily Bugle',
-  'Unibeam', 'Web-Shooter', 'Wall-Crawling', 'Phoenix Force', 'Celestial Seed',
+  'Unibeam', 'Web-Shooter', 'Web Shooter', 'Spider-Sense', 'Wall-Crawling', 'Phoenix Force', 'Celestial Seed',
   'Mutant Growth Hormone', 'Carrion Virus', 'Transmode Virus',
 ];
 

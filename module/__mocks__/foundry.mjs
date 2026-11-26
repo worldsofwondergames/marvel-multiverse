@@ -97,6 +97,9 @@ class Actor {
     }
 }
 
+global.Combat = class Combat {};
+global.Combatant = class Combatant {};
+
 global.actor = new Actor();
 global.Actor = Actor;
 

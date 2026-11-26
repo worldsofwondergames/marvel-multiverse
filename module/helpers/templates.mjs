@@ -15,6 +15,7 @@ export const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/actor/parts/actor-origin.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-tags.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-narrative-limitations.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-traits.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-equipment.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-weapons.hbs",

@@ -166,6 +166,7 @@ export class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
     const origins = [];
     const occupations = [];
     const tags = [];
+    const narrativeLimitations = [];
     const weapons = [];
     const powers = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.reverseSetList).map((ps) => [ps, []])
@@ -188,6 +189,8 @@ export class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
         traits.push(i);
       } else if (i.type === "tag") {
         tags.push(i);
+      } else if (i.type === "narrativeLimitation") {
+        narrativeLimitations.push(i);
       }
       // Append to  power.
       else if (i.type === "power") {
@@ -221,6 +224,7 @@ export class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       context.battleSuits = battleSuits;
       context.traits = traits;
       context.tags = tags;
+      context.narrativeLimitations = narrativeLimitations;
       context.powers = powers;
       context.origins = origins;
       context.occupations = occupations;
@@ -505,7 +509,7 @@ export class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
     // Grab any data associated with this control.
     const data = foundry.utils.duplicate(header.dataset);
     // Initialize a default name.
-    const name = `New ${type.capitalize()}`;
+    const name = game.i18n.format("DOCUMENT.New", { type: game.i18n.localize(`TYPES.Item.${type}`) });
     // Prepare the item object.
     const itemData = {
       name: name,

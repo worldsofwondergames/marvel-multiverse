@@ -11,6 +11,7 @@ const ITEM_TYPE_LABELS = {
   power: "Power",
   powerSet: "Power Set",
   stunt: "Stunt",
+  narrativeLimitation: "Narrative Limitation",
   restriction: "Restriction",
   battleSuit: "Battlesuit",
   equipment: "Equipment",

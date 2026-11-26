@@ -210,6 +210,7 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
     const weapons = [];
     const traits = [];
     const tags = [];
+    const narrativeLimitations = [];
     const powers = Object.fromEntries(
       Object.keys(CONFIG.MARVEL_MULTIVERSE.reverseSetList).map((ps) => [ps, []])
     );
@@ -249,6 +250,8 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
         traits.push(i);
       } else if (i.type === "tag") {
         tags.push(i);
+      } else if (i.type === "narrativeLimitation") {
+        narrativeLimitations.push(i);
       } else if (i.type === "power") {
         const powersets = i.system.powerSet.split(",");
         powers[powersets[0].trim()].push(i);
@@ -263,6 +266,7 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
       context.weapons = weapons;
       context.traits = traits;
       context.tags = tags;
+      context.narrativeLimitations = narrativeLimitations;
       context.powers = powers;
     }
   }
@@ -549,7 +553,7 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
     // Grab any data associated with this control.
     const data = foundry.utils.duplicate(header.dataset);
     // Initialize a default name.
-    const name = `New ${type.capitalize()}`;
+    const name = game.i18n.format("DOCUMENT.New", { type: game.i18n.localize(`TYPES.Item.${type}`) });
     // Prepare the item object.
     const itemData = {
       name: name,

@@ -1,5 +1,6 @@
 import { MarvelMultiverseRoll } from "../dice/roll.mjs";
 import { MARVEL_MULTIVERSE } from "../config.mjs";
+import { isUltimateFantastic } from "../helpers/ultimate-fantastic.mjs";
 import {
   computeDamage,
   damageReductionPath,
@@ -574,6 +575,7 @@ export class ChatMessageMarvel extends ChatMessage {
       await combatant.update({
         initiative: roll.total,
         "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true,
+        "flags.marvel-multiverse.turnToM": isUltimateFantastic(roll),
       });
     }
 

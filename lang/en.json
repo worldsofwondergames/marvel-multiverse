@@ -245,7 +245,8 @@
       "Title": "Bonus Round",
       "FantasticInitiative": "Fantastic initiative result",
       "MarkFantastic": "Mark Fantastic Initiative",
-      "ClearFantastic": "Clear Fantastic Initiative"
+      "ClearFantastic": "Clear Fantastic Initiative",
+      "TurnToM": "Turn Marvel die to M"
     },
     "BigFight": {
       "Enable": "Enable Big Fight Mode",

@@ -26,7 +26,8 @@
 
 // The target number outcome sits under the ability row in the roll flavor and
 // shares that block's padding so it lines up with everything above it.
-.mm-roll-tn {
+.mm-roll-tn,
+.mm-roll-note {
   padding: $mm-spacing-xs $mm-spacing-md 0;
   font-size: 12px;
 }

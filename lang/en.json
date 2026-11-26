@@ -248,6 +248,11 @@
       "ClearFantastic": "Clear Fantastic Initiative",
       "TurnToM": "Turn Marvel die to M"
     },
+    "Stunned": {
+      "Trouble": "Stunned: trouble on this check",
+      "TargetEdge": "Target is stunned: edge on this attack",
+      "CannotMove": "{name} is stunned and cannot move."
+    },
     "BigFight": {
       "Enable": "Enable Big Fight Mode",
       "Disable": "Disable Big Fight Mode",

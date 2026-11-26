@@ -1440,16 +1440,18 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
       const rollData = this.getRollData();
       // Invoke the roll and submit it to chat.
       const formula = applyAttackBonusToFormula(rollData.formula, groupAttackBonusForActor(this.actor));
+      const stunnedCheck = _stunnedCheck(this.actor, MarvelMultiverseRoll.EDGE_MODE.NORMAL);
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
         formula,
-        rollData.actor
+        rollData.actor,
+        { edgeMode: stunnedCheck.edgeMode }
       );
 
       const messageData = {
         title: this.name,
         speaker: speaker,
         rollMode: rollMode,
-        flavor: label,
+        flavor: label + stunnedCheck.note,
       };
       const attackTargets = _getAttackTargets(this.system.attackTarget || this.system.ability);
       if (attackTargets.length) {
@@ -4704,6 +4706,8 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       let edgeMode = MarvelMultiverseRoll.EDGE_MODE.NORMAL;
       if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
       else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
+      const stunnedCheck = _stunnedCheck(this.actor, edgeMode);
+      edgeMode = stunnedCheck.edgeMode;
 
       const formula = applyAttackBonusToFormula(dataset.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
@@ -4712,7 +4716,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
         { edgeMode }
       );
 
-      let flavor = label;
+      let flavor = label + stunnedCheck.note;
       if (dataset.abilityKey === "ego" && game.settings.get("marvel-multiverse", "mutantReputationEnabled")) {
         const repOverride = this.actor.system.mutantReputation;
         const repKey = repOverride !== "world" ? repOverride : game.settings.get("marvel-multiverse", "mutantReputationLevel");
@@ -5874,6 +5878,8 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       let edgeMode = MarvelMultiverseRoll.EDGE_MODE.NORMAL;
       if (abilityData?.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
       else if (abilityData?.trouble) edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
+      const stunnedCheck = _stunnedCheck(this.actor, edgeMode);
+      edgeMode = stunnedCheck.edgeMode;
 
       const formula = applyAttackBonusToFormula(dataset.formula, groupAttackBonusForActor(this.actor));
       const roll = new CONFIG.Dice.MarvelMultiverseRoll(
@@ -5882,7 +5888,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
         { edgeMode }
       );
 
-      let npcFlavor = label;
+      let npcFlavor = label + stunnedCheck.note;
       if (dataset.abilityKey === "ego" && game.settings.get("marvel-multiverse", "mutantReputationEnabled")) {
         const repOverride = this.actor.system.mutantReputation;
         const repKey = repOverride !== "world" ? repOverride : game.settings.get("marvel-multiverse", "mutantReputationLevel");
@@ -10136,6 +10142,43 @@ function _marvelDieIsFantastic(marvelDieTerm) {
 }
 
 /**
+ * The edge mode of an action check once the stunned condition is counted.
+ *
+ * A stunned character has trouble on the check, and an attack against a
+ * stunned target has an edge. An edge and a trouble cancel each other. The
+ * result stays within one edge or one trouble, the most a roll can show.
+ *
+ * @param {number} edgeMode  The mode before the condition: 1 edge, 0 normal, -1 trouble
+ * @param {object} [state]
+ * @param {boolean} [state.stunned=false]        The character rolling is stunned
+ * @param {boolean} [state.targetStunned=false]  The attack is against a stunned target
+ * @returns {number}
+ */
+function stunnedEdgeMode(edgeMode, { stunned = false, targetStunned = false } = {}) {
+  const shifted = edgeMode + (targetStunned ? 1 : 0) - (stunned ? 1 : 0);
+  return Math.max(-1, Math.min(1, shifted));
+}
+
+/**
+ * Apply the stunned condition to an action check an actor is about to roll.
+ * The edge for a stunned target applies only when every targeted token is
+ * stunned, because one roll is compared against all of them.
+ *
+ * @param {Actor} actor       The actor making the check
+ * @param {number} edgeMode   The mode the check would otherwise have
+ * @returns {{edgeMode: number, note: string}}  The new mode and a line for the chat card
+ */
+function _stunnedCheck(actor, edgeMode) {
+  const stunned = !!actor?.statuses?.has("stunned");
+  const targets = Array.from(game.user.targets ?? []);
+  const targetStunned = targets.length > 0 && targets.every((t) => t.actor?.statuses?.has("stunned"));
+  let note = "";
+  if (stunned) note += `<div class="mm-roll-note -stunned">${game.i18n.localize("MARVEL_MULTIVERSE.Stunned.Trouble")}</div>`;
+  if (targetStunned) note += `<div class="mm-roll-note -target-stunned">${game.i18n.localize("MARVEL_MULTIVERSE.Stunned.TargetEdge")}</div>`;
+  return { edgeMode: stunnedEdgeMode(edgeMode, { stunned, targetStunned }), note };
+}
+
+/**
  * Whether a d616 roll is an ultimate Fantastic (6M6) result. The Marvel die
  * shows its Fantastic face and both d6 dice show 6.
  * @param {{dice: object[]}} roll
@@ -10248,6 +10291,14 @@ function refreshTurnToMCards(combat) {
 
 Hooks.on("updateCombat", (combat, changes) => {
   if ("round" in changes) refreshTurnToMCards(combat);
+});
+
+// A stunned character cannot use movement actions. The Narrator can still
+// move the token, for knockback and the like.
+Hooks.on("preMoveToken", (token) => {
+  if (game.user.isGM || !token.actor?.statuses?.has("stunned")) return;
+  ui.notifications.warn(game.i18n.format("MARVEL_MULTIVERSE.Stunned.CannotMove", { name: token.name }));
+  return false;
 });
 
 Hooks.on("updateCombatant", (combatant, changes) => {
@@ -11403,6 +11454,9 @@ async function rollAbilityCheck(
   if (abilityData.edge) edgeMode = MarvelMultiverseRoll.EDGE_MODE.EDGE;
   else if (abilityData.trouble)
     edgeMode = MarvelMultiverseRoll.EDGE_MODE.TROUBLE;
+  const stunnedCheck = _stunnedCheck(actor, edgeMode);
+  edgeMode = stunnedCheck.edgeMode;
+  flavor += stunnedCheck.note;
 
   const roll = new CONFIG.Dice.MarvelMultiverseRoll(
     formula,

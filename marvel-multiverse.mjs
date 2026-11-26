@@ -2972,6 +2972,7 @@ class ChatMessageMarvel extends ChatMessage {
       await combatant.update({
         initiative: roll.total,
         "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true,
+        "flags.marvel-multiverse.turnToM": isUltimateFantastic(roll),
       });
     }
 
@@ -3420,6 +3421,14 @@ class MarvelMultiverseCombatant extends Combatant {
   get hasFantasticInitiative() {
     return this.getFlag("marvel-multiverse", "fantasticInitiative") === true;
   }
+
+  /**
+   * Whether this combatant may still turn their Marvel die to an M on one
+   * action check in the bonus round. A 6M6 initiative roll grants this.
+   */
+  get canTurnMarvelDie() {
+    return this.hasFantasticInitiative && this.getFlag("marvel-multiverse", "turnToM") === true;
+  }
 }
 
 /**
@@ -3450,7 +3459,11 @@ class MarvelMultiverseCombat extends Combat {
     for (const id of ids) {
       const roll = this.combatants.get(id)?._initiativeRoll;
       if (!roll?._evaluated) continue;
-      updates.push({ _id: id, "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true });
+      updates.push({
+        _id: id,
+        "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true,
+        "flags.marvel-multiverse.turnToM": isUltimateFantastic(roll),
+      });
     }
     if (updates.length) await this.updateEmbeddedDocuments("Combatant", updates, { turnEvents: false });
     return this;
@@ -3506,8 +3519,11 @@ class MarvelMultiverseCombat extends Combat {
   async resetAll(options) {
     const marked = this.combatants.filter((c) => c.hasFantasticInitiative);
     if (marked.length) {
-      await this.updateEmbeddedDocuments("Combatant",
-        marked.map((c) => ({ _id: c.id, "flags.marvel-multiverse.fantasticInitiative": false })), { turnEvents: false });
+      await this.updateEmbeddedDocuments("Combatant", marked.map((c) => ({
+        _id: c.id,
+        "flags.marvel-multiverse.fantasticInitiative": false,
+        "flags.marvel-multiverse.turnToM": false,
+      })), { turnEvents: false });
     }
     return super.resetAll(options);
   }
@@ -9270,8 +9286,14 @@ async function rollSideInitiative(combat) {
   for (const side of ["hero", "foe"]) {
     if (totals[side] === null) continue;
     const fantastic = rolls[side].isFantastic === true;
+    const turnToM = isUltimateFantastic(rolls[side]);
     for (const c of bySide[side]) {
-      updates.push({ _id: c.id, initiative: totals[side], "flags.marvel-multiverse.fantasticInitiative": fantastic });
+      updates.push({
+        _id: c.id,
+        initiative: totals[side],
+        "flags.marvel-multiverse.fantasticInitiative": fantastic,
+        "flags.marvel-multiverse.turnToM": turnToM,
+      });
     }
   }
   if (updates.length) await combat.updateEmbeddedDocuments("Combatant", updates);
@@ -9310,6 +9332,7 @@ async function rollGroupInitiative(combat, group, byId) {
       _id: id,
       initiative: total,
       "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true,
+      "flags.marvel-multiverse.turnToM": isUltimateFantastic(roll),
     }))
   );
 
@@ -10113,18 +10136,123 @@ function _marvelDieIsFantastic(marvelDieTerm) {
 }
 
 /**
+ * Whether a d616 roll is an ultimate Fantastic (6M6) result. The Marvel die
+ * shows its Fantastic face and both d6 dice show 6.
+ * @param {{dice: object[]}} roll
+ * @returns {boolean}
+ */
+function isUltimateFantastic(roll) {
+  const dice = roll?.dice ?? [];
+  if (dice.length < 3) return false;
+  return _marvelDieIsFantastic(dice[1]) && dice[0]?.total === 6 && dice[2]?.total === 6;
+}
+
+/**
  * Whether a d616 roll is an ultimate Fantastic (6M6) result on an Initiative
- * check -- the Marvel die shows its Fantastic face and both d6 dice show 6.
+ * check.
  * @param {{dice: object[]}} roll
  * @param {string} flavor
  * @returns {boolean}
  */
 function _isUltimateFantasticInitiative(roll, flavor) {
   if (!flavor || !flavor.includes("Initiative")) return false;
-  const dice = roll?.dice ?? [];
-  if (dice.length < 3) return false;
-  return _marvelDieIsFantastic(dice[1]) && dice[0]?.total === 6 && dice[2]?.total === 6;
+  return isUltimateFantastic(roll);
 }
+
+/**
+ * Turn the Marvel die of an evaluated d616 roll to its M face. The M counts
+ * as 6, so the total rises by the difference between 6 and the face shown.
+ * @param {{dice: object[], total: number}} roll
+ * @returns {boolean}  False when the Marvel die already shows an M.
+ */
+function turnMarvelDieToM(roll) {
+  const active = roll?.dice?.[1]?.results.find((r) => r.active);
+  if (!active || active.result === 1) return false;
+  roll._total = roll.total - active.result + 6;
+  active.result = 1;
+  active.count = 6;
+  return true;
+}
+
+/**
+ * Turn the Marvel die on a chat card to an M and save the card. The Sinister
+ * Plot effect and the team maneuver that set the Marvel die can call this too.
+ * @param {ChatMessage} message
+ * @returns {Promise<boolean>}  False when the card has no Marvel die to turn.
+ */
+async function turnMessageMarvelDieToM(message) {
+  const rolls = message.rolls.map((r) => r.toJSON());
+  if (!rolls.length) return false;
+  const roll = Roll.fromData(rolls[0]);
+  if (!turnMarvelDieToM(roll)) return false;
+  rolls[0] = roll.toJSON();
+  await message.update({ rolls });
+  return true;
+}
+
+/**
+ * The combatant who may turn the Marvel die on a chat card to an M. That is
+ * the one who rolled the card during the bonus round of the current combat
+ * and has not used the privilege yet.
+ * @param {ChatMessage} message
+ * @returns {Combatant|null}
+ */
+function turnToMCombatant(message) {
+  const combat = game.combats?.get(message.getFlag("marvel-multiverse", "bonusRoundCombat"));
+  if (!combat?.inBonusRound) return null;
+  const actorId = message.speaker?.actor;
+  return combat.combatants.find((c) => c.actorId === actorId && c.canTurnMarvelDie) ?? null;
+}
+
+/** Records which bonus round an action check was rolled in. */
+Hooks.on("preCreateChatMessage", (message) => {
+  const combat = game.combat;
+  if (!combat?.inBonusRound) return;
+  if (!message.rolls?.[0]?.validD616Roll) return;
+  message.updateSource({ "flags.marvel-multiverse.bonusRoundCombat": combat.id });
+});
+
+/**
+ * Adds the "Turn Marvel die to M" button to an action check card. The roller
+ * and the Narrator see it while the privilege is unused and the bonus round
+ * is still running.
+ */
+Hooks.on("renderChatMessageHTML", (message, html) => {
+  const el = html instanceof HTMLElement ? html : html?.[0];
+  const result = el?.querySelector?.(".dice-result");
+  if (!result || el.querySelector(".mm-turn-to-m")) return;
+  const combatant = turnToMCombatant(message);
+  if (!combatant?.isOwner || !message.canUserModify(game.user, "update")) return;
+  if (message.rolls[0].isFantastic) return;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "mm-turn-to-m";
+  button.textContent = game.i18n.localize("MARVEL_MULTIVERSE.BonusRound.TurnToM");
+  button.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    button.disabled = true;
+    const owner = turnToMCombatant(message);
+    if (owner && await turnMessageMarvelDieToM(message)) await owner.setFlag("marvel-multiverse", "turnToM", false);
+  });
+  result.append(button);
+});
+
+/** Redraws the bonus round's check cards so the button comes and goes with the privilege. */
+function refreshTurnToMCards(combat) {
+  for (const message of game.messages) {
+    if (message.getFlag("marvel-multiverse", "bonusRoundCombat") === combat.id) ui.chat.updateMessage(message);
+  }
+}
+
+Hooks.on("updateCombat", (combat, changes) => {
+  if ("round" in changes) refreshTurnToMCards(combat);
+});
+
+Hooks.on("updateCombatant", (combatant, changes) => {
+  if (changes.flags?.["marvel-multiverse"]) refreshTurnToMCards(combatant.combat);
+});
 
 /** Announces the bonus round an ultimate Fantastic Initiative result grants. */
 Hooks.on("createChatMessage", async (message) => {

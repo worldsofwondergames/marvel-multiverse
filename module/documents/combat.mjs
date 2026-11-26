@@ -1,4 +1,5 @@
 import { nextBonusTurn, previousBonusTurn } from "../helpers/bonus-round.mjs";
+import { isUltimateFantastic } from "../helpers/ultimate-fantastic.mjs";
 
 /**
  * A combatant that remembers its last initiative roll, so the combat can tell
@@ -14,6 +15,14 @@ export class MarvelMultiverseCombatant extends Combatant {
   /** Whether the initiative result of this combatant was Fantastic. */
   get hasFantasticInitiative() {
     return this.getFlag("marvel-multiverse", "fantasticInitiative") === true;
+  }
+
+  /**
+   * Whether this combatant may still turn their Marvel die to an M on one
+   * action check in the bonus round. A 6M6 initiative roll grants this.
+   */
+  get canTurnMarvelDie() {
+    return this.hasFantasticInitiative && this.getFlag("marvel-multiverse", "turnToM") === true;
   }
 }
 
@@ -45,7 +54,11 @@ export class MarvelMultiverseCombat extends Combat {
     for (const id of ids) {
       const roll = this.combatants.get(id)?._initiativeRoll;
       if (!roll?._evaluated) continue;
-      updates.push({ _id: id, "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true });
+      updates.push({
+        _id: id,
+        "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true,
+        "flags.marvel-multiverse.turnToM": isUltimateFantastic(roll),
+      });
     }
     if (updates.length) await this.updateEmbeddedDocuments("Combatant", updates, { turnEvents: false });
     return this;
@@ -101,8 +114,11 @@ export class MarvelMultiverseCombat extends Combat {
   async resetAll(options) {
     const marked = this.combatants.filter((c) => c.hasFantasticInitiative);
     if (marked.length) {
-      await this.updateEmbeddedDocuments("Combatant",
-        marked.map((c) => ({ _id: c.id, "flags.marvel-multiverse.fantasticInitiative": false })), { turnEvents: false });
+      await this.updateEmbeddedDocuments("Combatant", marked.map((c) => ({
+        _id: c.id,
+        "flags.marvel-multiverse.fantasticInitiative": false,
+        "flags.marvel-multiverse.turnToM": false,
+      })), { turnEvents: false });
     }
     return super.resetAll(options);
   }

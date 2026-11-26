@@ -241,6 +241,7 @@
         "ValueHint": "The multiplier applied to Resilience and Vigilance when computing Health and Focus. Lower it for shorter, riskier fights; raise it for longer, more epic ones. Default is 30."
       }
     },
+    "NarrativeLimitations": "Narrative Limitations",
     "BonusRound": {
       "Title": "Bonus Round",
       "FantasticInitiative": "Fantastic initiative result",
@@ -292,6 +293,7 @@
       "power": "Power",
       "powerSet": "Power Set",
       "stunt": "Stunt",
+      "narrativeLimitation": "Narrative Limitation",
       "iconicItem": "Iconic Item",
       "restriction": "Restriction",
       "battleSuit": "Battlesuit",

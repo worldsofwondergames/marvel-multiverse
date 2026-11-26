@@ -1286,6 +1286,7 @@ const ITEM_DEFAULT_ICONS = {
   powerSet: "icons/svg/card-hand.svg",
   power: "systems/marvel-multiverse/icons/super-powers.svg",
   stunt: "systems/marvel-multiverse/icons/super-powers.svg",
+  narrativeLimitation: "icons/svg/hazard.svg",
   tag: "systems/marvel-multiverse/icons/tags.svg",
   hqTag: "systems/marvel-multiverse/icons/tags.svg",
   hqTrait: "systems/marvel-multiverse/icons/trait.svg"
@@ -4007,6 +4008,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     const weapons = [];
     const traits = [];
     const tags = [];
+    const narrativeLimitations = [];
     const powers = {};
     const equipment = [];
 
@@ -4045,6 +4047,8 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
         traits.push(i);
       } else if (i.type === "tag") {
         tags.push(i);
+      } else if (i.type === "narrativeLimitation") {
+        narrativeLimitations.push(i);
       } else if (i.type === "power") {
         const firstSet = i.system.powerSets?.length
           ? i.system.powerSets[0].name
@@ -4072,6 +4076,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
       context.weapons = weapons;
       context.traits = traits.sort((a, b) => a.name.localeCompare(b.name));
       context.tags = tags.sort((a, b) => a.name.localeCompare(b.name));
+      context.narrativeLimitations = narrativeLimitations.sort((a, b) => a.name.localeCompare(b.name));
       for (const set in powers) powers[set].sort((a, b) => a.name.localeCompare(b.name));
       const sortedPowers = {};
       for (const key of Object.keys(powers).sort()) sortedPowers[key] = powers[key];
@@ -4402,7 +4407,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
     // Grab any data associated with this control.
     const data = foundry.utils.duplicate(header.dataset);
     // Initialize a default name.
-    const name = `New ${type.capitalize()}`;
+    const name = game.i18n.format("DOCUMENT.New", { type: game.i18n.localize(`TYPES.Item.${type}`) });
     // Prepare the item object.
     const itemData = {
       name: name,
@@ -4907,7 +4912,7 @@ class MarvelMultiverseVehicleSheet extends foundry.appv1.sheets.ActorSheet {
     const header = event.currentTarget;
     const type = header.dataset.type;
     const data = foundry.utils.duplicate(header.dataset);
-    const name = `New ${type.capitalize()}`;
+    const name = game.i18n.format("DOCUMENT.New", { type: game.i18n.localize(`TYPES.Item.${type}`) });
     const img = type === "vehicleWeapon" ? "systems/marvel-multiverse/icons/weapons.svg" : undefined;
     const itemData = { name, type, img, system: data };
     itemData.system.type = undefined;
@@ -5287,6 +5292,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
     const origins = [];
     const occupations = [];
     const tags = [];
+    const narrativeLimitations = [];
     const weapons = [];
     const powers = {};
     const equipment = [];
@@ -5308,6 +5314,8 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
         traits.push(i);
       } else if (i.type === "tag") {
         tags.push(i);
+      } else if (i.type === "narrativeLimitation") {
+        narrativeLimitations.push(i);
       }
       // Append to power.
       else if (i.type === "power") {
@@ -5354,6 +5362,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
       context.battleSuits = battleSuits;
       context.traits = traits.sort((a, b) => a.name.localeCompare(b.name));
       context.tags = tags.sort((a, b) => a.name.localeCompare(b.name));
+      context.narrativeLimitations = narrativeLimitations.sort((a, b) => a.name.localeCompare(b.name));
       for (const set in powers) powers[set].sort((a, b) => a.name.localeCompare(b.name));
       const sortedPowers = {};
       for (const key of Object.keys(powers).sort()) sortedPowers[key] = powers[key];
@@ -5680,7 +5689,7 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
     // Grab any data associated with this control.
     const data = foundry.utils.duplicate(header.dataset);
     // Initialize a default name.
-    const name = `New ${type.capitalize()}`;
+    const name = game.i18n.format("DOCUMENT.New", { type: game.i18n.localize(`TYPES.Item.${type}`) });
     // Prepare the item object.
     const itemData = {
       name: name,
@@ -6547,6 +6556,7 @@ const preloadHandlebarsTemplates = async () =>
     "systems/marvel-multiverse/templates/actor/parts/actor-origin.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-powers.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-tags.hbs",
+    "systems/marvel-multiverse/templates/actor/parts/actor-narrative-limitations.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-traits.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-equipment.hbs",
     "systems/marvel-multiverse/templates/actor/parts/actor-weapons.hbs",
@@ -7638,6 +7648,13 @@ class MarvelMultiverseStunt extends MarvelMultiverseItemBase {
   }
 }
 
+/**
+ * A drawback that limits a character in a way described in words, the
+ * counterpart of a narrative power. Its name, description, and source come
+ * from the item base, so it adds no fields.
+ */
+class MarvelMultiverseNarrativeLimitation extends MarvelMultiverseItemBase {}
+
 class MarvelMultiverseVehicleWeapon extends MarvelMultiverseItemBase {
   static defineSchema() {
     const fields = foundry.data.fields;
@@ -7739,6 +7756,7 @@ var models = /*#__PURE__*/Object.freeze({
   MarvelMultiverseItem: MarvelMultiverseItem,
   MarvelMultiverseItemBase: MarvelMultiverseItemBase,
   MarvelMultiverseNPC: MarvelMultiverseNPC,
+  MarvelMultiverseNarrativeLimitation: MarvelMultiverseNarrativeLimitation,
   MarvelMultiverseOccupation: MarvelMultiverseOccupation,
   MarvelMultiverseOrigin: MarvelMultiverseOrigin,
   MarvelMultiversePower: MarvelMultiversePower,
@@ -8273,6 +8291,7 @@ const ITEM_TYPE_LABELS = {
   power: "Power",
   powerSet: "Power Set",
   stunt: "Stunt",
+  narrativeLimitation: "Narrative Limitation",
   restriction: "Restriction",
   battleSuit: "Battlesuit",
   equipment: "Equipment",
@@ -8668,6 +8687,7 @@ Hooks.once("init", () => {
     power: MarvelMultiversePower,
     powerSet: MarvelMultiversePowerSet,
     stunt: MarvelMultiverseStunt,
+    narrativeLimitation: MarvelMultiverseNarrativeLimitation,
     restriction: MarvelMultiverseRestriction,
     battleSuit: MarvelMultiverseBattleSuit,
     equipment: MarvelMultiverseEquipment,

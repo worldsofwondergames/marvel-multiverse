@@ -571,7 +571,10 @@ export class ChatMessageMarvel extends ChatMessage {
       const combatant = game.combat.combatants.contents.find(
         (combatant) => combatant.actorId === actorId
       );
-      await combatant.update({ initiative: roll.total });
+      await combatant.update({
+        initiative: roll.total,
+        "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true,
+      });
     }
 
     return chatMessage.update(update);

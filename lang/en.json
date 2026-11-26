@@ -241,6 +241,12 @@
         "ValueHint": "The multiplier applied to Resilience and Vigilance when computing Health and Focus. Lower it for shorter, riskier fights; raise it for longer, more epic ones. Default is 30."
       }
     },
+    "BonusRound": {
+      "Title": "Bonus Round",
+      "FantasticInitiative": "Fantastic initiative result",
+      "MarkFantastic": "Mark Fantastic Initiative",
+      "ClearFantastic": "Clear Fantastic Initiative"
+    },
     "BigFight": {
       "Enable": "Enable Big Fight Mode",
       "Disable": "Disable Big Fight Mode",

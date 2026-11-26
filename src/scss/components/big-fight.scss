@@ -133,3 +133,14 @@
     color: #8b0502;
   }
 }
+
+// Bonus round. Combatants without a Fantastic initiative result sit it out.
+.combat-tracker .combatant.mm-bonus-round-out {
+  opacity: 0.45;
+}
+
+.combat-tracker .mm-fantastic-initiative {
+  color: #e6b800;
+  font-size: 11px;
+  margin-inline-end: 3px;
+}

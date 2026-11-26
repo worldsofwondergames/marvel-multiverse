@@ -2969,7 +2969,10 @@ class ChatMessageMarvel extends ChatMessage {
       const combatant = game.combat.combatants.contents.find(
         (combatant) => combatant.actorId === actorId
       );
-      await combatant.update({ initiative: roll.total });
+      await combatant.update({
+        initiative: roll.total,
+        "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true,
+      });
     }
 
     return chatMessage.update(update);
@@ -3356,6 +3359,158 @@ function allowsBadKarma(actor) {
 function limitKarmaUpdate(actor, changed) {
   const karma = changed.system?.karma;
   if (karma?.value < 0 && !allowsBadKarma(actor)) karma.value = 0;
+}
+
+/**
+ * The next turn in the bonus round after a given turn. Only combatants with a
+ * Fantastic initiative result take part.
+ *
+ * @param {{fantastic: boolean, defeated: boolean}[]} turns  The turn order.
+ * @param {number} from  The current turn index, or -1 before the first turn.
+ * @param {boolean} skipDefeated  Whether defeated combatants lose their turn.
+ * @returns {number|null}  A turn index, or null when nobody is left to act.
+ */
+function nextBonusTurn(turns, from, skipDefeated) {
+  for (let i = from + 1; i < turns.length; i++) {
+    if (turns[i].fantastic && !(skipDefeated && turns[i].defeated)) return i;
+  }
+  return null;
+}
+
+/**
+ * The turn in the bonus round before a given turn.
+ *
+ * @param {{fantastic: boolean, defeated: boolean}[]} turns  The turn order.
+ * @param {number} from  The current turn index.
+ * @param {boolean} skipDefeated  Whether defeated combatants lose their turn.
+ * @returns {number|null}  A turn index, or null when the turn is the first.
+ */
+function previousBonusTurn(turns, from, skipDefeated) {
+  for (let i = from - 1; i >= 0; i--) {
+    if (turns[i].fantastic && !(skipDefeated && turns[i].defeated)) return i;
+  }
+  return null;
+}
+
+/**
+ * The round number to show for a combat. In an encounter that began with a
+ * bonus round, the stored round 1 is the bonus round and round 2 is shown as
+ * round 1.
+ *
+ * @param {number} round  The stored round.
+ * @param {boolean} hasBonusRound  Whether the encounter began with a bonus round.
+ * @returns {number}  The round to show, or 0 for the bonus round.
+ */
+function shownRound(round, hasBonusRound) {
+  return hasBonusRound ? round - 1 : round;
+}
+
+/**
+ * A combatant that remembers its last initiative roll, so the combat can tell
+ * whether the result was Fantastic.
+ */
+class MarvelMultiverseCombatant extends Combatant {
+  /** @override */
+  getInitiativeRoll(formula) {
+    this._initiativeRoll = super.getInitiativeRoll(formula);
+    return this._initiativeRoll;
+  }
+
+  /** Whether the initiative result of this combatant was Fantastic. */
+  get hasFantasticInitiative() {
+    return this.getFlag("marvel-multiverse", "fantasticInitiative") === true;
+  }
+}
+
+/**
+ * A combat that begins with a bonus round when any combatant has a Fantastic
+ * initiative result. The bonus round is stored as round 1, and only those
+ * combatants act in it.
+ */
+class MarvelMultiverseCombat extends Combat {
+  /** Whether this encounter began with a bonus round. */
+  get hasBonusRound() {
+    return this.getFlag("marvel-multiverse", "bonusRound") === true;
+  }
+
+  /** Whether the combat is in its bonus round now. */
+  get inBonusRound() {
+    return this.hasBonusRound && this.round === 1;
+  }
+
+  _bonusTurns() {
+    return this.turns.map((c) => ({ fantastic: c.hasFantasticInitiative, defeated: c.isDefeated }));
+  }
+
+  /** @override */
+  async rollInitiative(ids, options = {}) {
+    ids = typeof ids === "string" ? [ids] : ids;
+    await super.rollInitiative(ids, options);
+    const updates = [];
+    for (const id of ids) {
+      const roll = this.combatants.get(id)?._initiativeRoll;
+      if (!roll?._evaluated) continue;
+      updates.push({ _id: id, "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true });
+    }
+    if (updates.length) await this.updateEmbeddedDocuments("Combatant", updates, { turnEvents: false });
+    return this;
+  }
+
+  /** @override */
+  async startCombat() {
+    const first = nextBonusTurn(this._bonusTurns(), -1, this.settings.skipDefeated);
+    this._playCombatSound("startEncounter");
+    const updateData = { round: 1, turn: first ?? 0, "flags.marvel-multiverse.bonusRound": first !== null };
+    Hooks.callAll("combatStart", this, updateData);
+    await this.update(updateData);
+    await ActiveEffect.registry.refresh("combatStart", { combat: this });
+    return this;
+  }
+
+  /** @override */
+  async nextTurn() {
+    if (!this.inBonusRound) return super.nextTurn();
+    const next = nextBonusTurn(this._bonusTurns(), this.turn ?? -1, this.settings.skipDefeated);
+    if (next === null) return this.nextRound();
+    return this._moveBonusTurn(next, 1);
+  }
+
+  /** @override */
+  async previousTurn() {
+    if (!this.inBonusRound) return super.previousTurn();
+    const previous = previousBonusTurn(this._bonusTurns(), this.turn ?? this.turns.length, this.settings.skipDefeated);
+    if (previous === null) return this.previousRound();
+    return this._moveBonusTurn(previous, -1);
+  }
+
+  /** @override */
+  async previousRound() {
+    if (!(this.hasBonusRound && this.round === 2)) return super.previousRound();
+    const last = previousBonusTurn(this._bonusTurns(), this.turns.length, this.settings.skipDefeated);
+    const updateData = { round: 1, turn: last };
+    const updateOptions = { direction: -1, worldTime: { delta: this.getTimeDelta(this.round, this.turn, 1, last) } };
+    Hooks.callAll("combatRound", this, updateData, updateOptions);
+    await this.update(updateData, updateOptions);
+    return this;
+  }
+
+  async _moveBonusTurn(turn, direction) {
+    const updateData = { round: this.round, turn };
+    const updateOptions = { direction, worldTime: { delta: this.getTimeDelta(this.round, this.turn, this.round, turn) } };
+    Hooks.callAll("combatTurn", this, updateData, updateOptions);
+    await this.update(updateData, updateOptions);
+    return this;
+  }
+
+  /** @override */
+  async resetAll(options) {
+    const marked = this.combatants.filter((c) => c.hasFantasticInitiative);
+    if (marked.length) {
+      await this.updateEmbeddedDocuments("Combatant",
+        marked.map((c) => ({ _id: c.id, "flags.marvel-multiverse.fantasticInitiative": false })), { turnEvents: false });
+    }
+    return super.resetAll(options);
+  }
 }
 
 /** Gear an actor can own any number of, such as two of the same weapon. */
@@ -8466,6 +8621,8 @@ Hooks.once("init", () => {
 
   // Define custom Document and DataModel classes
   CONFIG.Actor.documentClass = MarvelMultiverseActor;
+  CONFIG.Combat.documentClass = MarvelMultiverseCombat;
+  CONFIG.Combatant.documentClass = MarvelMultiverseCombatant;
 
   // Note that you don't need to declare a DataModel
   // for the base actor/item classes - they are included
@@ -9112,7 +9269,10 @@ async function rollSideInitiative(combat) {
   const updates = [];
   for (const side of ["hero", "foe"]) {
     if (totals[side] === null) continue;
-    for (const c of bySide[side]) updates.push({ _id: c.id, initiative: totals[side] });
+    const fantastic = rolls[side].isFantastic === true;
+    for (const c of bySide[side]) {
+      updates.push({ _id: c.id, initiative: totals[side], "flags.marvel-multiverse.fantasticInitiative": fantastic });
+    }
   }
   if (updates.length) await combat.updateEmbeddedDocuments("Combatant", updates);
 
@@ -9146,7 +9306,11 @@ async function rollGroupInitiative(combat, group, byId) {
 
   await combat.updateEmbeddedDocuments(
     "Combatant",
-    group.memberCombatantIds.map((id) => ({ _id: id, initiative: total }))
+    group.memberCombatantIds.map((id) => ({
+      _id: id,
+      initiative: total,
+      "flags.marvel-multiverse.fantasticInitiative": roll.isFantastic === true,
+    }))
   );
 
   // roll.toMessage() (not a hand-built summary string) so the chat card's
@@ -9486,6 +9650,52 @@ Hooks.on("getCombatTrackerContextOptions", (app, menuItems) => {
     if (!group) return originalOnClick?.(event, li);
     return rollGroupInitiative(combat, group, combatantsById(combat));
   };
+});
+
+/**
+ * Lets the Narrator switch the Fantastic initiative mark of a combatant on or
+ * off. This covers a surprised character, who cannot act in the bonus round,
+ * and an initiative total typed in by hand.
+ */
+Hooks.on("getCombatTrackerContextOptions", (app, menuItems) => {
+  const getCombatant = (li) => app.viewed?.combatants.get(li.dataset.combatantId);
+  for (const marked of [false, true]) {
+    menuItems.push({
+      label: `MARVEL_MULTIVERSE.BonusRound.${marked ? "ClearFantastic" : "MarkFantastic"}`,
+      icon: `<i class="fa-${marked ? "regular" : "solid"} fa-star"></i>`,
+      visible: (li) => game.user.isGM && getCombatant(li)?.hasFantasticInitiative === marked,
+      onClick: (event, li) => getCombatant(li)?.setFlag("marvel-multiverse", "fantasticInitiative", !marked),
+    });
+  }
+});
+
+/**
+ * Shows the bonus round in the combat tracker. The heading names the bonus
+ * round and numbers the rounds after it from 1, a star marks each Fantastic
+ * initiative result, and combatants who sit out the bonus round are dimmed.
+ */
+Hooks.on("renderCombatTracker", (app, html) => {
+  const root = html instanceof HTMLElement ? html : html?.[0];
+  const combat = app.viewed;
+  if (!root || !combat) return;
+
+  const title = root.querySelector(".encounter-title");
+  if (title && combat.hasBonusRound && combat.round > 0) {
+    title.textContent = combat.inBonusRound
+      ? game.i18n.localize("MARVEL_MULTIVERSE.BonusRound.Title")
+      : game.i18n.format("COMBAT.Round", { round: shownRound(combat.round, true) });
+  }
+
+  for (const row of root.querySelectorAll("li.combatant[data-combatant-id]")) {
+    const fantastic = combat.combatants.get(row.dataset.combatantId)?.hasFantasticInitiative === true;
+    row.classList.toggle("mm-bonus-round-out", combat.inBonusRound && !fantastic);
+    row.querySelector(".mm-fantastic-initiative")?.remove();
+    if (!fantastic) continue;
+    const star = document.createElement("i");
+    star.className = "fa-solid fa-star mm-fantastic-initiative";
+    star.dataset.tooltip = game.i18n.localize("MARVEL_MULTIVERSE.BonusRound.FantasticInitiative");
+    row.querySelector(".token-initiative")?.prepend(star);
+  }
 });
 
 /**

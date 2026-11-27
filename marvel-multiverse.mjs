@@ -506,12 +506,100 @@ function _parseFocusCost(text) {
 }
 
 /**
- * The most Focus a character may spend at once: five times their rank, per the
- * core rulebook's "Spending Focus". Applies to every cost, flat or chosen.
+ * Rank X characters are past the numbered ranks. For one that chooses to be
+ * fallible, the rules give ability scores of 20 (so defenses of 30), a damage
+ * multiplier of 10, and 100 Focus spent at once.
+ * The damage multiplier of an ordinary character is their rank, so 10 also
+ * stands in wherever a Rank X character needs a rank number.
  */
+const RANK_X = { rank: 10, ability: 20, focusAtOnce: 100 };
+
+/** Whether an actor's system data is marked Rank X. */
+function isRankX(system) {
+  return system?.attributes?.rank?.x === true;
+}
+
+/** Whether a Rank X actor is using the fallible numbers. */
+function isFallible(system) {
+  return isRankX(system) && system.attributes.rank.fallible === true;
+}
+
+/**
+ * The most Focus a character may spend at once, which is five times their
+ * rank. A Rank X character has no limit unless they are fallible.
+ */
+function maxFocusSpend(system) {
+  if (isFallible(system)) return RANK_X.focusAtOnce;
+  if (isRankX(system)) return Infinity;
+  return Number(system?.attributes?.rank?.value ?? 0) * 5;
+}
+
+/**
+ * How many powers a character may concentrate on at once. It is one per
+ * rank, and any number at Rank X.
+ */
+function concentrationLimit(system) {
+  if (isRankX(system)) return Infinity;
+  return Number(system?.attributes?.rank?.value ?? 0);
+}
+
+/**
+ * Read the Rank field of a submitted actor sheet. "X" marks the actor Rank X,
+ * a whole number sets an ordinary rank, and anything else leaves the rank as
+ * it was.
+ *
+ * @param {object} formData  The flat form data, changed in place.
+ * @returns {boolean}  False when the field held text that was not understood,
+ *                     so the sheet can put the real rank back on screen.
+ */
+function applyRankInput(formData) {
+  const key = "system.attributes.rank.value";
+  if (!(key in formData)) return true;
+  const text = String(formData[key]).trim();
+  if (/^x$/i.test(text)) {
+    formData["system.attributes.rank.x"] = true;
+    delete formData[key];
+    return true;
+  }
+  const value = Number(text);
+  if (text === "" || !Number.isInteger(value)) {
+    delete formData[key];
+    return false;
+  }
+  formData[key] = value;
+  formData["system.attributes.rank.x"] = false;
+  formData["system.attributes.rank.fallible"] = false;
+  return true;
+}
+
+/**
+ * When an update turns the fallible numbers on, save the ability scores and
+ * set each one to the fallible score in the same update. When an update turns
+ * them off, put the saved scores back.
+ *
+ * @param {object} system   The actor's stored system data.
+ * @param {object} changed  The update, as passed to `_preUpdate`.
+ */
+function applyFallibleChange(system, changed) {
+  const rank = changed.system?.attributes?.rank;
+  // A headquarters or vehicle has no rank, so this comes before the rank is read.
+  if (typeof rank?.fallible !== "boolean") return;
+  if (rank.fallible === system.attributes.rank.fallible) return;
+  const keys = Object.keys(system.abilities);
+  const saved = system.attributes.rank.savedScores;
+  if (rank.fallible) {
+    rank.savedScores = Object.fromEntries(keys.map((key) => [key, system.abilities[key].value]));
+  }
+  changed.system.abilities ??= {};
+  for (const key of keys) {
+    const value = rank.fallible ? RANK_X.ability : saved[key];
+    if (value !== undefined) (changed.system.abilities[key] ??= {}).value = value;
+  }
+}
+
+/** The most Focus this actor may spend at once. */
 function _maxFocusSpend(actor) {
-  const rank = Number(actor?.system?.attributes?.rank?.value ?? 0);
-  return rank * 5;
+  return maxFocusSpend(actor?.system);
 }
 
 /**
@@ -532,12 +620,9 @@ function _isReactionPower(action) {
   return /reaction/i.test(String(action ?? ""));
 }
 
-/**
- * How many powers a character may concentrate on at once: one per rank, per the
- * core rulebook's "Breaking Concentration".
- */
+/** How many powers this actor may concentrate on at once. */
 function _concentrationLimit(actor) {
-  return Number(actor?.system?.attributes?.rank?.value ?? 0);
+  return concentrationLimit(actor?.system);
 }
 
 /**
@@ -604,10 +689,10 @@ function _promptFocusAmount({ powerName, min, max }) {
   return new Promise((resolve) => {
     const content = `<form>
       <div class="form-group mm-spend-group">
-        <label for="mm-focus-amount"><b>${powerName}</b> - Focus to spend (min ${min}, max ${max})</label>
+        <label for="mm-focus-amount"><b>${powerName}</b> - Focus to spend (min ${min}${Number.isFinite(max) ? `, max ${max}` : ""})</label>
         <div class="mm-quantity">
           <button type="button" class="minus" aria-label="Decrease">&minus;</button>
-          <input id="mm-focus-amount" class="input-box" type="number" name="amount" value="${min}" min="${min}" max="${max}" step="1" autofocus/>
+          <input id="mm-focus-amount" class="input-box" type="number" name="amount" value="${min}" min="${min}"${Number.isFinite(max) ? ` max="${max}"` : ""} step="1" autofocus/>
           <button type="button" class="plus" aria-label="Increase">&plus;</button>
         </div>
       </div>
@@ -796,13 +881,16 @@ async function _activatePower(actor, item) {
     if (amount === null) return false;
   }
 
-  const current = Number(actor.system?.focus?.value ?? 0);
-  if (amount > current) {
-    const ok = await _confirmOverspend({ powerName: item.name, cost: amount, current });
-    if (!ok) return false;
-  }
+  // A Rank X character has unlimited Focus, so nothing is taken from it.
+  if (!isRankX(actor.system)) {
+    const current = Number(actor.system?.focus?.value ?? 0);
+    if (amount > current) {
+      const ok = await _confirmOverspend({ powerName: item.name, cost: amount, current });
+      if (!ok) return false;
+    }
 
-  await actor.update({ "system.focus.value": current - amount });
+    await actor.update({ "system.focus.value": current - amount });
+  }
 
   const period = cost.period ? ` per ${cost.period}` : "";
   const flavor = _buildRollFlavor({
@@ -1174,6 +1262,7 @@ class MarvelMultiverseActor extends Actor {
   /** @override */
   async _preUpdate(changed, options, user) {
     limitKarmaUpdate(this, changed);
+    applyFallibleChange(this._source.system, changed);
     return super._preUpdate(changed, options, user);
   }
 
@@ -4628,6 +4717,7 @@ class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSheet {
 
   async _updateObject(event, formData) {
     if ("system.source" in formData) formData["system.source"] = sourceValue(formData["system.source"]);
+    if (!applyRankInput(formData)) this.render();
     const selection = formData["system.teamManeuver._selection"];
     if (selection !== undefined) {
       delete formData["system.teamManeuver._selection"];
@@ -5040,7 +5130,7 @@ class MarvelMultiverseHeadquartersSheet extends foundry.appv1.sheets.ActorSheet 
         actorId: m.actorId,
         name: actor?.name ?? m.name,
         img: actor?.img ?? m.img,
-        rank: actor?.system?.attributes?.rank?.value ?? "?",
+        rank: isRankX(actor?.system) ? "X" : actor?.system?.attributes?.rank?.value ?? "?",
       };
     });
   }
@@ -5674,6 +5764,12 @@ class MarvelMultiverseNPCSheet extends foundry.appv1.sheets.ActorSheet {
     }
     const effect = CONFIG.MARVEL_MULTIVERSE.sizeEffects[effectKey];
     ActiveEffect.create(effect, { parent: this.actor });
+  }
+
+  /** @override */
+  async _updateObject(event, formData) {
+    if (!applyRankInput(formData)) this.render();
+    return super._updateObject(event, formData);
   }
 
   /**
@@ -6595,6 +6691,12 @@ class MarvelMultiverseActorBase extends foundry.abstract
 
       rank: new fields.SchemaField({
         value: new fields.NumberField({ ...requiredInteger, initial: 1 }),
+        // Rank X: past the numbered ranks. The value above is then unused.
+        x: new fields.BooleanField({ required: true, initial: false }),
+        // A Rank X character using the weaker numbers the rules give.
+        fallible: new fields.BooleanField({ required: true, initial: false }),
+        // The ability scores to put back when the fallible numbers are turned off.
+        savedScores: new fields.ObjectField(),
       }),
     });
 
@@ -6879,6 +6981,9 @@ class MarvelMultiverseActorBase extends foundry.abstract
       this.focusDamageReduction = maxFocusDR;
     }
 
+    // A Rank X character has no rank number, so one stands in for it.
+    if (this.attributes.rank.x) this.attributes.rank.value = RANK_X.rank;
+
     // Each level of Health DR protects up to 5 points of condition damage per turn
     this.conditionDamageReduction = this.healthDamageReduction * 5;
 
@@ -7036,6 +7141,9 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       this.healthDamageReduction = maxHealthDR;
       this.focusDamageReduction = maxFocusDR;
     }
+
+    // A Rank X character has no rank number, so one stands in for it.
+    if (this.attributes.rank.x) this.attributes.rank.value = RANK_X.rank;
 
     // Each level of Health DR protects up to 5 points of condition damage per turn
     this.conditionDamageReduction = this.healthDamageReduction * 5;
@@ -9563,6 +9671,8 @@ async function _processConcentrationUpkeep(combatant) {
   const actor = combatant?.actor;
   if (!actor) return;
   if (!_isResponsibleFor(actor)) return;
+  // A Rank X character has unlimited Focus, so upkeep costs them nothing.
+  if (isRankX(actor.system)) return;
 
   for (const id of _heldConcentrations(actor)) {
     const item = actor.items.get(id);
@@ -9865,6 +9975,11 @@ Hooks.on("renderCombatTracker", (app, html) => {
         const health = pooledResource(group, byId, "health");
         const focus = pooledResource(group, byId, "focus");
         const liveCount = liveMembers(group, byId).length;
+        // A Rank X member has unlimited Health and Focus, so the group's
+        // totals show a dash.
+        const unlimited = group.memberCombatantIds.some(
+          (id) => isRankX(app.viewed.combatants.get(id)?.actor?.system)
+        );
 
         group.memberCombatantIds.forEach((memberId, index) => {
           // The tracker's dock renders a `.combatant-portrait` div AND the
@@ -9984,11 +10099,11 @@ Hooks.on("renderCombatTracker", (app, html) => {
               await memberCombatant?.actor?.update({ "system.health.value": update.value });
             }
           });
-          hp.appendChild(hpInput);
+          if (!unlimited) hp.appendChild(hpInput);
 
           const hpMax = document.createElement("span");
           hpMax.className = "mm-big-fight-group-hp-max";
-          hpMax.textContent = ` / ${health.max}`;
+          hpMax.textContent = unlimited ? "-" : ` / ${health.max}`;
           hp.appendChild(hpMax);
 
           const ungroupLink = document.createElement("a");
@@ -10033,11 +10148,11 @@ Hooks.on("renderCombatTracker", (app, html) => {
               await memberCombatant?.actor?.update({ "system.focus.value": update.value });
             }
           });
-          focusRow.appendChild(focusInput);
+          if (!unlimited) focusRow.appendChild(focusInput);
 
           const focusMax = document.createElement("span");
           focusMax.className = "mm-big-fight-group-focus-max";
-          focusMax.textContent = ` / ${focus.max}`;
+          focusMax.textContent = unlimited ? "-" : ` / ${focus.max}`;
           focusRow.appendChild(focusMax);
 
           nameEl?.insertAdjacentElement("afterend", hp);

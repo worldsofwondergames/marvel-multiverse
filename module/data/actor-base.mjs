@@ -1,4 +1,5 @@
 import { applyMovementOverrides } from "../helpers/movement.mjs";
+import { RANK_X } from "../helpers/rank-x.mjs";
 
 export default class MarvelMultiverseActorBase extends foundry.abstract
   .TypeDataModel {
@@ -20,6 +21,12 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
 
       rank: new fields.SchemaField({
         value: new fields.NumberField({ ...requiredInteger, initial: 1 }),
+        // Rank X: past the numbered ranks. The value above is then unused.
+        x: new fields.BooleanField({ required: true, initial: false }),
+        // A Rank X character using the weaker numbers the rules give.
+        fallible: new fields.BooleanField({ required: true, initial: false }),
+        // The ability scores to put back when the fallible numbers are turned off.
+        savedScores: new fields.ObjectField(),
       }),
     });
 
@@ -263,6 +270,9 @@ export default class MarvelMultiverseActorBase extends foundry.abstract
   }
 
   prepareDerivedData() {
+    // A Rank X character has no rank number, so one stands in for it.
+    if (this.attributes.rank.x) this.attributes.rank.value = RANK_X.rank;
+
     // Damage multiplier and damage reduction bonuses do not stack (rulebook).
     // AEs use ADD mode which sums all bonuses; enforce highest-only here.
     if (this.parent?.allApplicableEffects) {

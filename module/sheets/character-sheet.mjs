@@ -12,6 +12,7 @@ import { iconicWeaponAttacks } from "../helpers/iconic-gear.mjs";
 import { openMovementDialog } from "../helpers/movement.mjs";
 import { parseWeaponBonus } from "../helpers/damage-application.mjs";
 import { isVillainous } from "../helpers/villainous.mjs";
+import { applyRankInput } from "../helpers/rank-x.mjs";
 import { isBigFightEnabled, findGroup, groupAttackBonus } from "../helpers/big-fight.mjs";
 
 /**
@@ -668,6 +669,7 @@ export class MarvelMultiverseCharacterSheet extends foundry.appv1.sheets.ActorSh
 
   async _updateObject(event, formData) {
     if ("system.source" in formData) formData["system.source"] = sourceValue(formData["system.source"]);
+    if (!applyRankInput(formData)) this.render();
     const selection = formData["system.teamManeuver._selection"];
     if (selection !== undefined) {
       delete formData["system.teamManeuver._selection"];

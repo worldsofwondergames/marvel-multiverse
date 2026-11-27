@@ -550,6 +550,33 @@ test.describe('Foe grouping', () => {
     expect(healthValues.some((v) => v === 0)).toBe(true);
   });
 
+  test('a group with a Rank X member shows a dash for its pooled Health and Focus', async ({ foundryPage }) => {
+    const page = foundryPage;
+    await setUpGroupingCombat(page);
+    const ids = await combatantIdsByName(page, [FOE_1, FOE_2]);
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_1]}"]`).check();
+    await page.locator(`.mm-big-fight-select[data-combatant-id="${ids[FOE_2]}"]`).check();
+    await page.locator('.mm-big-fight-group-btn').click();
+    await page.locator('.dialog-buttons button[data-button="ok"]').click();
+
+    const row = page.locator('li.combatant:has(.mm-big-fight-group-hp)');
+    const inputs = row.locator('.mm-big-fight-group-hp-input, .mm-big-fight-group-focus-input');
+    const totals = row.locator('.mm-big-fight-group-hp-max, .mm-big-fight-group-focus-max');
+    const pooled = await page.evaluate(
+      (pair) => ['health', 'focus'].map((stat) => pair.reduce((sum, id) => sum + game.combat.combatants.get(id).actor.system[stat].max, 0)),
+      [ids[FOE_1], ids[FOE_2]]
+    );
+    await expect(inputs).toHaveCount(2);
+    await expect(totals).toHaveText(pooled.map((max) => ` / ${max}`), { useInnerText: false });
+
+    await page.evaluate(
+      (id) => game.combat.combatants.get(id).actor.update({ 'system.attributes.rank.x': true }),
+      ids[FOE_2]
+    );
+    await expect(totals).toHaveText(['-', '-']);
+    await expect(inputs).toHaveCount(0);
+  });
+
   test('typing a new pooled Focus total distributes the change across the group\'s members', async ({ foundryPage }) => {
     const page = foundryPage;
     await setUpGroupingCombat(page);

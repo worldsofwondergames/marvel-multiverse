@@ -1,8 +1,12 @@
 import MarvelMultiverseActorBase from "./actor-base.mjs";
+import { RANK_X } from "../helpers/rank-x.mjs";
 import { applyMovementOverrides } from "../helpers/movement.mjs";
 
 export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
   prepareDerivedData() {
+    // A Rank X character has no rank number, so one stands in for it.
+    if (this.attributes.rank.x) this.attributes.rank.value = RANK_X.rank;
+
     if (this.parent?.allApplicableEffects) {
       const maxDmgBonus = {};
       for (const key in this.abilities) maxDmgBonus[key] = 0;

@@ -1931,6 +1931,37 @@
   width: 50%;
 }
 
+.marvel-multiverse.sheet.actor .mm-rank-fallible {
+  align-items: center;
+  background: #e41d18;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  font-size: 10px;
+  gap: 2px;
+  left: 0;
+  line-height: 14px;
+  padding: 0 2px;
+  position: absolute;
+  top: 66px;
+  width: 60px;
+  z-index: 1;
+}
+
+.marvel-multiverse.sheet.actor .mm-rank-fallible input[type=checkbox] {
+  flex: 0 0 12px;
+  height: 12px;
+  margin: 0;
+  width: 12px;
+}
+
+.marvel-multiverse.sheet.actor .mm-rank-x-stat {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  margin: auto;
+}
+
 .marvel-multiverse.sheet.actor .mm-npchealth-block, .marvel-multiverse.sheet.actor .mm-npcfocus-block {
   align-items: center;
   background: #e41d18;

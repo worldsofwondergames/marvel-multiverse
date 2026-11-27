@@ -775,6 +775,68 @@ function _heldConcentrations(actor) {
   return held.filter((id) => actor.items.get(id));
 }
 
+/**
+ * A shield thrown with a Shield Bearer power returns at the start of the
+ * character's next turn. Until then the character cannot use other Shield
+ * Bearer powers or get any benefit from the shield.
+ */
+const SHIELD_POWER_SET = "Shield Bearer";
+
+/** The status an actor has while their shield is away. */
+const SHIELD_THROWN = "shieldThrown";
+
+/** Whether an item is a power in the Shield Bearer power set. */
+function isShieldBearerPower(item) {
+  if (item?.type !== "power") return false;
+  return (item.system?.powerSets ?? []).some((set) => set?.name === SHIELD_POWER_SET);
+}
+
+/**
+ * Whether using a power throws the shield. Every Shield Bearer power that
+ * throws it says in its effect that the shield bounces back to the character.
+ */
+function throwsShield(item) {
+  return isShieldBearerPower(item) && /bounces\s+back\s+to\s+the\s+character/i.test(item.system?.effect ?? "");
+}
+
+/**
+ * Whether a power cannot be used because the shield is away. The power that
+ * threw the shield stays usable, so its attack can be rolled and paid for.
+ *
+ * @param {object} state
+ * @param {boolean} state.thrown    Whether the actor's shield is away.
+ * @param {string} state.thrownBy   The id of the power that threw it.
+ * @param {object} state.item       The power being used.
+ */
+function shieldRefusesPower({ thrown, thrownBy, item }) {
+  return !!thrown && isShieldBearerPower(item) && item.id !== thrownBy;
+}
+
+/** Mark the actor's shield as away when the power used throws it. */
+async function _throwShield(actor, item) {
+  if (!actor || !throwsShield(item)) return;
+  await actor.setFlag("marvel-multiverse", "shieldThrownBy", item.id);
+  if (!actor.statuses?.has(SHIELD_THROWN)) await actor.toggleStatusEffect(SHIELD_THROWN, { active: true });
+}
+
+/** Bring the actor's shield back, which happens when their next turn starts. */
+async function _returnShield(actor) {
+  if (actor?.statuses?.has(SHIELD_THROWN)) await actor.toggleStatusEffect(SHIELD_THROWN, { active: false });
+}
+
+/** Whether the power is refused because the shield is away. Warns when it is. */
+function _shieldRefused(actor, item) {
+  const refused = shieldRefusesPower({
+    thrown: actor?.statuses?.has(SHIELD_THROWN),
+    thrownBy: actor?.getFlag("marvel-multiverse", "shieldThrownBy"),
+    item,
+  });
+  if (refused) {
+    ui.notifications.warn(game.i18n.format("MARVEL_MULTIVERSE.Shield.Thrown", { name: actor.name, power: item.name }));
+  }
+  return refused;
+}
+
 /** The single user answering for this actor: an owning player, else the GM. */
 function _isResponsibleFor(actor) {
   const owners = game.users?.filter((u) => u.active && actor.testUserPermission(u, "OWNER")) ?? [];
@@ -840,6 +902,7 @@ async function _startConcentration(actor, item) {
 
 async function _activatePower(actor, item) {
   if (!actor || !item) return false;
+  if (_shieldRefused(actor, item)) return false;
   if (!_canActivatePowers(actor)) {
     ui.notifications.warn("You do not have permission to activate powers on this character.");
     return false;
@@ -899,6 +962,7 @@ async function _activatePower(actor, item) {
     powerName: item.name,
   });
   if (concentrates) await _startConcentration(actor, item);
+  await _throwShield(actor, item);
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor, token: _getTokenDoc(actor) }),
@@ -1469,6 +1533,9 @@ let MarvelMultiverseItem$1 = class MarvelMultiverseItem extends Item {
    * @private
    */
   async roll() {
+    if (_shieldRefused(this.actor, this)) return;
+    await _throwShield(this.actor, this);
+
     // Initialize chat data.
     const speaker = ChatMessage.getSpeaker({ actor: this.actor, token: _getTokenDoc(this.actor) });
     const rollMode = game.settings.get("core", "rollMode");
@@ -6950,8 +7017,11 @@ class MarvelMultiverseActorBase extends foundry.abstract
       let maxHealthDR = 0;
       let maxFocusDR = 0;
 
+      // While the shield is away, Shield Bearer powers give no benefit.
+      const shieldAway = this.parent.statuses?.has(SHIELD_THROWN);
       for (const effect of this.parent.allApplicableEffects()) {
         if (effect.disabled) continue;
+        if (shieldAway && isShieldBearerPower(effect.parent)) continue;
         for (const change of effect.changes) {
           const bonusMultMatch = change.key.match(/^system\.abilities\.(\w+)\.damageBonusMultiplier$/);
           if (bonusMultMatch && bonusMultMatch[1] in maxDmgBonus) {
@@ -7111,8 +7181,11 @@ class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       let maxHealthDR = 0;
       let maxFocusDR = 0;
 
+      // While the shield is away, Shield Bearer powers give no benefit.
+      const shieldAway = this.parent.statuses?.has(SHIELD_THROWN);
       for (const effect of this.parent.allApplicableEffects()) {
         if (effect.disabled) continue;
+        if (shieldAway && isShieldBearerPower(effect.parent)) continue;
         for (const change of effect.changes) {
           const bonusMultMatch = change.key.match(/^system\.abilities\.(\w+)\.damageBonusMultiplier$/);
           if (bonusMultMatch && bonusMultMatch[1] in maxDmgBonus) {
@@ -8937,6 +9010,7 @@ Hooks.once("init", () => {
     { id: "poisoned", name: "Poisoned", img: "icons/svg/poison.svg" },
     { id: "prone", name: "Prone", img: "systems/marvel-multiverse/icons/statuses/prone.svg" },
     { id: "shattered", name: "Shattered", img: "systems/marvel-multiverse/icons/statuses/shattered.svg" },
+    { id: "shieldThrown", name: "Shield Thrown", img: "systems/marvel-multiverse/icons/statuses/shield-thrown.svg" },
     { id: "stunned", name: "Stunned", img: "systems/marvel-multiverse/icons/statuses/stunned.svg" },
     { id: "surprised", name: "Surprised", img: "systems/marvel-multiverse/icons/statuses/surprised.svg" },
     { id: "unconscious", name: "Unconscious", img: "icons/svg/unconscious.svg" },
@@ -9622,6 +9696,7 @@ async function _processEndOfTurn(combatant) {
 async function _processStartOfTurn(combatant) {
   const actor = combatant?.actor;
   if (!actor) return;
+  await _returnShield(actor);
   if (!actor.statuses?.has("poisoned")) return;
   const cfg = MARVEL_MULTIVERSE.conditionEffects.poisoned;
   const { ability, tn } = cfg.turnCheck;
@@ -9756,6 +9831,7 @@ Hooks.on("deleteCombat", async (combat) => {
   for (const combatant of combat.combatants ?? []) {
     const actor = combatant.actor;
     if (!actor || !_isResponsibleFor(actor)) continue;
+    await _returnShield(actor);
     if (!_heldConcentrations(actor).length) continue;
     await _endConcentration(actor, null, { reason: "the encounter ended" });
   }

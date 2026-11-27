@@ -1,4 +1,5 @@
 import MarvelMultiverseActorBase from "./actor-base.mjs";
+import { SHIELD_THROWN, isShieldBearerPower } from "../helpers/shield.mjs";
 import { RANK_X } from "../helpers/rank-x.mjs";
 import { applyMovementOverrides } from "../helpers/movement.mjs";
 
@@ -16,8 +17,11 @@ export default class MarvelMultiverseNPC extends MarvelMultiverseActorBase {
       let maxHealthDR = 0;
       let maxFocusDR = 0;
 
+      // While the shield is away, Shield Bearer powers give no benefit.
+      const shieldAway = this.parent.statuses?.has(SHIELD_THROWN);
       for (const effect of this.parent.allApplicableEffects()) {
         if (effect.disabled) continue;
+        if (shieldAway && isShieldBearerPower(effect.parent)) continue;
         for (const change of effect.changes) {
           const bonusMultMatch = change.key.match(/^system\.abilities\.(\w+)\.damageBonusMultiplier$/);
           if (bonusMultMatch && bonusMultMatch[1] in maxDmgBonus) {

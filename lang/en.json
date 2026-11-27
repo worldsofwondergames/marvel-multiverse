@@ -242,6 +242,10 @@
       }
     },
     "NarrativeLimitations": "Narrative Limitations",
+    "RankX": {
+      "Fallible": "Fallible",
+      "FallibleHint": "Use the weaker numbers a Rank X character can choose: ability scores of 20 and no more than 100 Focus spent at once."
+    },
     "BonusRound": {
       "Title": "Bonus Round",
       "FantasticInitiative": "Fantastic initiative result",

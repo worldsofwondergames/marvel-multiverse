@@ -33,3 +33,36 @@
     width: 50%;
   }
 }
+
+// The fallible toggle of a Rank X character, shown under the rank block.
+.mm-rank-fallible {
+  align-items: center;
+  background: $mm-primary-red;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  font-size: 10px;
+  gap: 2px;
+  left: 0;
+  line-height: 14px;
+  padding: 0 $mm-spacing-xs;
+  position: absolute;
+  top: 66px;
+  width: 60px;
+  z-index: 1;
+
+  input[type="checkbox"] {
+    flex: 0 0 12px;
+    height: 12px;
+    margin: 0;
+    width: 12px;
+  }
+}
+
+// The dash a Rank X character shows in place of Health and Focus.
+.mm-rank-x-stat {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  margin: auto;
+}

@@ -1,5 +1,6 @@
 import { MarvelMultiverseRoll } from "../dice/roll.mjs";
 import { limitKarmaUpdate } from "../helpers/bad-karma.mjs";
+import { applyFallibleChange } from "../helpers/rank-x.mjs";
 
 /**
  * Extend the base Actor document by defining a custom roll data structure which is ideal for the Simple system.
@@ -9,6 +10,7 @@ export class MarvelMultiverseActor extends Actor {
   /** @override */
   async _preUpdate(changed, options, user) {
     limitKarmaUpdate(this, changed);
+    applyFallibleChange(this._source.system, changed);
     return super._preUpdate(changed, options, user);
   }
 

@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" version="1.1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><g style="fill: var(--icon-fill, #fff);"><path d="m330 96a150 150 0 1 0 0 300 150 150 0 0 0 0-300zm0 40a110 110 0 1 1 0 220 110 110 0 0 1 0-220zm0 40a70 70 0 1 0 0 140 70 70 0 0 0 0-140zm0 36a34 34 0 1 1 0 68 34 34 0 0 1 0-68z" fill-rule="evenodd"/><rect x="24" y="150" width="130" height="24" rx="12"/><rect x="24" y="234" width="100" height="24" rx="12"/><rect x="24" y="318" width="130" height="24" rx="12"/></g></svg>

@@ -253,6 +253,9 @@
       "ClearFantastic": "Clear Fantastic Initiative",
       "TurnToM": "Turn Marvel die to M"
     },
+    "Shield": {
+      "Thrown": "{name} has thrown their shield and cannot use {power} until it returns at the start of their next turn."
+    },
     "Stunned": {
       "Trouble": "Stunned: trouble on this check",
       "TargetEdge": "Target is stunned: edge on this attack",
